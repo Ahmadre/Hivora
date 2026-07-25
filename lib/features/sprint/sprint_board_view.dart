@@ -111,6 +111,30 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
       ? const []
       : (_bySprint[_activeSprintId] ?? const []);
 
+  /// The active sprint's issues for the board surface. Under the "group by
+  /// sub-task" grouping it also pulls in the sub-tasks (from the full project
+  /// map [_issuesById]) of any standard issue in the sprint — sub-tasks aren't
+  /// themselves sprint-assigned, so without this the sub-task swimlanes would be
+  /// empty on the Scrum board (unlike Kanban, whose board view already loads the
+  /// whole project). Sub-tasks stay hidden in the flat/other groupings because
+  /// [boardCardVisible] only surfaces them under [BoardGrouping.subtask].
+  List<Issue> get _activeBoardIssues {
+    final base = _activeIssues;
+    if (_grouping != BoardGrouping.subtask) return base;
+    final present = {for (final i in base) i.id};
+    final withSubtasks = [...base];
+    for (final child in _issuesById.values) {
+      if (!child.isSubtask) continue;
+      final parentId = child.parentId;
+      if (parentId != null &&
+          present.contains(parentId) &&
+          present.add(child.id)) {
+        withSubtasks.add(child);
+      }
+    }
+    return withSubtasks;
+  }
+
   Sprint? get _activeSprint {
     for (final s in _sprints) {
       if (s.id == _activeSprintId) return s;
@@ -712,7 +736,7 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
         return SprintActiveSurface(
           sprint: sprint,
           columns: widget.view.columns,
-          issues: _activeIssues,
+          issues: _activeBoardIssues,
           filter: _filter,
           grouping: _grouping,
           issuesById: _issuesById,

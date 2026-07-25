@@ -239,6 +239,10 @@ class IssueRow extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (issue.hasSubtasks) ...[
+                  const SizedBox(width: 8),
+                  SubtaskBadge(issue: issue),
+                ],
               ],
             ),
             const SizedBox(height: 10),
@@ -303,6 +307,10 @@ class IssueRow extends StatelessWidget {
                       hue: palette?.labelHue(issue.tags.first),
                     ),
                   ),
+                ],
+                if (issue.hasSubtasks) ...[
+                  const SizedBox(width: 8),
+                  SubtaskBadge(issue: issue),
                 ],
               ],
             ),

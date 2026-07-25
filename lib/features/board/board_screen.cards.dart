@@ -341,6 +341,7 @@ class _BoardColumnState extends State<_BoardColumn> {
                                 assigneeAvatar:
                                     widget.avatars[issue.assigneeId],
                                 onOpen: () => widget.onOpenIssue(issue),
+                                onOpenIssue: widget.onOpenIssue,
                               );
                               // Touch platforms: no drag — it fights the scroll
                               // gesture. State changes happen in the detail sheet.
@@ -416,6 +417,7 @@ class _BoardCard extends StatelessWidget {
     this.assigneeAvatar,
     this.dragging = false,
     this.onOpen,
+    this.onOpenIssue,
   });
 
   final Issue issue;
@@ -424,6 +426,10 @@ class _BoardCard extends StatelessWidget {
   final String? assigneeAvatar;
   final bool dragging;
   final VoidCallback? onOpen;
+
+  /// Opens an arbitrary issue (used by the sub-task expander to navigate to a
+  /// child); mirrors the board's own card-open handler.
+  final void Function(Issue)? onOpenIssue;
 
   @override
   Widget build(BuildContext context) {
@@ -519,6 +525,11 @@ class _BoardCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // On-demand sub-task list + progress, full card width below the
+              // body. Only on the interactive card (onOpenIssue set, not
+              // dragging) — never the drag ghost/placeholder.
+              if (!dragging && onOpenIssue != null && issue.hasSubtasks)
+                SubtaskExpander(issue: issue, onOpenChild: onOpenIssue!),
             ],
           ),
         ),

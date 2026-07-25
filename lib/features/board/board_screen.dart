@@ -21,6 +21,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
+import '../../core/widgets/subtask_widgets.dart';
 import '../issues/issue_detail_sheet.dart';
 import '../issues/issue_form.dart';
 import '../issues/issues_screen.dart' show IssueRow;

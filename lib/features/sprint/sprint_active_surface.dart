@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/hue_colors.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/widgets/hive_widgets.dart';
+import '../../core/widgets/subtask_widgets.dart';
 import '../board/board_filter.dart';
 import '../board/board_swimlanes.dart';
 import 'widgets/glass_sprint_header.dart';
@@ -296,6 +297,7 @@ class _SprintColumn extends StatelessWidget {
                               issue: issue,
                               accent: dotColor,
                               onOpen: () => onOpenIssue(issue),
+                              onOpenIssue: onOpenIssue,
                             );
                             if (isTouch) return card;
                             final dragCard = _SprintCard(
@@ -329,7 +331,12 @@ class _SprintColumn extends StatelessWidget {
 }
 
 class _SprintCard extends StatelessWidget {
-  const _SprintCard({required this.issue, this.accent, this.onOpen});
+  const _SprintCard({
+    required this.issue,
+    this.accent,
+    this.onOpen,
+    this.onOpenIssue,
+  });
 
   final Issue issue;
 
@@ -337,6 +344,10 @@ class _SprintCard extends StatelessWidget {
   /// global palette when unknown.
   final Color? accent;
   final VoidCallback? onOpen;
+
+  /// Opens an arbitrary issue (used by the sub-task expander to navigate to a
+  /// child); mirrors the board's own card-open handler.
+  final void Function(Issue)? onOpenIssue;
 
   @override
   Widget build(BuildContext context) {
@@ -429,6 +440,10 @@ class _SprintCard extends StatelessWidget {
                   ],
                 ),
               ),
+              // On-demand sub-task list + progress below the body. Only on the
+              // interactive card (onOpenIssue set) — never the drag ghost.
+              if (onOpenIssue != null && issue.hasSubtasks)
+                SubtaskExpander(issue: issue, onOpenChild: onOpenIssue!),
             ],
           ),
         ),

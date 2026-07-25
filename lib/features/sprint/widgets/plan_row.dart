@@ -6,6 +6,7 @@ import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_widgets.dart';
+import '../../../core/widgets/subtask_widgets.dart';
 
 /// One draggable issue row in the planning surface: select checkbox · type
 /// glyph · id · title · first tag · priority · points badge (tap → poker) ·
@@ -65,6 +66,10 @@ class PlanRow extends StatelessWidget {
               if (tag != null && !context.isCompact) ...[
                 const SizedBox(width: 8),
                 LabelTag(tag),
+              ],
+              if (issue.hasSubtasks) ...[
+                const SizedBox(width: 8),
+                SubtaskBadge(issue: issue),
               ],
               const SizedBox(width: 10),
               PriorityFlag(priority: issue.priority),

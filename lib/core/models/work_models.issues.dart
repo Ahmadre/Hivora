@@ -57,6 +57,8 @@ class Issue extends Equatable {
     this.archived = false,
     this.createdAt,
     this.updatedAt,
+    this.subtaskCount = 0,
+    this.subtaskDoneCount = 0,
   });
 
   final String id;
@@ -104,6 +106,18 @@ class Issue extends Equatable {
   final bool archived;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  /// Number of direct children (an epic's child issues, or a standard issue's
+  /// sub-tasks). Server-computed and present only on board and issue-list
+  /// payloads; 0 everywhere it isn't enriched. Drives the sub-task indicator.
+  final int subtaskCount;
+
+  /// Of [subtaskCount], how many are in a resolved state — the "done" half of
+  /// the indicator's done/total progress.
+  final int subtaskDoneCount;
+
+  /// Whether this issue has at least one direct child (per the enriched count).
+  bool get hasSubtasks => subtaskCount > 0;
 
   bool get resolved => resolvedAt != null;
 
@@ -153,6 +167,8 @@ class Issue extends Equatable {
     archived: json['archived'] as bool? ?? false,
     createdAt: _instant(json['createdAt']),
     updatedAt: _instant(json['updatedAt']),
+    subtaskCount: json['subtaskCount'] as int? ?? 0,
+    subtaskDoneCount: json['subtaskDoneCount'] as int? ?? 0,
   );
 
   /// Returns a copy with the given fields replaced — used for optimistic
@@ -196,6 +212,8 @@ class Issue extends Equatable {
     archived: archived,
     createdAt: createdAt,
     updatedAt: updatedAt,
+    subtaskCount: subtaskCount,
+    subtaskDoneCount: subtaskDoneCount,
   );
 
   @override
@@ -212,6 +230,8 @@ class Issue extends Equatable {
     rank,
     archived,
     updatedAt,
+    subtaskCount,
+    subtaskDoneCount,
   ];
 }
 
