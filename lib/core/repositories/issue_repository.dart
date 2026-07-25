@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../api/api_client.dart';
 import '../models/issue_detail.dart';
+import '../models/issue_move.dart';
 import '../models/work_models.dart';
 
 /// Issues: search/CRUD, hierarchy, relationship links, change history,
@@ -209,6 +210,48 @@ class IssueRepository {
       );
 
   Future<void> deleteIssue(String id) => _api.delete('/api/v1/issues/$id');
+
+  /// Asks what moving [issueIds] into [targetProjectId] would do — which issues
+  /// travel (sub-tasks always come along), how each source status maps onto the
+  /// target workflow, and what detaches. Writes nothing.
+  Future<MovePreflight> movePreflight(
+    List<String> issueIds,
+    String targetProjectId, {
+    bool includeEpicChildren = false,
+  }) async => MovePreflight.fromJson(
+    await _api.post(
+          '/api/v1/issues/move/preflight',
+          body: {
+            'issueIds': issueIds,
+            'targetProjectId': targetProjectId,
+            'includeEpicChildren': includeEpicChildren,
+          },
+        )
+        as Map<String, dynamic>,
+  );
+
+  /// Executes the move confirmed in the wizard. [stateMap] maps each source
+  /// status onto a status of the target workflow.
+  Future<List<Issue>> moveIssues(
+    List<String> issueIds,
+    String targetProjectId, {
+    required Map<String, String> stateMap,
+    bool includeEpicChildren = false,
+    bool keepSprint = true,
+  }) async =>
+      ((await _api.post(
+                '/api/v1/issues/move',
+                body: {
+                  'issueIds': issueIds,
+                  'targetProjectId': targetProjectId,
+                  'stateMap': stateMap,
+                  'includeEpicChildren': includeEpicChildren,
+                  'keepSprint': keepSprint,
+                },
+              ))
+              as List<dynamic>)
+          .map((i) => Issue.fromJson(i as Map<String, dynamic>))
+          .toList();
 
   /// Soft delete — any project member may archive; the issue disappears from
   /// all default listings but stays restorable.

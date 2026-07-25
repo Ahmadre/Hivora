@@ -8,6 +8,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/project_picker.dart';
 import '../deletion/delete_flows.dart';
 import '../sprint/modals/glass_modal.dart';
 
@@ -32,6 +33,9 @@ Future<void> openBoardManageMenu(
   if (action == 'rename') {
     final renamed = await _showRenameBoardModal(context, board);
     if (renamed == true) await onChanged();
+  } else if (action == 'projects') {
+    final changed = await _editBoardProjects(context, board);
+    if (changed) await onChanged();
   } else if (action == 'delete') {
     final deleted = await showDeleteBoardFlow(
       context,
@@ -180,6 +184,11 @@ class _BoardMenuBody extends StatelessWidget {
           onTap: () => Navigator.of(context).pop('rename'),
         ),
         _MenuRow(
+          icon: LucideIcons.folderKanban,
+          label: context.t('board.editProjects'),
+          onTap: () => Navigator.of(context).pop('projects'),
+        ),
+        _MenuRow(
           icon: LucideIcons.trash2,
           label: context.t('board.deleteBoard'),
           danger: true,
@@ -240,6 +249,49 @@ Future<bool?> _showRenameBoardModal(BuildContext context, AgileBoard board) {
       child: _RenameBoardBody(board: board),
     ),
   );
+}
+
+/// Changes which projects a board spans — the surface that turns an existing
+/// single-project board into a cross-project one (and back).
+///
+/// Opens the project picker straight from the menu, anchored where the menu was:
+/// choosing projects *is* the whole interaction, so wrapping it in a modal would
+/// only add a second layer of chrome around the same list. The picker's own
+/// confirm button ends it, and the board is patched from the result.
+///
+/// Returns whether the span actually changed.
+Future<bool> _editBoardProjects(BuildContext context, AgileBoard board) async {
+  final box = context.findRenderObject() as RenderBox?;
+  final anchor = (box != null && box.hasSize)
+      ? box.localToGlobal(Offset.zero) & box.size
+      : Rect.zero;
+  final picked = await showProjectPicker(
+    context,
+    anchorRect: anchor,
+    selected: {...board.projectIds},
+    titleKey: 'board.editProjectsTitle',
+  );
+  if (picked == null || !context.mounted) return false;
+
+  final ids = [for (final project in picked) project.id];
+  final unchanged =
+      ids.length == board.projectIds.length &&
+      ids.toSet().containsAll(board.projectIds);
+  if (ids.isEmpty || unchanged) return false;
+
+  try {
+    await context.read<BoardRepository>().updateBoardProjects(board.id, ids);
+    return true;
+  } on ApiFailure catch (failure) {
+    if (context.mounted) {
+      showGlassToast(
+        context,
+        context.t(failure.message),
+        kind: GlassToastKind.error,
+      );
+    }
+    return false;
+  }
 }
 
 class _RenameBoardBody extends StatefulWidget {

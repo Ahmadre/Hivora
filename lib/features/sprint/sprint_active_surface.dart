@@ -30,6 +30,8 @@ class SprintActiveSurface extends StatelessWidget {
     this.epics = const [],
     this.names = const {},
     this.avatars = const {},
+    this.projectNames = const {},
+    this.projectsById = const {},
   });
 
   final Sprint sprint;
@@ -45,6 +47,14 @@ class SprintActiveSurface extends StatelessWidget {
   final List<Issue> epics;
   final Map<String, String> names;
   final Map<String, String> avatars;
+
+  /// Project names by id — lane headers for the project grouping on a Scrum
+  /// board that spans several projects.
+  final Map<String, String> projectNames;
+
+  /// The spanned projects, needed to resolve which of a merged column's states
+  /// belongs to a dropped card's own project.
+  final Map<String, Project> projectsById;
 
   /// Every active facet plus the epic facet (resolved per issue).
   bool _passes(Issue i) =>
@@ -70,6 +80,7 @@ class SprintActiveSurface extends StatelessWidget {
       names: names,
       avatars: avatars,
       palette: ProjectPalette.empty,
+      projectNames: projectNames,
       onOpenIssue: onOpenIssue,
     );
     if (lanes.isEmpty) {
@@ -95,7 +106,7 @@ class SprintActiveSurface extends StatelessWidget {
         laneMode: true,
         onAccept: (issue) => onMoveState(
           issue,
-          column.states.isNotEmpty ? column.states.first : issue.state,
+          boardDropState(issue, column.states, projectsById) ?? issue.state,
         ),
         onOpenIssue: onOpenIssue,
       ),
@@ -150,9 +161,8 @@ class SprintActiveSurface extends StatelessWidget {
                       issues: colIssues,
                       onAccept: (issue) => onMoveState(
                         issue,
-                        column.states.isNotEmpty
-                            ? column.states.first
-                            : issue.state,
+                        boardDropState(issue, column.states, projectsById) ??
+                            issue.state,
                       ),
                       onOpenIssue: onOpenIssue,
                     );

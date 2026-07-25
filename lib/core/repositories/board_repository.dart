@@ -40,6 +40,20 @@ class BoardRepository {
             as Map<String, dynamic>,
       );
 
+  /// Changes which projects a board spans (management action — the server also
+  /// re-checks membership on every project in the new set, so widening a board
+  /// can never be used to reach a project the caller isn't in).
+  Future<AgileBoard> updateBoardProjects(
+    String boardId,
+    List<String> projectIds,
+  ) async => AgileBoard.fromJson(
+    await _api.patch(
+          '/api/v1/boards/$boardId',
+          body: {'projectIds': projectIds},
+        )
+        as Map<String, dynamic>,
+  );
+
   Future<BoardView> boardView(String boardId, {String? sprintId}) async =>
       BoardView.fromJson(
         await _api.get(

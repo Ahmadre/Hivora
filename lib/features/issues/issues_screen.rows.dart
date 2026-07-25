@@ -176,6 +176,10 @@ class IssueRow extends StatelessWidget {
     this.onTap,
     this.onChanged,
     this.palette,
+    this.selectionMode = false,
+    this.selected = false,
+    this.onToggleSelect,
+    this.onLongPress,
   });
 
   final Issue issue;
@@ -188,199 +192,253 @@ class IssueRow extends StatelessWidget {
   final VoidCallback? onChanged;
   final ProjectPalette? palette;
 
+  /// While the host list is in multi-select mode a tap toggles this row instead
+  /// of opening the issue, and a check box is shown at the head of the row.
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback? onToggleSelect;
+
+  /// Long-press enters multi-select mode in the host list.
+  final VoidCallback? onLongPress;
+
   @override
   Widget build(BuildContext context) {
     final due = dueLabel(issue.dueDate);
     final compact = context.isCompact;
     final name = assignee ?? '';
 
-    final tap =
-        onTap ??
-        () => showIssueDetailSheet(
-          context,
-          issueId: issue.id,
-          onChanged: onChanged,
-        );
+    final tap = selectionMode
+        ? onToggleSelect
+        : (onTap ??
+              () => showIssueDetailSheet(
+                context,
+                issueId: issue.id,
+                onChanged: onChanged,
+              ));
+    final border = selected
+        ? Border.all(color: AppColors.accentStrong, width: 1.5)
+        : null;
 
     if (compact) {
-      return SoftCard(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        onTap: tap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                IdMono(issue.readableId),
-                const Spacer(),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: PriorityFlag(
-                    priority: issue.priority,
-                    withLabel: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TypeGlyph(type: issue.type),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    issue.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (issue.hasSubtasks) ...[
-                  const SizedBox(width: 8),
-                  SubtaskBadge(issue: issue),
-                ],
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: StateDotBadge(
-                    state: issue.state,
-                    color: palette?.stateColor(issue.state),
-                  ),
-                ),
-                if (name.isNotEmpty)
-                  HiveAvatar(name: name, imageUrl: assigneeAvatar, size: 22),
-                if (due != null) ...[
-                  const SizedBox(width: 10),
-                  Text(
-                    due.text,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontMono,
-                      fontSize: 12,
-                      color: due.late ? AppColors.danger : AppColors.inkSoft,
+      return _selectable(
+        SoftCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          onTap: tap,
+          border: border,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (selectionMode) ...[
+                    _SelectBox(selected: selected),
+                    const SizedBox(width: 9),
+                  ],
+                  IdMono(issue.readableId),
+                  const Spacer(),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: PriorityFlag(
+                      priority: issue.priority,
+                      withLabel: true,
                     ),
                   ),
                 ],
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TypeGlyph(type: issue.type),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      issue.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (issue.hasSubtasks) ...[
+                    const SizedBox(width: 8),
+                    SubtaskBadge(issue: issue),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: StateDotBadge(
+                      state: issue.state,
+                      color: palette?.stateColor(issue.state),
+                    ),
+                  ),
+                  if (name.isNotEmpty)
+                    HiveAvatar(name: name, imageUrl: assigneeAvatar, size: 22),
+                  if (due != null) ...[
+                    const SizedBox(width: 10),
+                    Text(
+                      due.text,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontMono,
+                        fontSize: 12,
+                        color: due.late ? AppColors.danger : AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    return SoftCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      onTap: tap,
-      child: Row(
-        children: [
-          SizedBox(width: 76, child: IdMono(issue.readableId)),
-          const SizedBox(width: 12),
-          // title
-          Expanded(
-            flex: 5,
-            child: Row(
-              children: [
-                TypeGlyph(type: issue.type),
-                const SizedBox(width: 9),
-                Flexible(
-                  child: Text(
-                    issue.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                if (issue.tags.isNotEmpty) ...[
-                  const SizedBox(width: 8),
+    return _selectable(
+      SoftCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        onTap: tap,
+        border: border,
+        child: Row(
+          children: [
+            if (selectionMode) ...[
+              _SelectBox(selected: selected),
+              const SizedBox(width: 10),
+            ],
+            SizedBox(width: 76, child: IdMono(issue.readableId)),
+            const SizedBox(width: 12),
+            // title
+            Expanded(
+              flex: 5,
+              child: Row(
+                children: [
+                  TypeGlyph(type: issue.type),
+                  const SizedBox(width: 9),
                   Flexible(
-                    child: LabelTag(
-                      issue.tags.first,
-                      hue: palette?.labelHue(issue.tags.first),
+                    child: Text(
+                      issue.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
+                  if (issue.tags.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: LabelTag(
+                        issue.tags.first,
+                        hue: palette?.labelHue(issue.tags.first),
+                      ),
+                    ),
+                  ],
+                  if (issue.hasSubtasks) ...[
+                    const SizedBox(width: 8),
+                    SubtaskBadge(issue: issue),
+                  ],
                 ],
-                if (issue.hasSubtasks) ...[
-                  const SizedBox(width: 8),
-                  SubtaskBadge(issue: issue),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 3,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: StateDotBadge(
-                state: issue.state,
-                color: palette?.stateColor(issue.state),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 3,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: PriorityFlag(priority: issue.priority, withLabel: true),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: StateDotBadge(
+                  state: issue.state,
+                  color: palette?.stateColor(issue.state),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 3,
-            child: name.isEmpty
-                ? Text('—', style: TextStyle(color: AppColors.inkFaint))
-                : Row(
-                    children: [
-                      HiveAvatar(
-                        name: name,
-                        imageUrl: assigneeAvatar,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          name.split(' ').first,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppColors.inkSoft,
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: PriorityFlag(priority: issue.priority, withLabel: true),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: name.isEmpty
+                  ? Text('—', style: TextStyle(color: AppColors.inkFaint))
+                  : Row(
+                      children: [
+                        HiveAvatar(
+                          name: name,
+                          imageUrl: assigneeAvatar,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            name.split(' ').first,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.inkSoft,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 60,
-            child: Text(
-              due?.text ?? '—',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: AppTheme.fontMono,
-                fontSize: 12,
-                color: due != null && due.late
-                    ? AppColors.danger
-                    : AppColors.inkSoft,
+                      ],
+                    ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 60,
+              child: Text(
+                due?.text ?? '—',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontMono,
+                  fontSize: 12,
+                  color: due != null && due.late
+                      ? AppColors.danger
+                      : AppColors.inkSoft,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 18),
-          Icon(LucideIcons.chevronRight, size: 18, color: AppColors.inkFaint),
-        ],
+            const SizedBox(width: 18),
+            Icon(LucideIcons.chevronRight, size: 18, color: AppColors.inkFaint),
+          ],
+        ),
       ),
     );
   }
+
+  /// Adds the long-press gesture that puts the host list into multi-select
+  /// mode. [HitTestBehavior.opaque] so the press registers on the card's
+  /// padding too, not only on its text.
+  Widget _selectable(Widget card) => onLongPress == null
+      ? card
+      : GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onLongPress: onLongPress,
+          child: card,
+        );
+}
+
+/// The check affordance shown at the head of a row while selecting.
+class _SelectBox extends StatelessWidget {
+  const _SelectBox({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => Icon(
+    selected ? LucideIcons.squareCheck : LucideIcons.square,
+    size: 18,
+    color: selected
+        ? AppColors.accentStrong
+        : AppColors.inkFaint.withValues(alpha: 0.8),
+  );
 }

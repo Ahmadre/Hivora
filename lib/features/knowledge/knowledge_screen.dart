@@ -99,7 +99,12 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       final users = await userApi.users();
       if (!mounted) return;
       setState(() {
-        _issuesByReadable = {for (final i in issues) i.readableId: i};
+        // Keyed by every id an issue ever carried, so a KB article linking a
+        // moved issue under its old key keeps resolving.
+        _issuesByReadable = {
+          for (final i in issues)
+            for (final key in i.allReadableIds) key: i,
+        };
         _userNames = {for (final u in users) u.id: u.displayName};
       });
     } catch (_) {

@@ -332,6 +332,11 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   Map<String, String> _names = const {};
   Map<String, String> _avatars = const {};
   Map<String, String> _projectNames = const {};
+
+  /// The board's spanned projects by id. A cross-project board needs the full
+  /// project — not just its name — to answer "which of this column's states does
+  /// *this* card's project actually have?" when a card is dropped.
+  Map<String, Project> _projectsById = const {};
   List<String> _projectLabels = const [];
   ProjectPalette _palette = ProjectPalette.empty;
   List<Issue> _backlog = const [];
@@ -399,6 +404,10 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
               u.id: u.avatarUrl!,
         };
         _projectNames = {for (final p in projects) p.id: p.name};
+        _projectsById = {
+          for (final p in projects)
+            if (boardProjectIds.contains(p.id)) p.id: p,
+        };
         _projectLabels = [
           for (final p in projects)
             if (boardProjectIds.contains(p.id)) ...p.labelNames,
@@ -529,11 +538,27 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   void _openIssue(Issue issue) =>
       showIssueDetailSheet(context, issueId: issue.id, onChanged: _load);
 
+  /// Whether this board spans more than one project — the signal that turns on
+  /// the cross-project affordances (project chip on cards, project swimlane).
+  bool get _isCrossProject => (_view?.board.projectIds.length ?? 0) > 1;
+
+  /// Project names for the card chips: empty on a single-project board, where
+  /// tagging every card with the one project it can possibly belong to says
+  /// nothing.
+  Map<String, String> get _cardProjectNames =>
+      _isCrossProject ? _projectNames : const {};
+
   Future<void> _moveIssue(Issue issue, BoardColumnView column) async {
     if (column.states.contains(issue.state) || column.states.isEmpty) return;
+    final target = boardDropState(issue, column.states, _projectsById);
+    if (target == null) {
+      showGlassErrorToast(context, context.t('board.dropNotInWorkflow'));
+      return;
+    }
+    if (target == issue.state) return;
     try {
       await context.read<IssueRepository>().updateIssue(issue.id, {
-        'state': column.states.first,
+        'state': target,
       });
       await _load();
     } on ApiFailure catch (failure) {
@@ -554,10 +579,24 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     final projectId = view.board.projectIds.isNotEmpty
         ? view.board.projectIds.first
         : null;
+    // On a cross-project board the column carries one state per spanned
+    // project, so pre-fill the one belonging to the project the form starts in
+    // (the user can still switch project inside the form).
+    final project = projectId == null ? null : _projectsById[projectId];
+    final initialState = column.states.isEmpty
+        ? null
+        : (project == null
+              ? column.states.first
+              : column.states.firstWhere(
+                  (s) => project.stateNames.any(
+                    (own) => own.toLowerCase() == s.toLowerCase(),
+                  ),
+                  orElse: () => column.states.first,
+                ));
     final created = await showIssueForm(
       context,
       projectId: projectId,
-      initialState: column.states.isNotEmpty ? column.states.first : null,
+      initialState: initialState,
       parentId: parentId,
       forcedType: forcedType,
       initialAssigneeId: assigneeId,
@@ -623,6 +662,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           names: _names,
           avatars: _avatars,
           projectNames: _projectNames,
+          projectsById: _projectsById,
           onOpenIssue: _openIssue,
         ),
       );
@@ -782,6 +822,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         const SizedBox(width: 10),
         BoardGroupByButton(
           value: _grouping,
+          options: boardGroupingsFor(crossProject: _isCrossProject),
           onChanged: (g) => setState(() => _grouping = g),
         ),
         const SizedBox(width: 10),
@@ -852,6 +893,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           palette: _palette,
           names: _names,
           avatars: _avatars,
+          projectNames: _cardProjectNames,
           onAccept: (issue) => _moveIssue(issue, column),
           onAddIssue: () => _addIssue(column),
           onOpenIssue: _openIssue,
@@ -875,6 +917,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       names: _names,
       avatars: _avatars,
       palette: _palette,
+      projectNames: _projectNames,
       onOpenIssue: _openIssue,
     );
     if (lanes.isEmpty) {
@@ -901,6 +944,11 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         palette: _palette,
         names: _names,
         avatars: _avatars,
+        // The project lane already names the project in its header — repeating
+        // it on every card inside would be noise.
+        projectNames: _grouping == BoardGrouping.project
+            ? const {}
+            : _cardProjectNames,
         onAccept: (issue) => _moveIssue(issue, column),
         onAddIssue: () => _addIssue(
           column,

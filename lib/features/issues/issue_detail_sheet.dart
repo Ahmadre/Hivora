@@ -42,6 +42,7 @@ import 'comments/comment_copy.dart';
 import 'comments/comment_thread.dart';
 import 'comments/glass_comment_composer.dart';
 import 'comments/voice/voice_recorder.dart' show VoiceRecording;
+import 'issue_move_wizard.dart';
 import '../git/widgets/deployment_panel.dart';
 import '../git/widgets/development_summary.dart';
 import '../knowledge/data/knowledge_models.dart' show KbArticle, lucideIcon;
@@ -219,6 +220,7 @@ Future<void> showIssueDetailSheet(
               );
             },
             onDelete: () => bodyKey.currentState?.confirmDeleteIssue(),
+            onMove: () => bodyKey.currentState?.moveIssue(),
             onClose: () => Navigator.of(modalContext).maybePop(),
             canDelete: bodyKey.currentState?.canDelete ?? false,
             archived: issue?.archived ?? false,
@@ -327,6 +329,7 @@ class _SheetActions extends StatelessWidget {
     required this.onMaximize,
     required this.onDelete,
     required this.onClose,
+    required this.onMove,
     this.onReply,
     this.canDelete = false,
     this.archived = false,
@@ -334,6 +337,9 @@ class _SheetActions extends StatelessWidget {
 
   final VoidCallback onMaximize;
   final VoidCallback onDelete;
+
+  /// Opens the move-to-another-project wizard.
+  final VoidCallback onMove;
   final VoidCallback onClose;
 
   /// Non-null only for email-sourced issues with the `emailReply` flag enabled;
@@ -347,7 +353,6 @@ class _SheetActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final removal = _removalLook(archived: archived, canDelete: canDelete);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -356,21 +361,15 @@ class _SheetActions extends StatelessWidget {
           onPressed: onMaximize,
           icon: Icon(LucideIcons.maximize2, size: 19, color: AppColors.inkSoft),
         ),
-        // With reply-by-email available the secondary actions collapse into a
-        // "…" popover; without it the removal action stays a plain button.
-        if (onReply != null)
-          _IssueActionsMenu(
-            onReply: onReply!,
-            onDelete: onDelete,
-            canDelete: canDelete,
-            archived: archived,
-          )
-        else
-          IconButton(
-            tooltip: context.t(removal.labelKey),
-            onPressed: onDelete,
-            icon: Icon(removal.icon, size: 20, color: removal.color),
-          ),
+        // Secondary actions (move · reply · remove) share one "…" popover so
+        // the header keeps a fixed shape regardless of which are available.
+        _IssueActionsMenu(
+          onReply: onReply,
+          onMove: onMove,
+          onDelete: onDelete,
+          canDelete: canDelete,
+          archived: archived,
+        ),
         IconButton(
           tooltip: context.t('common.cancel'),
           onPressed: onClose,
@@ -614,4 +613,3 @@ class _CopiedHintChip extends StatelessWidget {
     );
   }
 }
-

@@ -26,6 +26,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/util/file_download.dart';
 import '../../core/widgets/frosted_surface.dart';
+import '../../core/widgets/glass_bulk_bar.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
@@ -42,6 +43,7 @@ import 'issue_export.dart';
 import 'issue_filter.dart';
 import 'issue_filter_popup.dart';
 import 'issue_form.dart';
+import 'issue_move_wizard.dart';
 import '../../core/repositories/issue_repository.dart';
 import '../../core/repositories/meta_repository.dart';
 import '../../core/repositories/project_repository.dart';
@@ -105,6 +107,49 @@ class _IssuesScreenState extends State<IssuesScreen> {
 
   // Guards the "export everything" flow so the menu can't fire twice.
   bool _exporting = false;
+
+  /// Multi-select for bulk actions (currently: move to another project).
+  /// Entered by long-pressing a row — the same gesture the comment thread uses
+  /// — after which a plain tap toggles instead of opening the issue.
+  final Set<String> _selectedIds = {};
+  bool _selectionMode = false;
+
+  void _enterSelection(String issueId) => setState(() {
+    _selectionMode = true;
+    _selectedIds.add(issueId);
+  });
+
+  void _toggleSelection(String issueId) => setState(() {
+    if (!_selectedIds.remove(issueId)) _selectedIds.add(issueId);
+    // Deselecting the last row leaves selection mode, so a stray long-press
+    // never strands the list with no way out but the ✕.
+    if (_selectedIds.isEmpty) _selectionMode = false;
+  });
+
+  void _exitSelection() => setState(() {
+    _selectionMode = false;
+    _selectedIds.clear();
+  });
+
+  /// Bulk-moves the selected issues. The wizard asks for the target project and
+  /// the status mapping once for the whole set.
+  Future<void> _moveSelected() async {
+    if (_selectedIds.isEmpty) return;
+    // A selection may span projects (the unscoped list shows all of them); only
+    // a single-project selection can pre-exclude its own project as a target.
+    final projectIds = {
+      for (final issue in _issues.state.items)
+        if (_selectedIds.contains(issue.id)) issue.projectId,
+    };
+    final moved = await showIssueMoveWizard(
+      context,
+      issueIds: _selectedIds.toList(),
+      currentProjectId: projectIds.length == 1 ? projectIds.first : null,
+    );
+    if (moved != true || !mounted) return;
+    _exitSelection();
+    await _reload();
+  }
 
   IssueFilter _filter = IssueFilter.empty;
   IssueGrouping _grouping = IssueGrouping.none;
@@ -799,202 +844,234 @@ class _IssuesScreenState extends State<IssuesScreen> {
                 )
               : null,
           bottomHeight: compact ? _kDockedToolbarHeight : 0,
-          child: RefreshIndicator(
-            onRefresh: _reload,
-            color: AppColors.accent,
-            edgeOffset: context.topGutter,
-            child: AsyncView(
-              isLoading:
-                  state.isLoading ||
-                  (_refLoading && _ref == null && !_refError),
-              hasData: state.hasData && (_ref != null || _refError),
-              errorKey: state.errorKey,
-              onRetry: _reload,
-              builder: (context) => CustomScrollView(
-                controller: _scroll,
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      context.pageGutter,
-                      // topGutter now includes the docked toolbar height on
-                      // compact, so content clears the whole (taller) app bar.
-                      24 + context.topGutter,
-                      context.pageGutter,
-                      14,
-                    ),
-                    sliver: SliverToBoxAdapter(
-                      child: PageHead(
-                        title: projectName ?? context.t('nav.issues'),
-                        subtitle: projectName != null
-                            ? '${context.t('nav.issues')} · ${_subtitle(list.length, state.total)}'
-                            : _subtitle(list.length, state.total),
-                        actions: [
-                          !isNativeApp
-                              ? PrimaryButton(
-                                  label: context.t('issues.new'),
-                                  collapseToIcon: true,
-                                  onPressed: () async {
-                                    final created = await showIssueForm(
-                                      context,
-                                      projectId: widget.projectId,
-                                    );
-                                    if (created != null && mounted) _reload();
-                                  },
-                                )
-                              : Tooltip(
-                                  message: context.t('issues.new'),
-                                  child: GlassButton.custom(
-                                    onTap: () async {
-                                      final created = await showIssueForm(
-                                        context,
-                                        projectId: widget.projectId,
-                                      );
-                                      if (created != null && mounted) _reload();
-                                    },
-                                    width: context.isCompact ? 46 : null,
-                                    height: 46,
-                                    shape: !context.isCompact
-                                        ? const LiquidRoundedSuperellipse(
-                                            borderRadius: 15,
-                                          )
-                                        : const LiquidOval(),
-                                    useOwnLayer: true,
-                                    settings: dark
-                                        ? kNavGlassDark
-                                        : kNavGlassLight,
-                                    glowColor: AppColors.accent,
-                                    stretch: 0.15,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 8,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            LucideIcons.plus,
-                                            size: 18,
-                                            color: dark
-                                                ? AppColors.inkDark
-                                                : AppColors.ink,
+          child: Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: _reload,
+                color: AppColors.accent,
+                edgeOffset: context.topGutter,
+                child: AsyncView(
+                  isLoading:
+                      state.isLoading ||
+                      (_refLoading && _ref == null && !_refError),
+                  hasData: state.hasData && (_ref != null || _refError),
+                  errorKey: state.errorKey,
+                  onRetry: _reload,
+                  builder: (context) => CustomScrollView(
+                    controller: _scroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.fromLTRB(
+                          context.pageGutter,
+                          // topGutter now includes the docked toolbar height on
+                          // compact, so content clears the whole (taller) app bar.
+                          24 + context.topGutter,
+                          context.pageGutter,
+                          14,
+                        ),
+                        sliver: SliverToBoxAdapter(
+                          child: PageHead(
+                            title: projectName ?? context.t('nav.issues'),
+                            subtitle: projectName != null
+                                ? '${context.t('nav.issues')} · ${_subtitle(list.length, state.total)}'
+                                : _subtitle(list.length, state.total),
+                            actions: [
+                              !isNativeApp
+                                  ? PrimaryButton(
+                                      label: context.t('issues.new'),
+                                      collapseToIcon: true,
+                                      onPressed: () async {
+                                        final created = await showIssueForm(
+                                          context,
+                                          projectId: widget.projectId,
+                                        );
+                                        if (created != null && mounted) _reload();
+                                      },
+                                    )
+                                  : Tooltip(
+                                      message: context.t('issues.new'),
+                                      child: GlassButton.custom(
+                                        onTap: () async {
+                                          final created = await showIssueForm(
+                                            context,
+                                            projectId: widget.projectId,
+                                          );
+                                          if (created != null && mounted) _reload();
+                                        },
+                                        width: context.isCompact ? 46 : null,
+                                        height: 46,
+                                        shape: !context.isCompact
+                                            ? const LiquidRoundedSuperellipse(
+                                                borderRadius: 15,
+                                              )
+                                            : const LiquidOval(),
+                                        useOwnLayer: true,
+                                        settings: dark
+                                            ? kNavGlassDark
+                                            : kNavGlassLight,
+                                        glowColor: AppColors.accent,
+                                        stretch: 0.15,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 8,
                                           ),
-                                          if (!context.isCompact) ...[
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              context.t('issues.new'),
-                                              style: TextStyle(
-                                                fontFamily: AppTheme.fontBrand,
-                                                fontSize: 17,
-                                                fontWeight: FontWeight.w700,
-                                                letterSpacing: -0.3,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                LucideIcons.plus,
+                                                size: 18,
                                                 color: dark
                                                     ? AppColors.inkDark
                                                     : AppColors.ink,
                                               ),
-                                            ),
-                                          ],
-                                        ],
+                                              if (!context.isCompact) ...[
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  context.t('issues.new'),
+                                                  style: TextStyle(
+                                                    fontFamily: AppTheme.fontBrand,
+                                                    fontSize: 17,
+                                                    fontWeight: FontWeight.w700,
+                                                    letterSpacing: -0.3,
+                                                    color: dark
+                                                        ? AppColors.inkDark
+                                                        : AppColors.ink,
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Toolbar (group · sort · filter · time · export). On compact
-                  // it lives in the app bar (see PageChrome.bottom above); on
-                  // wide it's an in-scroll row below the title.
-                  if (!compact)
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        context.pageGutter,
-                        0,
-                        context.pageGutter,
-                        14,
-                      ),
-                      sliver: SliverToBoxAdapter(child: _toolbar()),
-                    ),
-                  if (list.isEmpty && !searchingMore)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: context.pageGutter,
-                          vertical: 40,
-                        ),
-                        child: HiveEmptyState(
-                          title: context.t('nav.issues'),
-                          message: _hasActiveView
-                              ? context.t('issues.emptyFiltered')
-                              : context.t('issues.empty'),
-                          action: _hasActiveView
-                              ? OutlinedButton(
-                                  onPressed: () {
-                                    final refetch = _filter.archivedOnly;
-                                    setState(() {
-                                      _filter = IssueFilter.empty;
-                                      _timeRange = IssueTimeRange.none;
-                                    });
-                                    if (refetch) _issues.load();
-                                  },
-                                  child: Text(context.t('board.clearFilters')),
-                                )
-                              : null,
+                            ],
+                          ),
                         ),
                       ),
-                    )
-                  else if (list.isNotEmpty)
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        context.pageGutter,
-                        12,
-                        context.pageGutter,
-                        14,
-                      ),
-                      sliver: Builder(
-                        builder: (context) {
-                          // Lightweight row descriptors (headers / issues /
-                          // spacers) fed to a lazy builder, so only on-screen
-                          // rows are ever built — a workspace with thousands of
-                          // issues no longer constructs every SoftCard per frame.
-                          final entries = _grouping == IssueGrouping.none
-                              ? _flatEntries(list)
-                              : _groupedEntries(sections);
-                          return SliverList.builder(
-                            itemCount: entries.length,
-                            itemBuilder: (context, i) => _buildEntry(
-                              entries[i],
-                              ref.names,
-                              ref.avatars,
-                              ref.palette,
+                      // Toolbar (group · sort · filter · time · export). On compact
+                      // it lives in the app bar (see PageChrome.bottom above); on
+                      // wide it's an in-scroll row below the title.
+                      if (!compact)
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            context.pageGutter,
+                            0,
+                            context.pageGutter,
+                            14,
+                          ),
+                          sliver: SliverToBoxAdapter(child: _toolbar()),
+                        ),
+                      if (list.isEmpty && !searchingMore)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.pageGutter,
+                              vertical: 40,
                             ),
-                          );
-                        },
+                            child: HiveEmptyState(
+                              title: context.t('nav.issues'),
+                              message: _hasActiveView
+                                  ? context.t('issues.emptyFiltered')
+                                  : context.t('issues.empty'),
+                              action: _hasActiveView
+                                  ? OutlinedButton(
+                                      onPressed: () {
+                                        final refetch = _filter.archivedOnly;
+                                        setState(() {
+                                          _filter = IssueFilter.empty;
+                                          _timeRange = IssueTimeRange.none;
+                                        });
+                                        if (refetch) _issues.load();
+                                      },
+                                      child: Text(context.t('board.clearFilters')),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        )
+                      else if (list.isNotEmpty)
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            context.pageGutter,
+                            12,
+                            context.pageGutter,
+                            14,
+                          ),
+                          sliver: Builder(
+                            builder: (context) {
+                              // Lightweight row descriptors (headers / issues /
+                              // spacers) fed to a lazy builder, so only on-screen
+                              // rows are ever built — a workspace with thousands of
+                              // issues no longer constructs every SoftCard per frame.
+                              final entries = _grouping == IssueGrouping.none
+                                  ? _flatEntries(list)
+                                  : _groupedEntries(sections);
+                              return SliverList.builder(
+                                itemCount: entries.length,
+                                itemBuilder: (context, i) => _buildEntry(
+                                  entries[i],
+                                  ref.names,
+                                  ref.avatars,
+                                  ref.palette,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      // Infinite-scroll footer: the standard HiveLoader while the next
+                      // page (or a filter's background sweep) is loading.
+                      if (state.isLoadingMore || searchingMore)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: HiveLoader(size: 30)),
+                          ),
+                        ),
+                      SliverToBoxAdapter(
+                        child: SizedBox(
+                          // Extra room while selecting so the floating bulk bar
+                          // never covers the last row.
+                          height:
+                              context.pageGutter +
+                              context.bottomGutter +
+                              (_selectionMode ? 72 : 0),
+                        ),
                       ),
-                    ),
-                  // Infinite-scroll footer: the standard HiveLoader while the next
-                  // page (or a filter's background sweep) is loading.
-                  if (state.isLoadingMore || searchingMore)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: HiveLoader(size: 30)),
+                    ],
+                  ),
+                ),
+              ),
+              // Bulk-action bar, docked above the nav while rows are selected.
+              if (_selectionMode)
+                Positioned(
+                  left: context.pageGutter,
+                  right: context.pageGutter,
+                  bottom: context.bottomGutter + 12,
+                  child: Center(
+                    child: GlassBulkBar(
+                      countLabel: context.t(
+                        'issues.selectedCount',
+                        variables: {'count': '${_selectedIds.length}'},
                       ),
-                    ),
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: context.pageGutter + context.bottomGutter,
+                      onClear: _exitSelection,
+                      actions: [
+                        GlassBulkAction(
+                          icon: LucideIcons.folderInput,
+                          label: context.t('issues.move.action'),
+                          onTap: _moveSelected,
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+            ],
           ),
         );
       },
@@ -1111,6 +1188,10 @@ class _IssuesScreenState extends State<IssuesScreen> {
             assigneeAvatar: avatars[issue.assigneeId],
             palette: palette,
             onChanged: _reload,
+            selectionMode: _selectionMode,
+            selected: _selectedIds.contains(issue.id),
+            onToggleSelect: () => _toggleSelection(issue.id),
+            onLongPress: () => _enterSelection(issue.id),
           ),
         );
     }

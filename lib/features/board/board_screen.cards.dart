@@ -196,6 +196,7 @@ class _BoardColumn extends StatefulWidget {
     required this.onAddIssue,
     required this.onOpenIssue,
     this.laneMode = false,
+    this.projectNames = const {},
   });
 
   final BoardColumnView column;
@@ -203,6 +204,11 @@ class _BoardColumn extends StatefulWidget {
   final ProjectPalette palette;
   final Map<String, String> names;
   final Map<String, String> avatars;
+
+  /// Project name by id — non-empty only on a board spanning several projects,
+  /// where each card is tagged with the project it comes from. Empty on a
+  /// single-project board, so nothing redundant is drawn.
+  final Map<String, String> projectNames;
   final void Function(Issue) onAccept;
   final VoidCallback onAddIssue;
   final void Function(Issue) onOpenIssue;
@@ -340,6 +346,8 @@ class _BoardColumnState extends State<_BoardColumn> {
                                 assigneeName: widget.names[issue.assigneeId],
                                 assigneeAvatar:
                                     widget.avatars[issue.assigneeId],
+                                projectName:
+                                    widget.projectNames[issue.projectId],
                                 onOpen: () => widget.onOpenIssue(issue),
                                 onOpenIssue: widget.onOpenIssue,
                               );
@@ -361,6 +369,8 @@ class _BoardColumnState extends State<_BoardColumn> {
                                           widget.names[issue.assigneeId],
                                       assigneeAvatar:
                                           widget.avatars[issue.assigneeId],
+                                      projectName:
+                                          widget.projectNames[issue.projectId],
                                       dragging: true,
                                     ),
                                   ),
@@ -374,6 +384,8 @@ class _BoardColumnState extends State<_BoardColumn> {
                                         widget.names[issue.assigneeId],
                                     assigneeAvatar:
                                         widget.avatars[issue.assigneeId],
+                                    projectName:
+                                        widget.projectNames[issue.projectId],
                                   ),
                                 ),
                                 child: card,
@@ -415,6 +427,7 @@ class _BoardCard extends StatelessWidget {
     required this.palette,
     this.assigneeName,
     this.assigneeAvatar,
+    this.projectName,
     this.dragging = false,
     this.onOpen,
     this.onOpenIssue,
@@ -424,6 +437,11 @@ class _BoardCard extends StatelessWidget {
   final ProjectPalette palette;
   final String? assigneeName;
   final String? assigneeAvatar;
+
+  /// Set only on a cross-project board: which project this card belongs to. The
+  /// readable id already encodes the project key, but on a merged wall the name
+  /// is what makes two projects tellable apart at a glance.
+  final String? projectName;
   final bool dragging;
   final VoidCallback? onOpen;
 
@@ -469,6 +487,10 @@ class _BoardCard extends StatelessWidget {
                         TypeGlyph(type: issue.type, size: 18),
                         const SizedBox(width: 8),
                         IdMono(issue.readableId),
+                        if (projectName != null) ...[
+                          const SizedBox(width: 7),
+                          Flexible(child: _ProjectChip(name: projectName!)),
+                        ],
                         const Spacer(),
                         PriorityFlag(priority: issue.priority),
                       ],
@@ -538,8 +560,40 @@ class _BoardCard extends StatelessWidget {
   }
 }
 
+/// Small neutral chip naming the project a card belongs to. Deliberately quiet
+/// (no colour of its own): the card's accent stripe already carries the state
+/// colour, and a second strong colour would fight it on a merged board.
+class _ProjectChip extends StatelessWidget {
+  const _ProjectChip({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.canvas2,
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: AppColors.hairline),
+      ),
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+          color: AppColors.inkSoft,
+        ),
+      ),
+    );
+  }
+}
+
 class _MiniMeta extends StatelessWidget {
   const _MiniMeta({required this.icon, required this.text, this.color});
+
   final IconData icon;
   final String text;
   final Color? color;

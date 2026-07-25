@@ -18,7 +18,8 @@
     "continueAction": "Weiter",
     "of": "von",
     "add": "Hinzufügen",
-    "ok": "OK"
+    "ok": "OK",
+    "next": "Weiter"
   },
   "delete": {
     "cta": "Löschen",
@@ -612,7 +613,37 @@
       "send": "Antwort senden",
       "sent": "Antwort gesendet"
     },
-    "moreActions": "Weitere Aktionen"
+    "moreActions": "Weitere Aktionen",
+    "selectedCount": "{{count}} ausgewählt",
+    "move": {
+      "action": "In Projekt verschieben …",
+      "title": "{{count}} Vorgang/Vorgänge verschieben",
+      "stepTarget": "Wohin sollen sie?",
+      "stepMapping": "Status zuordnen und prüfen",
+      "targetProject": "Zielprojekt",
+      "noTargets": "Es gibt kein anderes Projekt, in das du diese Vorgänge verschieben kannst.",
+      "statusMapping": "Status-Zuordnung",
+      "needsChoice": "Auswahl nötig",
+      "allMatched": "Alles zugeordnet",
+      "chooseStatus": "Status wählen",
+      "options": "Optionen",
+      "takeEpicChildren": "Kind-Vorgänge des Epics mitverschieben",
+      "takeEpicChildrenHint": "Ohne diese Option bleiben sie im aktuellen Projekt und verlieren die Epic-Zuordnung.",
+      "keepSprint": "Sprint möglichst behalten",
+      "keepSprintHint": "Klappt nur, wenn das Board des Sprints auch das Zielprojekt umfasst.",
+      "warnings": "Bitte beachten",
+      "warn": {
+        "sprint": "{{issue}} verlässt den Sprint „{{detail}}“ — dessen Board umfasst das Zielprojekt nicht.",
+        "parent": "{{issue}} verliert die Verknüpfung zu {{detail}}, das zurückbleibt.",
+        "epicChildren": "{{issue}} hat {{detail}} Kind-Vorgang/Vorgänge, die im aktuellen Projekt bleiben.",
+        "assignee": "Eine zugewiesene Person von {{issue}} ist kein Mitglied des Zielprojekts.",
+        "generic": "Dieser Umzug hat eine Auswirkung, die diese App-Version noch nicht kennt."
+      },
+      "summary": "{{count}} Vorgang/Vorgänge werden verschoben",
+      "confirm": "Jetzt verschieben",
+      "pulledIn": "Wandert automatisch mit",
+      "archivedHint": "Vorgang zuerst wiederherstellen"
+    }
   },
   "type": {
     "task": "Aufgabe",
@@ -666,7 +697,16 @@
     "color": "Farbe",
     "descriptionOptional": "Beschreibung · optional",
     "defaultWorkflowInfo": "Startet mit dem Standard-Workflow — Backlog → Open → In Progress → In Review → Done (erledigt: Done) — jederzeit in den Projekteinstellungen änderbar.",
-    "you": "Du"
+    "you": "Du",
+    "picker": {
+      "searchHint": "Projekte suchen …",
+      "noResults": "Keine Projekte gefunden.",
+      "selected": "AUSGEWÄHLT",
+      "all": "ALLE PROJEKTE",
+      "results": "ERGEBNISSE",
+      "choose": "Projekte wählen …",
+      "chooseOne": "Projekt wählen …"
+    }
   },
   "board": {
     "title": "Agile Boards",
@@ -712,7 +752,8 @@
       "none": "Keine",
       "epic": "Epic",
       "assignee": "Zugewiesene Person",
-      "subtask": "Sub-Task"
+      "subtask": "Sub-Task",
+      "project": "Projekt"
     },
     "noEpic": "Kein Epic",
     "standalone": "Eigenständig",
@@ -735,7 +776,13 @@
     "renameBoard": "Board umbenennen",
     "renameTitle": "Board umbenennen",
     "renameSubtitle": "Gib diesem Board einen neuen Namen.",
-    "manageBoard": "Board-Optionen"
+    "manageBoard": "Board-Optionen",
+    "projectsField": "Projekte",
+    "projectsSelected": "{{count}} ausgewählt",
+    "dropNotInWorkflow": "Das Projekt dieser Karte hat in dieser Spalte keinen passenden Status",
+    "editProjects": "Projekte",
+    "editProjectsTitle": "Board-Projekte",
+    "editProjectsSubtitle": "Wähle, welche Projekte dieses Board umfasst. Gleichwertige Status der gewählten Projekte werden zu gemeinsamen Spalten zusammengefasst."
   },
   "gantt": {
     "title": "Zeitachse",
@@ -1483,7 +1530,8 @@
       "MCP_SPRINT_STARTED": "Sprint per MCP gestartet",
       "MCP_SPRINT_COMPLETED": "Sprint per MCP abgeschlossen",
       "MCP_OAUTH_AUTHORIZED": "MCP-OAuth-Autorisierung erteilt",
-      "UNKNOWN": "Unbekanntes Ereignis"
+      "UNKNOWN": "Unbekanntes Ereignis",
+      "ISSUE_MOVED": "Vorgang verschoben"
     },
     "meta": {
       "oldRole": "Vorherige Rolle",

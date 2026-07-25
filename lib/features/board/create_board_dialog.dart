@@ -8,10 +8,19 @@ import '../../core/i18n/i18n.dart';
 import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/project_picker.dart';
 import '../sprint/modals/glass_modal.dart';
 
 /// Liquid-Glass "Create board" modal. First asks the board type (Kanban —
-/// continuous flow, default; or Scrum — sprint planning), then name + project.
+/// continuous flow, default; or Scrum — sprint planning), then name + the
+/// projects the board spans.
+///
+/// A board may cover **several** projects — the classic cross-project board
+/// ("Vorstand" + "Ersti-Woche" on one wall). The backend has always modelled
+/// this ([AgileBoard.projectIds] is a list) and merges equivalent workflow
+/// states of the spanned projects into shared columns, so picking more than one
+/// project here needs nothing further.
+///
 /// Creates the board and returns it, or null when dismissed.
 Future<AgileBoard?> showCreateBoardDialog(
   BuildContext context, {
@@ -41,7 +50,15 @@ class _CreateBoardBody extends StatefulWidget {
 class _CreateBoardBodyState extends State<_CreateBoardBody> {
   final _name = TextEditingController();
   BoardType _type = BoardType.kanban;
-  late String _projectId = widget.initialProjectId ?? widget.projects.first.id;
+
+  /// In pick order, so the first stays the board's template project — the server
+  /// derives the default column layout from it and aligns the others.
+  late List<Project> _projects = [
+    widget.projects.firstWhere(
+      (p) => p.id == widget.initialProjectId,
+      orElse: () => widget.projects.first,
+    ),
+  ];
   bool _saving = false;
   String? _error;
 
@@ -57,8 +74,20 @@ class _CreateBoardBodyState extends State<_CreateBoardBody> {
     super.dispose();
   }
 
+  Future<void> _pickProjects(Rect anchor) async {
+    final picked = await showProjectPicker(
+      context,
+      anchorRect: anchor,
+      selected: {for (final project in _projects) project.id},
+      titleKey: 'board.projectsField',
+      seed: widget.projects,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _projects = picked);
+  }
+
   Future<void> _save() async {
-    if (_name.text.trim().isEmpty || _saving) return;
+    if (_name.text.trim().isEmpty || _projects.isEmpty || _saving) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -66,7 +95,7 @@ class _CreateBoardBodyState extends State<_CreateBoardBody> {
     try {
       final board = await context.read<BoardRepository>().createBoard(
         _name.text.trim(),
-        [_projectId],
+        [for (final project in _projects) project.id],
         type: _type,
       );
       if (mounted) Navigator.of(context).pop(board);
@@ -132,32 +161,21 @@ class _CreateBoardBodyState extends State<_CreateBoardBody> {
                 ),
                 const SizedBox(height: 16),
                 GlassField(
-                  label: context.t('board.project'),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface.withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(
-                        AppTheme.radiusControl,
-                      ),
-                      border: Border.all(color: AppColors.hairline),
+                  label: context.t('board.projectsField'),
+                  trailing: Text(
+                    context.t(
+                      'board.projectsSelected',
+                      variables: {'count': '${_projects.length}'},
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 13),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _projectId,
-                        isExpanded: true,
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.radiusControl,
-                        ),
-                        items: [
-                          for (final p in widget.projects)
-                            DropdownMenuItem(value: p.id, child: Text(p.name)),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) setState(() => _projectId = v);
-                        },
-                      ),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
                     ),
+                  ),
+                  child: ProjectPickerField(
+                    projects: _projects,
+                    placeholderKey: 'projects.picker.choose',
+                    onTap: _pickProjects,
                   ),
                 ),
                 if (_error != null) ...[

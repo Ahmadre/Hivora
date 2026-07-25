@@ -1238,7 +1238,9 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         if (!mounted) return;
         // Stop once the content height has settled for a beat.
         final sc = widget.sheetScroll;
-        final max = sc?.hasClients == true ? sc!.position.maxScrollExtent : -1.0;
+        final max = sc?.hasClients == true
+            ? sc!.position.maxScrollExtent
+            : -1.0;
         if (pass > 0 && max == lastMax) break;
         lastMax = max;
         await Future.delayed(const Duration(milliseconds: 220));
@@ -1429,6 +1431,22 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (issue != null) await _confirmDelete(issue);
   }
 
+  /// Opens the move-to-another-project wizard for this issue and reloads on
+  /// success — the issue keeps its id but gets a new readable id, project and
+  /// status, so every panel on this screen has to be re-read.
+  Future<void> moveIssue() async {
+    final issue = _issue;
+    if (issue == null || issue.archived) return;
+    final moved = await showIssueMoveWizard(
+      context,
+      issueIds: [issue.id],
+      currentProjectId: issue.projectId,
+    );
+    if (moved != true || !mounted) return;
+    widget.onChanged?.call();
+    await _load();
+  }
+
   // ── build ──────────────────────────────────────────────────────────────
 
   @override
@@ -1489,6 +1507,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                 link: issueWebLink(_issueApi.apiBaseUrl, issue.linkId),
                 onMinimize: widget.canMinimize ? _minimizeToModal : null,
                 onDelete: () => _confirmDelete(issue),
+                onMove: () => moveIssue(),
                 onClose: _closeRoute,
                 onReply: _replyEmailAction(issue),
                 canDelete: _canDelete,
@@ -1642,7 +1661,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       if (!mounted || resolved.isEmpty) return;
       final merged = {
         ..._projectIssues,
-        for (final i in resolved) i.readableId: i,
+        // Index by every id the issue ever carried: a chip written before a
+        // cross-project move still says "HIN-10" while the issue now reads
+        // "MOB-10", and both must land on the same issue.
+        for (final i in resolved)
+          for (final key in i.allReadableIds) key: i,
       };
       if (commit) {
         setState(() => _projectIssues = merged);
@@ -2567,6 +2590,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               link: issueWebLink(_issueApi.apiBaseUrl, issue.linkId),
               onMinimize: widget.canMinimize ? _minimizeToModal : null,
               onDelete: () => _confirmDelete(issue),
+              onMove: () => moveIssue(),
               onClose: _closeRoute,
               onReply: _replyEmailAction(issue),
               canDelete: _canDelete,
