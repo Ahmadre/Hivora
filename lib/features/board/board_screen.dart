@@ -29,6 +29,7 @@ import '../shell/page_chrome.dart';
 import '../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassErrorToast, showGlassToast;
 import '../sprint/sprint_board_view.dart';
+import 'board_drag.dart';
 import 'board_filter.dart';
 import 'board_manage_menu.dart';
 import 'board_swimlanes.dart';
@@ -588,6 +589,15 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   Map<String, String> get _cardProjectNames =>
       _isCrossProject ? _projectNames : const {};
 
+  /// Whether [column] is a legal drop for [issue] — a different column that
+  /// carries a workflow state this card's own project actually defines. Drives
+  /// the drop affordance, so an impossible move is refused while the card is
+  /// still in the air instead of ending in an error toast.
+  bool _canDrop(Issue issue, BoardColumnView column) =>
+      column.states.isNotEmpty &&
+      !column.states.contains(issue.state) &&
+      boardDropState(issue, column.states, _projectsById) != null;
+
   Future<void> _moveIssue(Issue issue, BoardColumnView column) async {
     if (column.states.contains(issue.state) || column.states.isEmpty) return;
     final target = boardDropState(issue, column.states, _projectsById);
@@ -600,6 +610,9 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       await context.read<IssueRepository>().updateIssue(issue.id, {
         'state': target,
       });
+      // Let the card settle in visibly at its new home once the reload puts it
+      // there — the tail end of the drag, not a separate effect.
+      boardDrag.land(issue.id);
       await _load();
     } on ApiFailure catch (failure) {
       if (mounted) {
@@ -913,33 +926,39 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       );
     }
     if (_grouping != BoardGrouping.none) return _groupedBoard(columns);
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.fromLTRB(
-        context.pageGutter,
-        0,
-        context.pageGutter,
-        context.pageGutter + context.bottomGutter,
+    // The horizontal controller lets a carried card pull the wall along when it
+    // reaches an edge, so an off-screen column is still reachable mid-drag.
+    return BoardDragScroller(
+      builder: (context, _, horizontal) => ListView.separated(
+        controller: horizontal,
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.fromLTRB(
+          context.pageGutter,
+          0,
+          context.pageGutter,
+          context.pageGutter + context.bottomGutter,
+        ),
+        itemCount: columns.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 16),
+        itemBuilder: (context, index) {
+          final column = columns[index];
+          final issues = column.issues
+              .where((i) => _passes(i) && boardCardVisible(i, _grouping))
+              .toList();
+          return _BoardColumn(
+            column: column,
+            issues: issues,
+            palette: _palette,
+            names: _names,
+            avatars: _avatars,
+            projectNames: _cardProjectNames,
+            onAccept: (issue) => _moveIssue(issue, column),
+            canAccept: (issue) => _canDrop(issue, column),
+            onAddIssue: () => _addIssue(column),
+            onOpenIssue: _openIssue,
+          );
+        },
       ),
-      itemCount: columns.length,
-      separatorBuilder: (_, _) => const SizedBox(width: 16),
-      itemBuilder: (context, index) {
-        final column = columns[index];
-        final issues = column.issues
-            .where((i) => _passes(i) && boardCardVisible(i, _grouping))
-            .toList();
-        return _BoardColumn(
-          column: column,
-          issues: issues,
-          palette: _palette,
-          names: _names,
-          avatars: _avatars,
-          projectNames: _cardProjectNames,
-          onAccept: (issue) => _moveIssue(issue, column),
-          onAddIssue: () => _addIssue(column),
-          onOpenIssue: _openIssue,
-        );
-      },
     );
   }
 
@@ -991,6 +1010,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
             ? const {}
             : _cardProjectNames,
         onAccept: (issue) => _moveIssue(issue, column),
+        canAccept: (issue) => _canDrop(issue, column),
         onAddIssue: () => _addIssue(
           column,
           parentId: _laneParentId(lane),

@@ -10,6 +10,7 @@ import '../../core/theme/hue_colors.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/subtask_widgets.dart';
+import '../board/board_drag.dart';
 import '../board/board_filter.dart';
 import '../board/board_swimlanes.dart';
 import 'widgets/glass_sprint_header.dart';
@@ -136,37 +137,40 @@ class SprintActiveSurface extends StatelessWidget {
                   ),
                 )
               : grouping == BoardGrouping.none
-              ? ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.fromLTRB(
-                    gutter,
-                    0,
-                    gutter,
-                    gutter + context.bottomGutter,
+              ? BoardDragScroller(
+                  builder: (context, _, horizontal) => ListView.separated(
+                    controller: horizontal,
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.fromLTRB(
+                      gutter,
+                      0,
+                      gutter,
+                      gutter + context.bottomGutter,
+                    ),
+                    itemCount: boardColumns.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 16),
+                    itemBuilder: (context, index) {
+                      final column = boardColumns[index];
+                      final colIssues = issues
+                          .where(
+                            (i) =>
+                                column.states.contains(i.state) &&
+                                _passes(i) &&
+                                boardCardVisible(i, grouping),
+                          )
+                          .toList();
+                      return _SprintColumn(
+                        column: column,
+                        issues: colIssues,
+                        onAccept: (issue) => onMoveState(
+                          issue,
+                          boardDropState(issue, column.states, projectsById) ??
+                              issue.state,
+                        ),
+                        onOpenIssue: onOpenIssue,
+                      );
+                    },
                   ),
-                  itemCount: boardColumns.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 16),
-                  itemBuilder: (context, index) {
-                    final column = boardColumns[index];
-                    final colIssues = issues
-                        .where(
-                          (i) =>
-                              column.states.contains(i.state) &&
-                              _passes(i) &&
-                              boardCardVisible(i, grouping),
-                        )
-                        .toList();
-                    return _SprintColumn(
-                      column: column,
-                      issues: colIssues,
-                      onAccept: (issue) => onMoveState(
-                        issue,
-                        boardDropState(issue, column.states, projectsById) ??
-                            issue.state,
-                      ),
-                      onOpenIssue: onOpenIssue,
-                    );
-                  },
                 )
               : _grouped(context, boardColumns, gutter),
         ),
@@ -303,34 +307,33 @@ class _SprintColumn extends StatelessWidget {
                           separatorBuilder: (_, _) => const SizedBox(height: 9),
                           itemBuilder: (context, index) {
                             final issue = issues[index];
-                            final card = _SprintCard(
+                            return BoardDragCard(
                               issue: issue,
-                              accent: dotColor,
-                              onOpen: () => onOpenIssue(issue),
-                              onOpenIssue: onOpenIssue,
-                            );
-                            if (isTouch) return card;
-                            final dragCard = _SprintCard(
-                              issue: issue,
-                              accent: dotColor,
-                            );
-                            return Draggable<Issue>(
-                              data: issue,
-                              dragAnchorStrategy: childDragAnchorStrategy,
-                              maxSimultaneousDrags: 1,
-                              feedback: Material(
-                                color: Colors.transparent,
-                                child: SizedBox(width: 276, child: dragCard),
+                              // Touch platforms: no drag — it fights the scroll
+                              // gesture; state changes happen in the sheet.
+                              enabled: !isTouch,
+                              ghost: _SprintCard(
+                                issue: issue,
+                                accent: dotColor,
                               ),
-                              childWhenDragging: Opacity(
-                                opacity: 0.35,
-                                child: dragCard,
+                              child: BoardLandingCard(
+                                issueId: issue.id,
+                                accent: dotColor,
+                                child: _SprintCard(
+                                  issue: issue,
+                                  accent: dotColor,
+                                  onOpen: () => onOpenIssue(issue),
+                                  onOpenIssue: onOpenIssue,
+                                ),
                               ),
-                              child: card,
                             );
                           },
                         ),
                 ),
+                // The card's future home: opens at the foot of the column in
+                // the dragged card's own height, so nothing already on the wall
+                // has to move aside.
+                BoardDropSlot(open: dropping, hasCards: issues.isNotEmpty),
               ],
             ),
           );

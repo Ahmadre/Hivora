@@ -111,15 +111,24 @@ class _BurndownPainter extends CustomPainter {
     // Horizontal grid lines + Y ticks at 0/¼/½/¾/1.
     for (final g in [0.0, 0.25, 0.5, 0.75, 1.0]) {
       final y = yOf(top * g);
-      canvas.drawLine(Offset(padLeft, y), Offset(size.width - padRight, y),
-          gridPaint);
+      canvas.drawLine(
+        Offset(padLeft, y),
+        Offset(size.width - padRight, y),
+        gridPaint,
+      );
       _text(canvas, '${(top * g).round()}', Offset(0, y - 6), textStyle);
     }
     // X ticks: S, 1..n
     for (final p in points) {
       final label = p.day == 0 ? 'S' : '${p.day}';
-      _text(canvas, label, Offset(xOf(p.day) - 4, size.height - 14), textStyle,
-          maxWidth: 16, center: true);
+      _text(
+        canvas,
+        label,
+        Offset(xOf(p.day) - 4, size.height - 14),
+        textStyle,
+        maxWidth: 16,
+        center: true,
+      );
     }
 
     // Dashed guideline (ideal).
@@ -132,10 +141,14 @@ class _BurndownPainter extends CustomPainter {
         idealPath.lineTo(o.dx, o.dy);
       }
     }
-    _drawDashed(canvas, idealPath, Paint()
-      ..color = ideal
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke);
+    _drawDashed(
+      canvas,
+      idealPath,
+      Paint()
+        ..color = ideal
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke,
+    );
 
     // Solid actual line up to today (points with a non-null remaining).
     final actualPts = [
@@ -171,8 +184,14 @@ class _BurndownPainter extends CustomPainter {
     }
   }
 
-  void _text(Canvas canvas, String text, Offset at, TextStyle style,
-      {double maxWidth = 24, bool center = false}) {
+  void _text(
+    Canvas canvas,
+    String text,
+    Offset at,
+    TextStyle style, {
+    double maxWidth = 24,
+    bool center = false,
+  }) {
     final tp = TextPainter(
       text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,

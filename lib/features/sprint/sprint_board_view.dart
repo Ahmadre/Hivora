@@ -9,6 +9,7 @@ import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_loader.dart';
+import '../board/board_drag.dart';
 import '../board/board_filter.dart';
 import '../board/board_filter_popup.dart';
 import '../board/board_people_strip.dart';
@@ -464,6 +465,9 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
 
   Future<void> _moveIssueState(Issue issue, String newState) async {
     if (issue.state == newState) return;
+    // Let the card settle in visibly at its new home — the tail end of the
+    // drag, not a separate effect.
+    boardDrag.land(issue.id);
     setState(() => _replaceIssue(issue.copyWith(state: newState)));
     try {
       await _issueApi.updateIssue(issue.id, {'state': newState});

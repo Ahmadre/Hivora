@@ -29,12 +29,11 @@ Future<({int? points})?> showStoryPointsDialog(
 Future<({int? points})?> showEstimateDialog(
   BuildContext context, {
   required Issue issue,
-}) =>
-    showStoryPointsDialog(
-      context,
-      current: issue.storyPoints,
-      subtitle: '${issue.readableId} · ${issue.title}',
-    );
+}) => showStoryPointsDialog(
+  context,
+  current: issue.storyPoints,
+  subtitle: '${issue.readableId} · ${issue.title}',
+);
 
 class _EstimateBody extends StatefulWidget {
   const _EstimateBody({required this.current, required this.subtitle});

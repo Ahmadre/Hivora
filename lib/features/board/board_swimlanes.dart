@@ -9,6 +9,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/hive_widgets.dart';
+import 'board_drag.dart';
 
 /// Swimlane grouping for a board, Jira-style: each group becomes a horizontal
 /// lane that still shows the full set of status columns.
@@ -522,48 +523,56 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
     // Vertical padding lives on the outer scroll view, but the horizontal
     // gutters must live INSIDE the horizontal scroll view — otherwise the
     // lanes are clipped at the gutter edge instead of scrolling under it.
-    return SingleChildScrollView(
-      padding: EdgeInsets.only(
-        top: widget.padding.top,
-        bottom: widget.padding.bottom,
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+    //
+    // Both scroll views are driven by [BoardDragScroller] as well, so a card
+    // carried to an edge pulls the wall along and can reach a lane or column
+    // that is currently off-screen.
+    return BoardDragScroller(
+      builder: (context, vertical, horizontal) => SingleChildScrollView(
+        controller: vertical,
         padding: EdgeInsets.only(
-          left: widget.padding.left,
-          right: widget.padding.right,
+          top: widget.padding.top,
+          bottom: widget.padding.bottom,
         ),
-        child: SizedBox(
-          width: boardWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final lane in widget.lanes) ...[
-                _laneHeaderBar(lane),
-                if (!_collapsed.contains(lane.key))
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var i = 0; i < columns.length; i++) ...[
-                        if (i > 0) SizedBox(width: widget.columnGap),
-                        SizedBox(
-                          width: widget.columnWidth,
-                          child: widget.columnBuilder(
-                            columns[i],
-                            lane.issues
-                                .where(
-                                  (x) => columns[i].states.contains(x.state),
-                                )
-                                .toList(),
-                            lane,
+        child: SingleChildScrollView(
+          controller: horizontal,
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.only(
+            left: widget.padding.left,
+            right: widget.padding.right,
+          ),
+          child: SizedBox(
+            width: boardWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final lane in widget.lanes) ...[
+                  _laneHeaderBar(lane),
+                  if (!_collapsed.contains(lane.key))
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (var i = 0; i < columns.length; i++) ...[
+                          if (i > 0) SizedBox(width: widget.columnGap),
+                          SizedBox(
+                            width: widget.columnWidth,
+                            child: widget.columnBuilder(
+                              columns[i],
+                              lane.issues
+                                  .where(
+                                    (x) => columns[i].states.contains(x.state),
+                                  )
+                                  .toList(),
+                              lane,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                SizedBox(height: _collapsed.contains(lane.key) ? 6 : 20),
+                    ),
+                  SizedBox(height: _collapsed.contains(lane.key) ? 6 : 20),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

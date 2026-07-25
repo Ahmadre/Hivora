@@ -174,7 +174,10 @@ class CapacityBar extends StatelessWidget {
                   ),
                 // Remaining capacity = the empty pill track showing through.
                 if (denom > committed)
-                  Expanded(flex: flex(denom - committed), child: const SizedBox()),
+                  Expanded(
+                    flex: flex(denom - committed),
+                    child: const SizedBox(),
+                  ),
               ],
             ),
           ),

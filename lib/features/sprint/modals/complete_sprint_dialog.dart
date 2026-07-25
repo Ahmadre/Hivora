@@ -69,7 +69,9 @@ class _CompleteSprintBodyState extends State<_CompleteSprintBody> {
           label: s.name,
           sub: context.t(
             'sprint.carryOver',
-            variables: {'date': s.startDate != null ? prettyDate(s.startDate!) : '—'},
+            variables: {
+              'date': s.startDate != null ? prettyDate(s.startDate!) : '—',
+            },
           ),
         ),
       (
@@ -129,10 +131,14 @@ class _CompleteSprintBodyState extends State<_CompleteSprintBody> {
                   const SizedBox(height: 16),
                   Text(
                     widget.openCount == 1
-                        ? context.t('sprint.moveOpenOne',
-                            variables: {'count': '1'})
-                        : context.t('sprint.moveOpenMany',
-                            variables: {'count': '${widget.openCount}'}),
+                        ? context.t(
+                            'sprint.moveOpenOne',
+                            variables: {'count': '1'},
+                          )
+                        : context.t(
+                            'sprint.moveOpenMany',
+                            variables: {'count': '${widget.openCount}'},
+                          ),
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,

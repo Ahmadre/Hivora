@@ -94,9 +94,7 @@ class SprintInsightsSurface extends StatelessWidget {
     int wideLeftFlex = 1,
   }) {
     if (!wide) {
-      return Column(
-        children: [left, const SizedBox(height: 14), right],
-      );
+      return Column(children: [left, const SizedBox(height: 14), right]);
     }
     return IntrinsicHeight(
       child: Row(
@@ -123,9 +121,13 @@ class SprintInsightsSurface extends StatelessWidget {
         label: context.t('sprint.completed'),
         value: '${s.completed}',
         valueColor: SprintTokens.done,
-        sub: context.t('sprint.percentOfCommitment', variables: {
-          'percent': '${s.committed == 0 ? 0 : (s.completed / s.committed * 100).round()}',
-        }),
+        sub: context.t(
+          'sprint.percentOfCommitment',
+          variables: {
+            'percent':
+                '${s.committed == 0 ? 0 : (s.completed / s.committed * 100).round()}',
+          },
+        ),
       ),
       _StatCard(
         icon: LucideIcons.flame,
@@ -295,8 +297,10 @@ class _BurndownCard extends StatelessWidget {
         children: [
           _SectionHead(
             title: context.t('sprint.burndown'),
-            trailing: context.t('sprint.ptsRemaining',
-                variables: {'points': '$remaining'}),
+            trailing: context.t(
+              'sprint.ptsRemaining',
+              variables: {'points': '$remaining'},
+            ),
           ),
           if (points.isEmpty)
             _noData(context)
@@ -305,7 +309,11 @@ class _BurndownCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _legend(context.t('sprint.actual'), AppColors.accentStrong, false),
+              _legend(
+                context.t('sprint.actual'),
+                AppColors.accentStrong,
+                false,
+              ),
               const SizedBox(width: 18),
               _legend(context.t('sprint.guideline'), AppColors.inkFaint, true),
             ],
@@ -353,8 +361,11 @@ class _DashLegendPainter extends CustomPainter {
       ..strokeWidth = 2;
     var x = 0.0;
     while (x < size.width) {
-      canvas.drawLine(Offset(x, size.height / 2),
-          Offset((x + 4).clamp(0, size.width), size.height / 2), paint);
+      canvas.drawLine(
+        Offset(x, size.height / 2),
+        Offset((x + 4).clamp(0, size.width), size.height / 2),
+        paint,
+      );
       x += 7;
     }
   }
@@ -388,7 +399,10 @@ class _VelocityCard extends StatelessWidget {
                 ? Center(
                     child: Text(
                       context.t('sprint.noVelocity'),
-                      style: TextStyle(fontSize: 12.5, color: AppColors.inkFaint),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.inkFaint,
+                      ),
                     ),
                   )
                 : Row(
@@ -515,8 +529,11 @@ class _BreakdownCard extends StatelessWidget {
                       CircleAvatar(
                         radius: 13,
                         backgroundColor: AppColors.canvas2,
-                        child: Icon(LucideIcons.user,
-                            size: 15, color: AppColors.inkFaint),
+                        child: Icon(
+                          LucideIcons.user,
+                          size: 15,
+                          color: AppColors.inkFaint,
+                        ),
                       )
                     else
                       HiveAvatar(name: a.userId, size: 26),
@@ -607,7 +624,9 @@ class _ScopeCard extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           // Added scope = red (more work); removed = green.
-                          color: c.delta > 0 ? AppColors.danger : AppColors.success,
+                          color: c.delta > 0
+                              ? AppColors.danger
+                              : AppColors.success,
                         ),
                       ),
                     ),
@@ -616,7 +635,10 @@ class _ScopeCard extends StatelessWidget {
                         c.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.inkSoft,
+                        ),
                       ),
                     ),
                   ],
@@ -624,9 +646,10 @@ class _ScopeCard extends StatelessWidget {
               ),
             const SizedBox(height: 10),
             Text(
-              context.t('sprint.netScope', variables: {
-                'delta': '${net > 0 ? '+' : ''}$net',
-              }),
+              context.t(
+                'sprint.netScope',
+                variables: {'delta': '${net > 0 ? '+' : ''}$net'},
+              ),
               style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
             ),
           ],

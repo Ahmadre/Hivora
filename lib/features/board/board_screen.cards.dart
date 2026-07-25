@@ -193,6 +193,7 @@ class _BoardColumn extends StatefulWidget {
     required this.names,
     required this.avatars,
     required this.onAccept,
+    required this.canAccept,
     required this.onAddIssue,
     required this.onOpenIssue,
     this.laneMode = false,
@@ -210,6 +211,12 @@ class _BoardColumn extends StatefulWidget {
   /// single-project board, so nothing redundant is drawn.
   final Map<String, String> projectNames;
   final void Function(Issue) onAccept;
+
+  /// Whether this column is a legal home for [issue] — false for the column it
+  /// already sits in and for a merged cross-project column that doesn't carry
+  /// the card's own workflow. Drives the drop affordance so an impossible drop
+  /// is refused while it's still in the air, not with a toast afterwards.
+  final bool Function(Issue) canAccept;
   final VoidCallback onAddIssue;
   final void Function(Issue) onOpenIssue;
 
@@ -255,18 +262,32 @@ class _BoardColumnState extends State<_BoardColumn> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: DragTarget<Issue>(
+          onWillAcceptWithDetails: (details) => widget.canAccept(details.data),
           onAcceptWithDetails: (details) => widget.onAccept(details.data),
           builder: (context, candidates, rejected) {
             final dropping = candidates.isNotEmpty;
+            // A card hovering the column it already sits in is just home, so it
+            // stays neutral; only a column that could never hold this card —
+            // a merged cross-project column without its workflow — says no.
+            final blocked =
+                !dropping &&
+                rejected.whereType<Issue>().any(
+                  (i) => !column.states.contains(i.state),
+                );
             return AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: dropping ? AppColors.accentSoft : AppColors.canvas2,
                 borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                border: dropping
-                    ? Border.all(color: AppColors.accentLine, width: 2)
-                    : Border.all(color: Colors.transparent, width: 2),
+                border: Border.all(
+                  width: 2,
+                  color: dropping
+                      ? AppColors.accentLine
+                      : blocked
+                      ? AppColors.danger.withValues(alpha: 0.35)
+                      : Colors.transparent,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,59 +361,48 @@ class _BoardColumnState extends State<_BoardColumn> {
                                 const SizedBox(height: 9),
                             itemBuilder: (context, index) {
                               final issue = issues[index];
-                              final card = _BoardCard(
-                                issue: issue,
-                                palette: widget.palette,
-                                assigneeName: widget.names[issue.assigneeId],
-                                assigneeAvatar:
-                                    widget.avatars[issue.assigneeId],
-                                projectName:
-                                    widget.projectNames[issue.projectId],
-                                onOpen: () => widget.onOpenIssue(issue),
-                                onOpenIssue: widget.onOpenIssue,
-                              );
-                              // Touch platforms: no drag — it fights the scroll
-                              // gesture. State changes happen in the detail sheet.
-                              if (isTouch) return card;
-                              return Draggable<Issue>(
-                                data: issue,
-                                dragAnchorStrategy: childDragAnchorStrategy,
-                                maxSimultaneousDrags: 1,
-                                feedback: Material(
-                                  color: Colors.transparent,
-                                  child: SizedBox(
-                                    width: 276,
-                                    child: _BoardCard(
-                                      issue: issue,
-                                      palette: widget.palette,
-                                      assigneeName:
-                                          widget.names[issue.assigneeId],
-                                      assigneeAvatar:
-                                          widget.avatars[issue.assigneeId],
-                                      projectName:
-                                          widget.projectNames[issue.projectId],
-                                      dragging: true,
-                                    ),
-                                  ),
+                              // Plays only for the card that just completed a
+                              // drop; every other card renders untouched.
+                              final card = BoardLandingCard(
+                                issueId: issue.id,
+                                accent: widget.palette.stateColor(issue.state),
+                                child: _BoardCard(
+                                  issue: issue,
+                                  palette: widget.palette,
+                                  assigneeName: widget.names[issue.assigneeId],
+                                  assigneeAvatar:
+                                      widget.avatars[issue.assigneeId],
+                                  projectName:
+                                      widget.projectNames[issue.projectId],
+                                  onOpen: () => widget.onOpenIssue(issue),
+                                  onOpenIssue: widget.onOpenIssue,
                                 ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.35,
-                                  child: _BoardCard(
-                                    issue: issue,
-                                    palette: widget.palette,
-                                    assigneeName:
-                                        widget.names[issue.assigneeId],
-                                    assigneeAvatar:
-                                        widget.avatars[issue.assigneeId],
-                                    projectName:
-                                        widget.projectNames[issue.projectId],
-                                  ),
+                              );
+                              return BoardDragCard(
+                                issue: issue,
+                                // Touch platforms: no drag — it fights the
+                                // scroll gesture. State changes happen in the
+                                // detail sheet.
+                                enabled: !isTouch,
+                                ghost: _BoardCard(
+                                  issue: issue,
+                                  palette: widget.palette,
+                                  assigneeName: widget.names[issue.assigneeId],
+                                  assigneeAvatar:
+                                      widget.avatars[issue.assigneeId],
+                                  projectName:
+                                      widget.projectNames[issue.projectId],
+                                  dragging: true,
                                 ),
                                 child: card,
                               );
                             },
                           ),
                   ),
+                  // The card's future home: opens at the foot of the column in
+                  // the dragged card's own height, so nothing already on the
+                  // wall has to move aside.
+                  BoardDropSlot(open: dropping, hasCards: issues.isNotEmpty),
                   const SizedBox(height: 8),
                   // Reveal the add button on hover (mouse) / always (touch); keep
                   // its space reserved so columns don't resize.
