@@ -16,13 +16,20 @@ platform :android do
       track: submit ? "production" : "internal",
       aab: "../build/app/outputs/bundle/release/app-release.aab",
       release_status: submit ? "completed" : "draft",
-      # Upload the full store listing too: title/short/full descriptions +
-      # localized changelogs (fastlane/metadata/android) and the framed phone +
-      # 10" tablet screenshots (fastlane/metadata/android/<loc>/images). The app
-      # icon + 1024x500 feature graphic live under images/ as well when present.
-      skip_upload_metadata: false,
-      skip_upload_images: false,
-      skip_upload_screenshots: false,
+      # The store listing (title, short/full description, feature graphic, icon,
+      # screenshots) is GLOBAL on Play — it is not scoped to a track. Pushing it
+      # from the tester channel would republish the public listing, and send it
+      # through Google's listing review, on every "Release (button)" press. So
+      # only the publish run touches it; this mirrors the Apple side, where
+      # `beta` uploads the binary and `release` owns the listing.
+      skip_upload_metadata: !submit,
+      skip_upload_images: !submit,
+      skip_upload_screenshots: !submit,
+      # Changelogs stay on for both: they are per versionCode, land on the track
+      # being written, and internal testers should see what's new. Absent for a
+      # Release-button build (only the publish flow generates them) — supply then
+      # simply has nothing to upload for that code.
+      skip_upload_changelogs: false,
       # Don't let a missing optional image (e.g. a 7" tablet set) abort the run.
       sync_image_upload: false
     )
