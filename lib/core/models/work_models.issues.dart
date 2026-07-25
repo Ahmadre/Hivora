@@ -292,11 +292,15 @@ class IssueLink extends Equatable {
   final String id;
   final bool outward;
 
-  /// The relationship verb to display, e.g. `blocks`, `is blocked by`.
+  /// The relationship verb as the server phrased it, e.g. `blocks`,
+  /// `is blocked by` — English only, used as the fallback for [verbKey].
   final String verb;
 
   /// The issue on the other end of the link.
   final Issue issue;
+
+  /// i18n key for the perspective-correct verb — see [issueLinkVerbKey].
+  String get verbKey => issueLinkVerbKey(type, outward);
 
   factory IssueLink.fromJson(Map<String, dynamic> json) => IssueLink(
     id: json['id'] as String,
@@ -310,6 +314,18 @@ class IssueLink extends Equatable {
   List<Object?> get props => [id, type, outward, verb, issue];
 }
 
+/// i18n key for a relationship verb, e.g. `issues.links.verbs.BLOCKS.inward`.
+///
+/// The server ships the verbs in English only, so the UI translates them from
+/// the (type, direction) pair instead. Symmetric types read the same on both
+/// ends and therefore always use the outward key.
+String issueLinkVerbKey(String type, bool outward) =>
+    'issues.links.verbs.$type.'
+    '${outward || kSymmetricIssueLinkTypes.contains(type) ? 'outward' : 'inward'}';
+
+/// Link types whose two ends read identically (mirrors `IssueLinkType`).
+const Set<String> kSymmetricIssueLinkTypes = {'RELATES'};
+
 /// A directional option in the "add link" dropdown — a (type, direction) pair
 /// with the verb shown for it. The order mirrors Jira's link-type list and the
 /// product spec; `outward` = this issue is the subject of the verb.
@@ -318,7 +334,12 @@ class IssueLinkOption {
 
   final String type;
   final bool outward;
+
+  /// English verb, used as the fallback when [verbKey] has no translation.
   final String verb;
+
+  /// i18n key for this option's verb — see [issueLinkVerbKey].
+  String get verbKey => issueLinkVerbKey(type, outward);
 }
 
 /// Every directional link verb offered when creating a link. "is blocked by"

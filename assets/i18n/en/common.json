@@ -553,7 +553,37 @@
       "fieldHint": "Enter URL, search or paste",
       "suggestionsTitle": "Current issues",
       "noMatches": "No matching issues",
-      "loadFailed": "Couldn't load linked issues."
+      "loadFailed": "Couldn't load linked issues.",
+      "verbs": {
+        "BLOCKS": {
+          "outward": "blocks",
+          "inward": "is blocked by"
+        },
+        "CLONES": {
+          "outward": "clones",
+          "inward": "is cloned by"
+        },
+        "CREATES": {
+          "outward": "created",
+          "inward": "created by"
+        },
+        "DUPLICATES": {
+          "outward": "duplicates",
+          "inward": "is duplicated by"
+        },
+        "RELATES": {
+          "outward": "relates to",
+          "inward": "relates to"
+        },
+        "TESTS": {
+          "outward": "tests",
+          "inward": "is tested by"
+        },
+        "SPLITS": {
+          "outward": "split to",
+          "inward": "split from"
+        }
+      }
     },
     "epicPicker": {
       "recent": "Recent epics",

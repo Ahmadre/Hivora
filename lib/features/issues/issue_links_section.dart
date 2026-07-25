@@ -165,21 +165,22 @@ class _IssueLinksSectionState extends State<IssueLinksSection> {
   /// editor can avoid offering an exact duplicate of the selected relationship.
   Set<String> get _linkedIssueIds => {for (final l in _links) l.issue.id};
 
-  /// Groups links by their display verb in the canonical [kIssueLinkOptions]
-  /// order, so the sections always read blocks → is blocked by → clones → …
+  /// Groups links by their relationship (type + direction) in the canonical
+  /// [kIssueLinkOptions] order, so the sections always read blocks → is blocked
+  /// by → clones → … Grouping on the i18n key rather than the server's English
+  /// verb keeps the groups stable in every language. A type the app doesn't
+  /// know yet still gets its own group, appended at the end.
   List<MapEntry<String, List<IssueLink>>> get _grouped {
-    final byVerb = <String, List<IssueLink>>{};
+    final byKey = <String, List<IssueLink>>{};
     for (final link in _links) {
-      byVerb.putIfAbsent(link.verb, () => []).add(link);
+      byKey.putIfAbsent(link.verbKey, () => []).add(link);
     }
     final ordered = <MapEntry<String, List<IssueLink>>>[];
-    final seen = <String>{};
     for (final opt in kIssueLinkOptions) {
-      final group = byVerb[opt.verb];
-      if (group != null && seen.add(opt.verb)) {
-        ordered.add(MapEntry(opt.verb, group));
-      }
+      final group = byKey.remove(opt.verbKey);
+      if (group != null) ordered.add(MapEntry(opt.verbKey, group));
     }
+    ordered.addAll(byKey.entries);
     return ordered;
   }
 
@@ -254,7 +255,7 @@ class _IssueLinksSectionState extends State<IssueLinksSection> {
             for (final group in _grouped) ...[
               const SizedBox(height: 12),
               _LinkGroup(
-                verb: group.key,
+                verbKey: group.key,
                 links: group.value,
                 project: widget.project,
                 userNames: widget.userNames,

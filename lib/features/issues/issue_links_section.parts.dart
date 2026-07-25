@@ -1,9 +1,18 @@
 part of 'issue_links_section.dart';
 
+/// The relationship verb in the user's language. Falls back to the server's
+/// English verb when a link type has no translation yet (a newer backend can
+/// ship a type this build doesn't know), since [I18nContext.t] echoes unknown
+/// keys back verbatim.
+String _verbLabel(BuildContext context, String verbKey, String fallback) {
+  final label = context.t(verbKey);
+  return label == verbKey ? fallback : label;
+}
+
 /// One verb group: a bold relationship label and its linked-issue rows.
 class _LinkGroup extends StatelessWidget {
   const _LinkGroup({
-    required this.verb,
+    required this.verbKey,
     required this.links,
     required this.project,
     required this.userNames,
@@ -12,7 +21,7 @@ class _LinkGroup extends StatelessWidget {
     this.onOpen,
   });
 
-  final String verb;
+  final String verbKey;
   final List<IssueLink> links;
   final Project? project;
   final Map<String, String> userNames;
@@ -26,7 +35,7 @@ class _LinkGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          verb,
+          _verbLabel(context, verbKey, links.first.verb),
           style: const TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w700,
@@ -304,7 +313,11 @@ class _LinkEditorState extends State<_LinkEditor> {
           (
             value: i,
             child: Text(
-              kIssueLinkOptions[i].verb,
+              _verbLabel(
+                context,
+                kIssueLinkOptions[i].verbKey,
+                kIssueLinkOptions[i].verb,
+              ),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
@@ -349,7 +362,7 @@ class _LinkEditorState extends State<_LinkEditor> {
               final narrow = c.maxWidth < 440;
               final type = _TypePill(
                 key: _typeKey,
-                verb: _option.verb,
+                verb: _verbLabel(context, _option.verbKey, _option.verb),
                 onTap: _pickType,
               );
               final field = _buildField();

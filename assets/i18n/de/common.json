@@ -553,7 +553,37 @@
       "fieldHint": "URL eingeben, suchen oder einfügen",
       "suggestionsTitle": "Aktuelle Vorgänge",
       "noMatches": "Keine passenden Vorgänge",
-      "loadFailed": "Verknüpfte Vorgänge konnten nicht geladen werden."
+      "loadFailed": "Verknüpfte Vorgänge konnten nicht geladen werden.",
+      "verbs": {
+        "BLOCKS": {
+          "outward": "blockiert",
+          "inward": "wird blockiert von"
+        },
+        "CLONES": {
+          "outward": "klont",
+          "inward": "wird geklont von"
+        },
+        "CREATES": {
+          "outward": "hat erstellt",
+          "inward": "erstellt von"
+        },
+        "DUPLICATES": {
+          "outward": "dupliziert",
+          "inward": "wird dupliziert von"
+        },
+        "RELATES": {
+          "outward": "hängt zusammen mit",
+          "inward": "hängt zusammen mit"
+        },
+        "TESTS": {
+          "outward": "testet",
+          "inward": "wird getestet von"
+        },
+        "SPLITS": {
+          "outward": "aufgeteilt in",
+          "inward": "aufgeteilt aus"
+        }
+      }
     },
     "epicPicker": {
       "recent": "Letzte Epics",
