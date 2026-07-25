@@ -189,11 +189,11 @@ platform :mac do
       force: true,
       run_precheck_before_submit: false,
       precheck_include_in_app_purchases: false,
-      # Upload the localized macOS listing (fastlane/metadata) + the framed
-      # 2880x1800 MacBook screenshots (fastlane/screenshots).
+      # Upload the localized macOS listing (fastlane/metadata).
       skip_metadata: false,
+      # Screenshots are NOT part of a release — see the `screenshots` lane below
+      # for why `overwrite_screenshots` cannot keep them duplicate-free.
       skip_screenshots: true,
-      overwrite_screenshots: true,
       # Default is 7 retries with backoff (~20 min) before giving up — pointless
       # when the app is locked rather than merely slow. Two still cover a hiccup.
       version_check_wait_retry_limit: 2
@@ -202,5 +202,35 @@ platform :mac do
     raise unless locked_app_error?(e)
     UI.error(e.message)
     UI.user_error!(LOCKED_APP_HINT)
+  end
+
+  desc "Sync fastlane/screenshots to the Mac App Store (run by hand when they change)"
+  #
+  # Separate, opt-in lane for the same reason as on iOS: `overwrite_screenshots`
+  # is a one-shot pre-clean, while the duplicates are produced afterwards by
+  # deliver's retry loop, which matches screenshots on `source_file_checksum` —
+  # a field App Store Connect regularly returns as nil, so already-uploaded
+  # shots are neither recognised nor deleted and get pushed again (up to 5×).
+  # `sync_screenshots` diffs locale/filename/checksum instead and deletes every
+  # unmatched remote entry, so repeated runs converge on the local set.
+  #
+  #   bundle exec fastlane mac screenshots
+  lane :screenshots do
+    auth!
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    unless app&.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform.map("osx"))
+      UI.user_error!(LOCKED_APP_HINT)
+    end
+
+    ENV["FASTLANE_ENABLE_BETA_DELIVER_SYNC_SCREENSHOTS"] = "1"
+    upload_to_app_store(
+      platform: "osx",
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: false,
+      sync_screenshots: true,
+      force: true,
+      run_precheck_before_submit: false
+    )
   end
 end

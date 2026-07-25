@@ -193,11 +193,11 @@ platform :ios do
       run_precheck_before_submit: false,
       precheck_include_in_app_purchases: false,
       # Upload the localized listing (fastlane/metadata: name, subtitle, keywords,
-      # description, promo, what's-new, URLs, copyright, categories, review info)
-      # and the framed 6.9" iPhone + 13" iPad screenshots (fastlane/screenshots).
+      # description, promo, what's-new, URLs, copyright, categories, review info).
       skip_metadata: false,
+      # Screenshots are NOT part of a release — see the `screenshots` lane below
+      # for why `overwrite_screenshots` cannot keep them duplicate-free.
       skip_screenshots: true,
-      overwrite_screenshots: true,
       # deliver keeps retrying while it waits for App Store Connect to settle.
       # The default of 7 backs off up to ~20 minutes before it gives up — far too
       # long when the app is simply locked and no amount of waiting will help.
@@ -208,5 +208,54 @@ platform :ios do
     raise unless locked_app_error?(e)
     UI.error(e.message)
     UI.user_error!(LOCKED_APP_HINT)
+  end
+
+  desc "Sync fastlane/screenshots to App Store Connect (run by hand when they change)"
+  #
+  # Why this is a separate, opt-in lane instead of part of `release`:
+  #
+  # `overwrite_screenshots` is a ONE-SHOT pre-clean — deliver deletes the remote
+  # screenshot sets once, before uploading, and never again. The duplicates come
+  # from what happens AFTER that, inside deliver's own retry loop:
+  #   1. `retry_upload_screenshots_if_needed` retries whenever it believes a local
+  #      screenshot is missing remotely.
+  #   2. That check (and the per-file duplicate guard in `upload_screenshots`)
+  #      matches on `AppScreenshot#source_file_checksum`. App Store Connect
+  #      regularly returns that as nil for API-uploaded assets.
+  #   3. nil never equals the local MD5 → deliver concludes nothing arrived.
+  #   4. Before retrying it deletes only screenshots that are NOT `complete?` —
+  #      so the ones that really did upload survive and the same file is pushed
+  #      on top of them. Up to 5 tries → the same shot 2×, 3× …
+  # `overwrite_screenshots` is powerless against that; it already ran.
+  #
+  # `sync_screenshots` uses a different code path: it diffs
+  # `locale/filename/checksum` between local and remote and deletes every remote
+  # entry without a local match. A nil checksum then makes the remote entry a
+  # DELETE candidate rather than an extra upload, so the result converges on
+  # exactly the local set no matter how often the lane runs.
+  #
+  #   bundle exec fastlane ios screenshots
+  lane :screenshots do
+    auth!
+    # Screenshots live on the editable App Store version, so there has to be one.
+    # Checking up-front turns "undefined method `version_string' for nil" into an
+    # actionable message.
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    unless app&.get_edit_app_store_version(platform: Spaceship::ConnectAPI::Platform.map("ios"))
+      UI.user_error!(LOCKED_APP_HINT)
+    end
+
+    # sync_screenshots is still behind fastlane's beta feature flag.
+    ENV["FASTLANE_ENABLE_BETA_DELIVER_SYNC_SCREENSHOTS"] = "1"
+    upload_to_app_store(
+      # Screenshots only: no binary, and skip_metadata keeps deliver away from the
+      # App Info localizations (that is the part that needs an unlocked app).
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: false,
+      sync_screenshots: true,
+      force: true,
+      run_precheck_before_submit: false
+    )
   end
 end
