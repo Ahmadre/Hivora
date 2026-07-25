@@ -48,15 +48,9 @@ dependencies:
   wolt_modal_sheet: ^0.11.0
   fl_chart: ^1.1.1
 
-  # Liquid Glass UI (vendored source under packages/ — full control, MIT)
-  # Our maintained fork (hinata-platform): upstream 0.21.6 + the two Hinata
-  # popover patches + the ProgressiveBlur primitive, all on the `hinata` branch
-  # and pinned by tag. Replaces the old vendored path copy — one source of truth.
+  # Liquid Glass UI (vendored — full control, MIT)
   liquid_glass_widgets:
     git:
-      # All Hinata patches (blur ramp, ProgressiveBlur, popover positioning fixes)
-      # were merged upstream and released as 0.22.1 — track mainline instead of
-      # the old patched hinata branch.
       url: https://github.com/hinata-platform/liquid_glass_widgets.git
       ref: main
 

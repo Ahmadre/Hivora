@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_client.dart';
+import '../models/issue_detail.dart';
 import '../models/work_models.dart';
 
 /// Issues: search/CRUD, hierarchy, relationship links, change history,
@@ -168,6 +169,27 @@ class IssueRepository {
 
   Future<Issue> issue(String id) async => Issue.fromJson(
     await _api.get('/api/v1/issues/$id') as Map<String, dynamic>,
+  );
+
+  /// First-paint bootstrap for the issue-detail view: the issue plus page 0 of
+  /// comments/activity, pinned comments, work items, project, hierarchy,
+  /// sprints, referenced users and the delete capability — in ONE request
+  /// instead of ~13. See [IssueDetail]. Load-more still uses the paged calls.
+  Future<IssueDetail> issueDetail(
+    String id, {
+    int commentSize = 30,
+    String commentSort = 'newest',
+    int activitySize = 30,
+  }) async => IssueDetail.fromJson(
+    await _api.get(
+          '/api/v1/issues/$id/detail',
+          query: {
+            'commentSize': commentSize,
+            'commentSort': commentSort,
+            'activitySize': activitySize,
+          },
+        )
+        as Map<String, dynamic>,
   );
 
   /// Breadcrumb ancestors + direct children for the issue hierarchy view.

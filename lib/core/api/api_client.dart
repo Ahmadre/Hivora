@@ -293,7 +293,7 @@ class ApiClient {
       // on a fresh socket — so a single stale connection never paints a whole
       // screen with `errors.unexpected`. Never retry a mutation (could double it)
       // and never retry a real HTTP error (it carries a response we must surface).
-      if (idempotent && _isTransientConnectionLoss(error)) {
+      if (idempotent && _isRetriableConnectionFailure(error)) {
         try {
           return (await request()).data;
         } on DioException catch (retryError) {
@@ -313,6 +313,22 @@ class ApiClient {
     if (error.response != null) return false;
     return error.type == DioExceptionType.unknown ||
         error.type == DioExceptionType.connectionError;
+  }
+
+  /// Failures a single fresh-socket retry of an IDEMPOTENT (GET) request can
+  /// recover. Beyond [_isTransientConnectionLoss] this also covers
+  /// `connectionTimeout`: on mobile the first connection to the edge sometimes
+  /// stalls the full connect window (a slow-to-accept proxy, or a half-open
+  /// socket) and then fails — the classic "the issue took ~10s then failed, but
+  /// trying again worked". Auto-retrying turns that manual retry into a
+  /// transparent one. `receiveTimeout` is still excluded: there the server
+  /// already has the request, so a retry would just double a genuinely slow
+  /// response; any 4xx/5xx is excluded too (it carries a response to surface).
+  static bool _isRetriableConnectionFailure(DioException error) {
+    if (error.response != null) return false;
+    return error.type == DioExceptionType.unknown ||
+        error.type == DioExceptionType.connectionError ||
+        error.type == DioExceptionType.connectionTimeout;
   }
 
   ApiFailure _toFailure(DioException error) {

@@ -213,7 +213,6 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   CommentRepository get _commentApi => context.read<CommentRepository>();
   ProjectRepository get _projectApi => context.read<ProjectRepository>();
   UserRepository get _userApi => context.read<UserRepository>();
-  SprintRepository get _sprintApi => context.read<SprintRepository>();
   MediaRepository get _mediaApi => context.read<MediaRepository>();
 
   @override
@@ -549,84 +548,45 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       _error = null;
     });
     try {
-      final issue = await _issueApi.issue(widget.issueId);
-      final results = await Future.wait([
-        _commentApi.comments(
-          widget.issueId,
-          size: _commentPageSize,
-          sort: _commentSort.api,
-        ),
-        _issueApi.workItems(widget.issueId),
-        _projectApi.projects(),
-        _userApi.users(),
-        _issueApi.issueActivity(widget.issueId),
-        _commentApi.pinnedComments(widget.issueId),
-      ]);
-      _issue = issue;
-      final commentsPage =
-          results[0] as ({List<IssueComment> items, int total});
-      _comments = commentsPage.items.toList();
-      _commentsTotal = commentsPage.total;
-      _pinned = results[5] as List<IssueComment>;
-      _workItems = results[1] as List<WorkItem>;
-      _project = (results[2] as List<Project>)
-          .where((p) => p.id == issue.projectId)
-          .firstOrNull;
-      _users = results[3] as List<DirectoryUser>;
-      final activityPage =
-          results[4] as ({List<IssueActivity> items, int total});
-      _activity = activityPage.items;
-      _activityTotal = activityPage.total;
-      _activityPage = 0;
-      // Sprints come from the project's board(s); aggregate across every board
-      // (a project may have both a Kanban and a Scrum board). Best-effort.
-      try {
-        _sprints = await _sprintApi.sprintsForProject(issue.projectId);
-      } catch (_) {
-        _sprints = const [];
-      }
-      // `{{issue:…}}` chip previews resolve only the issues actually referenced
-      // by the description + loaded comments (the full issue is needed for the
-      // hover card), not the whole project — the `@`-menu fetches its candidates
-      // from the backend on demand. Best-effort.
-      _projectIssues = const {};
-      await _syncReferencedIssues(commit: false);
-      try {
-        _hierarchy = await _issueApi.issueHierarchy(widget.issueId);
-      } catch (_) {
-        _hierarchy = IssueHierarchy.empty;
-      }
-      // Archive-vs-delete capability for the top-bar action + confirm dialog.
-      // Best-effort: on failure the user simply keeps the safe archive path.
-      try {
-        _canDelete = await _issueApi.canDeleteIssue(widget.issueId);
-      } catch (_) {
-        _canDelete = false;
-      }
-      try {
-        // init() still powers the composer's {{doc:…}} mention menu + chip
-        // previews (a separate corpus concern), but the issue↔
-        // article backlinks now come from the dedicated server endpoint instead
-        // of a client-side regex scan over every article body — it is
-        // ACL-correct and O(matches), not O(articles × body length).
-        await _knowledge.init();
-        _documentedIn = await _knowledge.articlesReferencingIssue(
-          issue.readableId,
-        );
-      } catch (_) {
-        _documentedIn = const [];
-      }
+      // ONE aggregate round-trip for everything first paint needs, instead of
+      // the old ~13-request fan-out (issue + 6-way batch + a serial tail of
+      // sprints/hierarchy/canDelete/knowledge). On native (HTTP/1.1, no
+      // multiplexing, WAN latency) that fan-out paid a TLS handshake per hop and
+      // intermittently failed; collapsing it is the core issue-load speed-up.
+      final detail = await _issueApi.issueDetail(
+        widget.issueId,
+        commentSize: _commentPageSize,
+        commentSort: _commentSort.api,
+      );
       // The sheet/route can close mid-load — the host then disposes `header` and
-      // `composerRev`. `?.` guards null, NOT disposal, so writing them after an
-      // await on a closed sheet throws "used after disposed" as an UNHANDLED
-      // async error that takes the whole app down. Bail if we were unmounted
-      // during any of the awaits above.
+      // `composerRev`. Bail if we were unmounted during the await.
       if (!mounted) return;
-      _publishHeader(issue);
+      _issue = detail.issue;
+      _comments = detail.comments.toList();
+      _commentsTotal = detail.commentsTotal;
+      _pinned = detail.pinnedComments;
+      _workItems = detail.workItems;
+      _project = detail.project;
+      // The aggregate ships only the users this issue references; the full
+      // directory (for pickers) is hydrated after first paint below.
+      _users = detail.users;
+      _activity = detail.activity;
+      _activityTotal = detail.activityTotal;
+      _activityPage = 0;
+      _sprints = detail.sprints;
+      _hierarchy = detail.hierarchy;
+      _canDelete = detail.canDelete;
+      _projectIssues = const {};
+      // PAINT NOW — the user sees the issue, comments, activity, hierarchy and
+      // actions immediately. Everything below fills in without a spinner.
+      _publishHeader(detail.issue);
       setState(() => _loading = false);
       // Reveal the host's floating composer now that the issue is loaded (the
       // route overlay reads `hasIssue`, and its subtree is outside this body).
       _bumpComposer();
+      // Non-critical extras load in the background, each best-effort, so a slow
+      // or failed secondary fetch never blocks or blanks the sheet.
+      unawaited(_hydrateSecondary(detail.issue));
       // Deep link into a specific comment → scroll to it and flash it.
       final target = widget.targetCommentId;
       if (target != null && target.isNotEmpty) {
@@ -648,6 +608,36 @@ class IssueDetailBodyState extends State<IssueDetailBody>
           _error = 'errors.unexpected';
         });
       }
+    }
+  }
+
+  /// Non-critical data loaded AFTER first paint so it never blocks the sheet:
+  /// the full user directory (the aggregate ships only referenced users, but the
+  /// pickers want everyone), `{{issue:KEY}}` chip resolution, and the KB
+  /// "documented in" backlinks + `{{doc:…}}` mention corpus. Each step is
+  /// best-effort — a slow or failed fetch just leaves that section empty.
+  Future<void> _hydrateSecondary(Issue issue) async {
+    try {
+      final all = await _userApi.users();
+      if (mounted && all.isNotEmpty) setState(() => _users = all);
+    } catch (_) {
+      // Keep the referenced-user subset from the aggregate.
+    }
+    // Resolve `{{issue:…}}` chip previews for the description + loaded comments.
+    try {
+      await _syncReferencedIssues();
+    } catch (_) {
+      // Chips fall back to plain text.
+    }
+    try {
+      // init() powers the composer's {{doc:…}} mention menu; the issue↔article
+      // backlinks come from the dedicated server endpoint (ACL-correct,
+      // O(matches)).
+      await _knowledge.init();
+      final docs = await _knowledge.articlesReferencingIssue(issue.readableId);
+      if (mounted) setState(() => _documentedIn = docs);
+    } catch (_) {
+      if (mounted) setState(() => _documentedIn = const []);
     }
   }
 
