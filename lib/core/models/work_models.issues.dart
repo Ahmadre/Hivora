@@ -59,11 +59,21 @@ class Issue extends Equatable {
     this.updatedAt,
     this.subtaskCount = 0,
     this.subtaskDoneCount = 0,
+    this.formerReadableIds = const [],
   });
 
   final String id;
   final String projectId;
   final String readableId;
+
+  /// Readable ids this issue carried before it was moved to another project,
+  /// oldest first. A `{{issue:…}}` chip or a link written under an old key must
+  /// still resolve, so lookups index an issue by these as well as by
+  /// [readableId] (the server resolves both too).
+  final List<String> formerReadableIds;
+
+  /// Every readable id that should resolve to this issue — current first.
+  List<String> get allReadableIds => [readableId, ...formerReadableIds];
   final String title;
   final String state;
   final String? description;
@@ -140,6 +150,7 @@ class Issue extends Equatable {
     id: json['id'] as String,
     projectId: json['projectId'] as String,
     readableId: json['readableId'] as String? ?? '',
+    formerReadableIds: _stringList(json['formerReadableIds']),
     title: json['title'] as String? ?? '',
     state: json['state'] as String? ?? '',
     description: json['description'] as String?,
@@ -185,6 +196,7 @@ class Issue extends Equatable {
     id: id,
     projectId: projectId,
     readableId: readableId,
+    formerReadableIds: formerReadableIds,
     title: title,
     state: state ?? this.state,
     description: description,

@@ -3,7 +3,7 @@ part of 'issue_detail_sheet.dart';
 // ─────────────────────────── Top bar ───────────────────────────────────────
 
 /// Actions collapsed into the "…" overflow menu of the issue top bars.
-enum _IssueMenuAction { reply, delete }
+enum _IssueMenuAction { reply, move, delete }
 
 /// The delete/archive/restore affordance shared by both top bars: label,
 /// icon and tint depend on the archived state and the delete permission.
@@ -25,16 +25,22 @@ enum _IssueMenuAction { reply, delete }
 /// reply + delete/archive into one liquid-glass popover so the bar stays tidy.
 class _IssueActionsMenu extends StatelessWidget {
   const _IssueActionsMenu({
-    required this.onReply,
+    required this.onMove,
     required this.onDelete,
     required this.canDelete,
     required this.archived,
+    this.onReply,
   });
 
-  final VoidCallback onReply;
+  /// Opens the move-to-another-project wizard. Always available: moving is a
+  /// normal member action, gated per project by the server.
+  final VoidCallback onMove;
   final VoidCallback onDelete;
   final bool canDelete;
   final bool archived;
+
+  /// Non-null only for email-sourced issues with the `emailReply` flag on.
+  final VoidCallback? onReply;
 
   @override
   Widget build(BuildContext context) {
@@ -43,14 +49,29 @@ class _IssueActionsMenu extends StatelessWidget {
       value: null,
       width: 250,
       items: [
-        GlassMenuItem(
-          value: _IssueMenuAction.reply,
-          label: context.t('issues.replyEmail.action'),
-          leading: const Icon(
-            LucideIcons.mail,
-            size: 16,
-            color: AppColors.accentStrong,
+        if (onReply != null)
+          GlassMenuItem(
+            value: _IssueMenuAction.reply,
+            label: context.t('issues.replyEmail.action'),
+            leading: const Icon(
+              LucideIcons.mail,
+              size: 16,
+              color: AppColors.accentStrong,
+            ),
           ),
+        GlassMenuItem(
+          value: _IssueMenuAction.move,
+          label: context.t('issues.move.action'),
+          leading: Icon(
+            LucideIcons.folderInput,
+            size: 16,
+            color: AppColors.inkSoft,
+          ),
+          // An archived issue is soft-deleted; restore it before relocating it.
+          enabled: !archived,
+          disabledReason: archived
+              ? context.t('issues.move.archivedHint')
+              : null,
         ),
         GlassMenuItem(
           value: _IssueMenuAction.delete,
@@ -63,7 +84,9 @@ class _IssueActionsMenu extends StatelessWidget {
       onSelected: (action) {
         switch (action) {
           case _IssueMenuAction.reply:
-            onReply();
+            onReply?.call();
+          case _IssueMenuAction.move:
+            onMove();
           case _IssueMenuAction.delete:
             onDelete();
           case null:
@@ -100,6 +123,7 @@ class _RouteTopBar extends StatelessWidget {
     required this.link,
     this.onMinimize,
     required this.onDelete,
+    required this.onMove,
     required this.onClose,
     this.onReply,
     this.canDelete = false,
@@ -114,6 +138,9 @@ class _RouteTopBar extends StatelessWidget {
   /// (null for direct deep-links, which have no modal to return to).
   final VoidCallback? onMinimize;
   final VoidCallback onDelete;
+
+  /// Opens the move-to-another-project wizard.
+  final VoidCallback onMove;
   final VoidCallback onClose;
 
   /// Non-null only for email-sourced issues with the `emailReply` flag enabled;
@@ -180,29 +207,15 @@ class _RouteTopBar extends StatelessWidget {
                   color: AppColors.inkSoft,
                 ),
               ),
-            // With reply-by-email available the secondary actions collapse into
-            // a "…" popover; without it the removal action stays a plain button.
-            if (onReply != null)
-              _IssueActionsMenu(
-                onReply: onReply!,
-                onDelete: onDelete,
-                canDelete: canDelete,
-                archived: issue.archived,
-              )
-            else
-              Builder(
-                builder: (context) {
-                  final removal = _removalLook(
-                    archived: issue.archived,
-                    canDelete: canDelete,
-                  );
-                  return IconButton(
-                    tooltip: context.t(removal.labelKey),
-                    onPressed: onDelete,
-                    icon: Icon(removal.icon, size: 20, color: removal.color),
-                  );
-                },
-              ),
+            // Secondary actions (move · reply · remove) live in one "…" popover
+            // so the bar keeps a fixed shape regardless of which are available.
+            _IssueActionsMenu(
+              onReply: onReply,
+              onMove: onMove,
+              onDelete: onDelete,
+              canDelete: canDelete,
+              archived: issue.archived,
+            ),
           ],
         ),
       ),

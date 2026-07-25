@@ -12,14 +12,23 @@ import '../../core/widgets/hive_widgets.dart';
 
 /// Swimlane grouping for a board, Jira-style: each group becomes a horizontal
 /// lane that still shows the full set of status columns.
-enum BoardGrouping { none, epic, assignee, subtask }
+enum BoardGrouping { none, epic, assignee, subtask, project }
 
 String boardGroupingLabel(BuildContext context, BoardGrouping g) => switch (g) {
   BoardGrouping.none => context.t('board.group.none'),
   BoardGrouping.epic => context.t('board.group.epic'),
   BoardGrouping.assignee => context.t('board.group.assignee'),
   BoardGrouping.subtask => context.t('board.group.subtask'),
+  BoardGrouping.project => context.t('board.group.project'),
 };
+
+/// Grouping options that make sense for a given board. Grouping by project is
+/// only meaningful — and only offered — when the board actually spans more than
+/// one project.
+List<BoardGrouping> boardGroupingsFor({required bool crossProject}) => [
+  for (final g in BoardGrouping.values)
+    if (crossProject || g != BoardGrouping.project) g,
+];
 
 /// The "Group by" control shared by the Kanban board and the Scrum active
 /// surface — a glass dropdown that mirrors the board's filter-button styling.
@@ -29,6 +38,7 @@ class BoardGroupByButton extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.compact = false,
+    this.options,
   });
 
   final BoardGrouping value;
@@ -36,6 +46,11 @@ class BoardGroupByButton extends StatelessWidget {
 
   /// Phone layouts show only the icon + chevron to save room.
   final bool compact;
+
+  /// Which groupings to offer; defaults to all. Boards spanning a single
+  /// project pass a list without [BoardGrouping.project], which would otherwise
+  /// produce exactly one lane and just waste vertical space.
+  final List<BoardGrouping>? options;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +60,7 @@ class BoardGroupByButton extends StatelessWidget {
       width: 220,
       onSelected: onChanged,
       items: [
-        for (final g in BoardGrouping.values)
+        for (final g in options ?? BoardGrouping.values)
           GlassMenuItem(value: g, label: boardGroupingLabel(context, g)),
       ],
       child: Material(
@@ -83,6 +98,34 @@ class BoardGroupByButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The workflow state to write when [issue] is dropped into a column offering
+/// [columnStates].
+///
+/// On a cross-project board a column merges equivalent states of several
+/// projects (e.g. "Open" and "Neu"), so writing the first one blindly would
+/// send a state the card's own project doesn't define — which the server rightly
+/// rejects with `error.issue.unknownState`. Returns the one state of the column
+/// that this issue's project actually has, or null when the drop isn't valid for
+/// this card. Mirrors the server-side `WorkflowMapping.stateInColumn`.
+///
+/// [projectsById] may be empty (single-project board), in which case the first
+/// state is used — the historical behaviour.
+String? boardDropState(
+  Issue issue,
+  List<String> columnStates,
+  Map<String, Project> projectsById,
+) {
+  if (columnStates.isEmpty) return null;
+  final project = projectsById[issue.projectId];
+  if (project == null) return columnStates.first;
+  for (final state in columnStates) {
+    for (final own in project.stateNames) {
+      if (own.toLowerCase() == state.toLowerCase()) return own;
+    }
+  }
+  return null;
 }
 
 /// Lane key of the catch-all "no epic / no assignee / stand-alone" lane —
@@ -140,6 +183,7 @@ List<BoardLane> computeBoardLanes({
   required ProjectPalette palette,
   required void Function(Issue) onOpenIssue,
   Map<String, String> avatars = const {},
+  Map<String, String> projectNames = const {},
 }) {
   // Drop issues that aren't board cards for this grouping (epics are always
   // headers/filters; sub-tasks are cards only under the sub-task grouping).
@@ -254,6 +298,32 @@ List<BoardLane> computeBoardLanes({
         LucideIcons.minus,
       );
       return lanes;
+    case BoardGrouping.project:
+      // Cross-project board: one lane per spanned project, so "Vorstand" and
+      // "Ersti-Woche" work side by side on the same wall while each keeps its
+      // own row. Lanes are ordered by project name for a stable layout.
+      final byProject = <String, List<Issue>>{};
+      for (final i in visible) {
+        byProject.putIfAbsent(i.projectId, () => []).add(i);
+      }
+      final projectIds = byProject.keys.toList()
+        ..sort(
+          (a, b) => (projectNames[a] ?? a).toLowerCase().compareTo(
+            (projectNames[b] ?? b).toLowerCase(),
+          ),
+        );
+      return [
+        for (final id in projectIds)
+          BoardLane(
+            key: id,
+            header: _plainLaneHeader(
+              projectNames[id] ?? id,
+              byProject[id]!.length,
+              LucideIcons.folderKanban,
+            ),
+            issues: byProject[id]!,
+          ),
+      ];
   }
 }
 

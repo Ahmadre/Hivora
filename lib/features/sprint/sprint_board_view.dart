@@ -40,6 +40,7 @@ class ScrumBoardView extends StatefulWidget {
     required this.names,
     this.avatars = const {},
     required this.projectNames,
+    this.projectsById = const {},
     required this.onOpenIssue,
   });
 
@@ -47,6 +48,10 @@ class ScrumBoardView extends StatefulWidget {
   final Map<String, String> names;
   final Map<String, String> avatars;
   final Map<String, String> projectNames;
+
+  /// The board's spanned projects — needed to resolve which state of a merged
+  /// column belongs to a dropped card's own project on a cross-project board.
+  final Map<String, Project> projectsById;
   final void Function(Issue) onOpenIssue;
 
   @override
@@ -278,7 +283,9 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
       // Multiple projects: the search endpoint is single-project, so merge a
       // bounded page per project and paginate client-side.
       final pages = await Future.wait(
-        projectIds.map((p) => _issueApi.allIssues(projectId: p, noSprint: true)),
+        projectIds.map(
+          (p) => _issueApi.allIssues(projectId: p, noSprint: true),
+        ),
       );
       var merged = [for (final pg in pages) ...pg];
       if (query != null) {
@@ -403,7 +410,9 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
     });
     try {
       await Future.wait(
-        ids.map((id) => _issueApi.updateIssue(id, {'sprintId': sprintId ?? ''})),
+        ids.map(
+          (id) => _issueApi.updateIssue(id, {'sprintId': sprintId ?? ''}),
+        ),
       );
       await _loadAll();
     } on ApiFailure catch (failure) {
@@ -667,6 +676,10 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
                         BoardGroupByButton(
                           value: _grouping,
                           compact: compact,
+                          options: boardGroupingsFor(
+                            crossProject:
+                                widget.view.board.projectIds.length > 1,
+                          ),
                           onChanged: (g) => setState(() => _grouping = g),
                         ),
                         const SizedBox(width: 10),
@@ -743,6 +756,8 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           epics: _epics,
           names: widget.names,
           avatars: widget.avatars,
+          projectNames: widget.projectNames,
+          projectsById: widget.projectsById,
           onOpenIssue: widget.onOpenIssue,
           onMoveState: _moveIssueState,
         );
