@@ -70,3 +70,6 @@ docs/screenshots/raw/
 .env.fastlane
 docs/screenshots/ios/raw/**
 .DS_Store
+
+# Flutter Version Management (FVM) artifacts
+.fvm/

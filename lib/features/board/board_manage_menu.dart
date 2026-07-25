@@ -4,15 +4,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/repositories/board_repository.dart';
-import '../../core/repositories/project_repository.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/hive_loader.dart';
+import '../../core/widgets/project_picker.dart';
 import '../deletion/delete_flows.dart';
 import '../sprint/modals/glass_modal.dart';
-import 'project_multi_select.dart';
 
 /// Opens the board management menu (Rename · Delete) as an anchored popover at
 /// the trigger and runs the chosen action. Shared by the board overview and the
@@ -36,8 +34,8 @@ Future<void> openBoardManageMenu(
     final renamed = await _showRenameBoardModal(context, board);
     if (renamed == true) await onChanged();
   } else if (action == 'projects') {
-    final changed = await _showBoardProjectsModal(context, board);
-    if (changed == true) await onChanged();
+    final changed = await _editBoardProjects(context, board);
+    if (changed) await onChanged();
   } else if (action == 'delete') {
     final deleted = await showDeleteBoardFlow(
       context,
@@ -254,151 +252,45 @@ Future<bool?> _showRenameBoardModal(BuildContext context, AgileBoard board) {
 }
 
 /// Changes which projects a board spans — the surface that turns an existing
-/// single-project board into a cross-project one (and back). The modal loads the
-/// projects itself so every caller of the manage menu gets it for free.
-Future<bool?> _showBoardProjectsModal(BuildContext context, AgileBoard board) {
-  final boardRepo = context.read<BoardRepository>();
-  final projectRepo = context.read<ProjectRepository>();
-  return showGlassModal<bool>(
+/// single-project board into a cross-project one (and back).
+///
+/// Opens the project picker straight from the menu, anchored where the menu was:
+/// choosing projects *is* the whole interaction, so wrapping it in a modal would
+/// only add a second layer of chrome around the same list. The picker's own
+/// confirm button ends it, and the board is patched from the result.
+///
+/// Returns whether the span actually changed.
+Future<bool> _editBoardProjects(BuildContext context, AgileBoard board) async {
+  final box = context.findRenderObject() as RenderBox?;
+  final anchor = (box != null && box.hasSize)
+      ? box.localToGlobal(Offset.zero) & box.size
+      : Rect.zero;
+  final picked = await showProjectPicker(
     context,
-    width: 520,
-    builder: (_) => MultiRepositoryProvider(
-      providers: [
-        RepositoryProvider.value(value: boardRepo),
-        RepositoryProvider.value(value: projectRepo),
-      ],
-      child: _BoardProjectsBody(board: board),
-    ),
+    anchorRect: anchor,
+    selected: {...board.projectIds},
+    titleKey: 'board.editProjectsTitle',
   );
-}
+  if (picked == null || !context.mounted) return false;
 
-class _BoardProjectsBody extends StatefulWidget {
-  const _BoardProjectsBody({required this.board});
+  final ids = [for (final project in picked) project.id];
+  final unchanged =
+      ids.length == board.projectIds.length &&
+      ids.toSet().containsAll(board.projectIds);
+  if (ids.isEmpty || unchanged) return false;
 
-  final AgileBoard board;
-
-  @override
-  State<_BoardProjectsBody> createState() => _BoardProjectsBodyState();
-}
-
-class _BoardProjectsBodyState extends State<_BoardProjectsBody> {
-  late final Set<String> _selected = {...widget.board.projectIds};
-  List<Project> _projects = const [];
-  bool _loading = true;
-  bool _busy = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final projects = await context.read<ProjectRepository>().projects();
-      if (!mounted) return;
-      setState(() {
-        _projects = projects;
-        _loading = false;
-      });
-    } on ApiFailure catch (failure) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = failure.message;
-      });
-    }
-  }
-
-  bool get _dirty =>
-      _selected.length != widget.board.projectIds.length ||
-      !_selected.containsAll(widget.board.projectIds);
-
-  Future<void> _save() async {
-    if (_selected.isEmpty || _busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      await context.read<BoardRepository>().updateBoardProjects(
-        widget.board.id,
-        _selected.toList(),
+  try {
+    await context.read<BoardRepository>().updateBoardProjects(board.id, ids);
+    return true;
+  } on ApiFailure catch (failure) {
+    if (context.mounted) {
+      showGlassToast(
+        context,
+        context.t(failure.message),
+        kind: GlassToastKind.error,
       );
-      if (mounted) Navigator.of(context).pop(true);
-    } on ApiFailure catch (failure) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = failure.message;
-      });
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        GlassModalHeader(
-          icon: LucideIcons.folderKanban,
-          title: context.t('board.editProjectsTitle'),
-          subtitle: context.t('board.editProjectsSubtitle'),
-        ),
-        Flexible(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 6, 22, 18),
-            child: _loading
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 28),
-                    child: Center(child: HiveLoader()),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      GlassField(
-                        label: context.t('board.projectsField'),
-                        trailing: Text(
-                          context.t(
-                            'board.projectsSelected',
-                            variables: {'count': '${_selected.length}'},
-                          ),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        child: ProjectMultiSelect(
-                          projects: _projects,
-                          selected: _selected,
-                          maxHeight: 260,
-                          onToggle: (id) => setState(() {
-                            if (!_selected.remove(id)) _selected.add(id);
-                          }),
-                        ),
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          context.t(_error!),
-                          style: const TextStyle(
-                            color: AppColors.danger,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-          ),
-        ),
-        GlassModalFooter(
-          confirmLabel: context.t('common.save'),
-          busy: _busy,
-          onConfirm: (_dirty && _selected.isNotEmpty) ? _save : null,
-        ),
-      ],
-    );
+    return false;
   }
 }
 

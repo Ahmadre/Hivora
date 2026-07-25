@@ -697,7 +697,16 @@
     "color": "Farbe",
     "descriptionOptional": "Beschreibung · optional",
     "defaultWorkflowInfo": "Startet mit dem Standard-Workflow — Backlog → Open → In Progress → In Review → Done (erledigt: Done) — jederzeit in den Projekteinstellungen änderbar.",
-    "you": "Du"
+    "you": "Du",
+    "picker": {
+      "searchHint": "Projekte suchen …",
+      "noResults": "Keine Projekte gefunden.",
+      "selected": "AUSGEWÄHLT",
+      "all": "ALLE PROJEKTE",
+      "results": "ERGEBNISSE",
+      "choose": "Projekte wählen …",
+      "chooseOne": "Projekt wählen …"
+    }
   },
   "board": {
     "title": "Agile Boards",

@@ -12,9 +12,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hue_colors.dart';
 import '../../core/widgets/glass_popup_menu.dart';
-import '../../core/widgets/hive_loader.dart';
 import '../../core/widgets/hive_widgets.dart';
-import '../board/project_multi_select.dart' show ProjectMultiSelect;
+import '../../core/widgets/project_picker.dart';
 import '../sprint/modals/glass_modal.dart';
 
 /// Moves one or more issues into another project.
@@ -64,13 +63,10 @@ class _MoveWizardBody extends StatefulWidget {
 }
 
 class _MoveWizardBodyState extends State<_MoveWizardBody> {
-  List<Project> _projects = const [];
-  bool _loadingProjects = true;
   String? _error;
 
-  /// Step 1 selection. Held as a set purely to reuse [ProjectMultiSelect]; the
-  /// target is a single project, so picking one replaces the previous.
-  final Set<String> _target = {};
+  /// Step 1 selection — a single target project.
+  Project? _target;
 
   MovePreflight? _preflight;
   bool _analysing = false;
@@ -83,40 +79,12 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
   bool _includeEpicChildren = false;
   bool _keepSprint = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProjects();
-  }
-
-  Future<void> _loadProjects() async {
-    try {
-      final projects = await context.read<ProjectRepository>().projects();
-      if (!mounted) return;
-      setState(() {
-        // Moving into the project the issues already live in is a no-op the
-        // server rejects — don't offer it.
-        _projects = [
-          for (final p in projects)
-            if (p.id != widget.currentProjectId) p,
-        ];
-        _loadingProjects = false;
-      });
-    } on ApiFailure catch (failure) {
-      if (!mounted) return;
-      setState(() {
-        _loadingProjects = false;
-        _error = failure.message;
-      });
-    }
-  }
-
   /// Runs (or re-runs) the analysis. Re-run whenever an input the server
   /// reasons about changes — currently the epic-children opt-in, which decides
   /// whether an epic's children travel and therefore which statuses need
   /// mapping at all.
   Future<void> _analyse() async {
-    final target = _target.firstOrNull;
+    final target = _target?.id;
     if (target == null) return;
     setState(() {
       _analysing = true;
@@ -215,7 +183,7 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
           busy: _analysing || _moving,
           hint: onTargetStep ? null : _backButton(),
           onConfirm: onTargetStep
-              ? (_target.isEmpty ? null : _analyse)
+              ? (_target == null ? null : _analyse)
               : (_mappingComplete ? _move : null),
         ),
       ],
@@ -234,38 +202,37 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
   // ---- step 1: target project ----
 
   Widget _targetStep() {
-    if (_loadingProjects) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(child: HiveLoader()),
-      );
-    }
-    if (_projects.isEmpty) {
-      return _Note(
-        icon: LucideIcons.folderX,
-        text: context.t('issues.move.noTargets'),
-      );
-    }
+    final target = _target;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GlassField(
           label: context.t('issues.move.targetProject'),
-          child: ProjectMultiSelect(
-            projects: _projects,
-            selected: _target,
-            maxHeight: 260,
-            // Single-target picker: selecting replaces rather than adds.
-            onToggle: (id) => setState(() {
-              _target
-                ..clear()
-                ..add(id);
-            }),
+          child: ProjectPickerField(
+            projects: [?target],
+            placeholderKey: 'projects.picker.chooseOne',
+            onTap: _pickTarget,
           ),
         ),
         if (_error != null) ...[const SizedBox(height: 12), _errorText()],
       ],
     );
+  }
+
+  Future<void> _pickTarget(Rect anchor) async {
+    final picked = await showProjectPicker(
+      context,
+      anchorRect: anchor,
+      selected: {?_target?.id},
+      titleKey: 'issues.move.targetProject',
+      multi: false,
+      // Moving into the project the issues already live in is a no-op the
+      // server rejects — don't offer it.
+      excludeProjectId: widget.currentProjectId,
+      emptyLabelKey: 'issues.move.noTargets',
+    );
+    if (picked == null || picked.isEmpty || !mounted) return;
+    setState(() => _target = picked.first);
   }
 
   // ---- step 2: status mapping + review ----
@@ -696,29 +663,6 @@ class _Pill extends StatelessWidget {
         fontWeight: FontWeight.w700,
         color: color,
       ),
-    ),
-  );
-}
-
-class _Note extends StatelessWidget {
-  const _Note({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    child: Column(
-      children: [
-        Icon(icon, size: 26, color: AppColors.inkFaint),
-        const SizedBox(height: 10),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-        ),
-      ],
     ),
   );
 }

@@ -20,6 +20,52 @@ class ProjectRepository {
           .map((p) => Project.fromJson(p as Map<String, dynamic>))
           .toList();
 
+  /// One page of the visible projects, optionally narrowed by [query] (matched
+  /// against name and key on the server).
+  ///
+  /// This is what the project pickers read. [projects] returns the whole set in
+  /// one array, which is fine for a filter dropdown but turns into a long, ever
+  /// growing scroll in a picker — so anything the user searches through pages
+  /// here instead.
+  Future<({List<Project> projects, int total})> searchProjects({
+    String? query,
+    int page = 0,
+    int size = 25,
+    bool archived = false,
+  }) async {
+    final data =
+        await _api.get(
+              '/api/v1/projects/search',
+              query: {
+                if (query != null && query.isNotEmpty) 'q': query,
+                if (archived) 'archived': true,
+                'page': page,
+                'size': size,
+              },
+            )
+            as Map<String, dynamic>;
+    return (
+      projects: ((data['content'] as List<dynamic>?) ?? [])
+          .map((p) => Project.fromJson(p as Map<String, dynamic>))
+          .toList(),
+      total: data['totalElements'] as int? ?? 0,
+    );
+  }
+
+  /// The named projects, filtered server-side to the ones the caller may see.
+  /// A picker uses this to label ids it already holds — a board's current span,
+  /// say — without paging until those projects happen to come up.
+  Future<List<Project>> resolveProjects(List<String> ids) async {
+    if (ids.isEmpty) return const [];
+    return ((await _api.get(
+                  '/api/v1/projects/resolve',
+                  query: {'ids': ids.join(',')},
+                ))
+                as List<dynamic>)
+            .map((p) => Project.fromJson(p as Map<String, dynamic>))
+            .toList();
+  }
+
   Future<Project> project(String id) async => Project.fromJson(
     await _api.get('/api/v1/projects/$id') as Map<String, dynamic>,
   );
