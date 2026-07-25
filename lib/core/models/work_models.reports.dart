@@ -1,6 +1,5 @@
 part of 'work_models.dart';
 
-
 class GanttTask extends Equatable {
   const GanttTask({
     required this.id,
@@ -10,6 +9,8 @@ class GanttTask extends Equatable {
     required this.resolved,
     required this.progressPercent,
     this.type = 'TASK',
+    this.assigneeId,
+    this.parentId,
     this.startDate,
     this.dueDate,
     this.dependsOnIds = const [],
@@ -20,11 +21,25 @@ class GanttTask extends Equatable {
   final String title;
   final String state;
   final String type;
+  final String? assigneeId;
+  final String? parentId;
   final bool resolved;
   final int progressPercent;
   final DateTime? startDate;
   final DateTime? dueDate;
   final List<String> dependsOnIds;
+
+  /// First day the bar covers. The server only returns dated issues, so at
+  /// least one of the two dates is set — a due-only issue starts on its due
+  /// date and reads as a milestone.
+  DateTime get from => startDate ?? dueDate!;
+
+  /// Last day the bar covers (inclusive).
+  DateTime get to => dueDate ?? startDate!;
+
+  /// A zero-length item — a deadline rather than a stretch of work. Drawn as a
+  /// diamond, the way every Gantt chart marks a milestone.
+  bool get isMilestone => !to.isAfter(from);
 
   factory GanttTask.fromJson(Map<String, dynamic> json) => GanttTask(
     id: json['id'] as String,
@@ -32,6 +47,8 @@ class GanttTask extends Equatable {
     title: json['title'] as String? ?? '',
     state: json['state'] as String? ?? '',
     type: json['type'] as String? ?? 'TASK',
+    assigneeId: json['assigneeId'] as String?,
+    parentId: json['parentId'] as String?,
     resolved: json['resolved'] as bool? ?? false,
     progressPercent: json['progressPercent'] as int? ?? 0,
     startDate: _date(json['startDate']),
@@ -41,6 +58,62 @@ class GanttTask extends Equatable {
 
   @override
   List<Object?> get props => [id, readableId, state, progressPercent];
+}
+
+/// One connector on the timeline, stated in the link's own direction: [sourceId]
+/// is the outward side of the verb (the issue that "blocks"), [targetId] the
+/// inward one (the issue that "is blocked by"). Mirrors the server's
+/// `IssueLinkGraphService.LinkEdge`; legacy `dependsOnIds` arrive folded in as
+/// `BLOCKS` edges.
+class GanttLink extends Equatable {
+  const GanttLink({
+    required this.id,
+    required this.type,
+    required this.sourceId,
+    required this.targetId,
+  });
+
+  final String id;
+
+  /// Server enum name: `BLOCKS`, `RELATES`, `DUPLICATES`, …
+  final String type;
+  final String sourceId;
+  final String targetId;
+
+  /// Whether this link constrains the schedule. Only `BLOCKS` does — the rest
+  /// are informational and are drawn as faint dashes.
+  bool get isDependency => type == 'BLOCKS';
+
+  factory GanttLink.fromJson(Map<String, dynamic> json) => GanttLink(
+    id: json['id'] as String? ?? '',
+    type: json['type'] as String? ?? 'RELATES',
+    sourceId: json['sourceId'] as String? ?? '',
+    targetId: json['targetId'] as String? ?? '',
+  );
+
+  @override
+  List<Object?> get props => [id, type, sourceId, targetId];
+}
+
+/// The Gantt read model in one payload: the bars and the connectors between
+/// them.
+class GanttView extends Equatable {
+  const GanttView({this.tasks = const [], this.links = const []});
+
+  final List<GanttTask> tasks;
+  final List<GanttLink> links;
+
+  factory GanttView.fromJson(Map<String, dynamic> json) => GanttView(
+    tasks: (json['tasks'] as List<dynamic>? ?? const [])
+        .map((t) => GanttTask.fromJson(t as Map<String, dynamic>))
+        .toList(),
+    links: (json['links'] as List<dynamic>? ?? const [])
+        .map((l) => GanttLink.fromJson(l as Map<String, dynamic>))
+        .toList(),
+  );
+
+  @override
+  List<Object?> get props => [tasks, links];
 }
 
 class TimesheetRow extends Equatable {

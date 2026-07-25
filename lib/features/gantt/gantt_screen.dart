@@ -11,11 +11,15 @@ import '../../core/models/work_models.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gantt_links.dart';
+import '../../core/widgets/glass_panel.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
+import '../search/search_tokens.dart';
+import 'gantt_view_options.dart';
 
 /// Zoom levels for the timeline. [week] shows individual day ticks under a
 /// month band (Jira "Wochen"); [month] collapses to month columns only.
@@ -24,7 +28,11 @@ enum GanttZoom { week, month }
 /// Localised short month label (e.g. `Jan` / `Mär`, or `Jan 2026` with year).
 /// Uses `intl`'s [DateFormat] against the active locale — the date-symbol data
 /// for that locale is loaded by `GlobalMaterialLocalizations`.
-String _monthLabel(BuildContext context, DateTime date, {bool withYear = false}) {
+String _monthLabel(
+  BuildContext context,
+  DateTime date, {
+  bool withYear = false,
+}) {
   final locale = Localizations.localeOf(context).toString();
   return withYear
       ? DateFormat.yMMM(locale).format(date)
@@ -48,10 +56,18 @@ class _GanttScreenState extends State<GanttScreen> {
   List<Project> _projects = const [];
   String? _projectId;
   List<GanttTask> _tasks = const [];
+  List<GanttLink> _links = const [];
   bool _loading = true;
   String? _error;
 
   GanttZoom _zoom = GanttZoom.week;
+  GanttLinkOptions _linkOptions = const GanttLinkOptions();
+
+  /// Issue whose relationships are pinned bright — set by tapping its bar,
+  /// cleared by tapping it again or the empty grid.
+  String? _focusedId;
+
+  final _optionsKey = GlobalKey();
 
   // Body drives header (horizontal) and labels (vertical); followers use
   // [NeverScrollableScrollPhysics] and mirror the body's offset.
@@ -104,7 +120,18 @@ class _GanttScreenState extends State<GanttScreen> {
         return;
       }
       _projectId ??= _projects.first.id;
-      _tasks = await repository.gantt(_projectId!);
+      final view = await repository.gantt(_projectId!);
+      // Chronological order keeps most connectors running downwards, the way a
+      // Gantt chart is read; the server returns insertion order.
+      _tasks = [...view.tasks]
+        ..sort((a, b) {
+          final byStart = a.from.compareTo(b.from);
+          if (byStart != 0) return byStart;
+          final byEnd = a.to.compareTo(b.to);
+          return byEnd != 0 ? byEnd : a.readableId.compareTo(b.readableId);
+        });
+      _links = view.links;
+      _focusedId = null;
       _didInitialScroll = false;
       setState(() => _loading = false);
     } on ApiFailure catch (failure) {
@@ -116,9 +143,9 @@ class _GanttScreenState extends State<GanttScreen> {
   }
 
   double get _pxPerDay => switch (_zoom) {
-        GanttZoom.week => 32,
-        GanttZoom.month => 4.6,
-      };
+    GanttZoom.week => 32,
+    GanttZoom.month => 4.6,
+  };
 
   double _labelWidth(BuildContext context) => context.isCompact ? 136 : 188;
 
@@ -129,7 +156,11 @@ class _GanttScreenState extends State<GanttScreen> {
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(
-              context.pageGutter, 22 + context.topGutter, context.pageGutter, 14),
+            context.pageGutter,
+            22 + context.topGutter,
+            context.pageGutter,
+            14,
+          ),
           child: PageHead(
             title: context.t('gantt.title'),
             subtitle: context.t('gantt.subtitle'),
@@ -157,8 +188,11 @@ class _GanttScreenState extends State<GanttScreen> {
     }
     if (_error != null) {
       return Center(
-          child: Text(context.t(_error!),
-              style: TextStyle(color: AppColors.textSecondary)));
+        child: Text(
+          context.t(_error!),
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
     }
     if (_tasks.isEmpty) {
       return Center(
@@ -173,10 +207,10 @@ class _GanttScreenState extends State<GanttScreen> {
     }
 
     final rawStart = _tasks
-        .map((task) => task.startDate!)
+        .map((task) => task.from)
         .reduce((a, b) => a.isBefore(b) ? a : b);
     final rawEnd = _tasks
-        .map((task) => task.dueDate ?? task.startDate!)
+        .map((task) => task.to)
         .reduce((a, b) => a.isAfter(b) ? a : b);
 
     // Snap the window so columns are whole units: weeks start on Monday and
@@ -199,13 +233,27 @@ class _GanttScreenState extends State<GanttScreen> {
 
     // Today marker, only when it falls inside the rendered window.
     final today = _dayOnly(DateTime.now());
-    final inRange =
-        !today.isBefore(chartStart) && today.isBefore(chartEnd);
+    final inRange = !today.isBefore(chartStart) && today.isBefore(chartEnd);
     final todayX = inRange
         ? today.difference(chartStart).inDays * _pxPerDay + _pxPerDay / 2
         : null;
 
     _maybeInitialScroll(todayX, timelineWidth);
+
+    // Bar geometry + the connector graph in one pass, so bars and the lines
+    // between them can never drift apart.
+    final graph = GanttGraph.build(
+      rows: [
+        for (final task in _tasks)
+          GanttRow(id: task.id, from: task.from, to: task.to),
+      ],
+      links: _links,
+      chartStart: chartStart,
+      pxPerDay: _pxPerDay,
+    );
+    final focused = _focusedId == null
+        ? const <String>{}
+        : graph.relatedTo(_focusedId!);
 
     // Reserve just the floating nav *pill's* height so the card + switcher rest
     // snug above the nav — NOT the full gutter (pill + home-indicator safe-area),
@@ -216,11 +264,17 @@ class _GanttScreenState extends State<GanttScreen> {
     // MediaQuery override doesn't touch.
     final view = View.of(context);
     final safeArea = view.viewPadding.bottom / view.devicePixelRatio;
-    final navClearance =
-        (context.bottomGutter - safeArea).clamp(0.0, double.infinity);
+    final navClearance = (context.bottomGutter - safeArea).clamp(
+      0.0,
+      double.infinity,
+    );
     return Padding(
-      padding: EdgeInsets.fromLTRB(context.pageGutter, 0, context.pageGutter,
-          context.pageGutter + navClearance),
+      padding: EdgeInsets.fromLTRB(
+        context.pageGutter,
+        0,
+        context.pageGutter,
+        context.pageGutter + navClearance,
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           // The card is only as tall as its rows, capped at the space we have.
@@ -232,9 +286,13 @@ class _GanttScreenState extends State<GanttScreen> {
           // body never overflows by those two pixels.
           const cardBorder = 2.0;
           final availableBody =
-              (constraints.maxHeight - _headerHeight - 1 - cardBorder)
-                  .clamp(0.0, double.infinity);
-          final bodyHeight = rowsHeight < availableBody ? rowsHeight : availableBody;
+              (constraints.maxHeight - _headerHeight - 1 - cardBorder).clamp(
+                0.0,
+                double.infinity,
+              );
+          final bodyHeight = rowsHeight < availableBody
+              ? rowsHeight
+              : availableBody;
           final cardHeight = _headerHeight + 1 + bodyHeight + cardBorder;
           return Stack(
             children: [
@@ -255,7 +313,9 @@ class _GanttScreenState extends State<GanttScreen> {
                               SizedBox(
                                 width: labelWidth,
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
                                   child: Align(
                                     alignment: Alignment.centerLeft,
                                     child: Text(
@@ -305,12 +365,19 @@ class _GanttScreenState extends State<GanttScreen> {
                                   controller: _vLabels,
                                   physics: const NeverScrollableScrollPhysics(),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       for (final task in _tasks)
                                         _TaskLabel(
                                           task: task,
                                           height: _rowHeight,
+                                          dimmed:
+                                              focused.isNotEmpty &&
+                                              !focused.contains(task.id),
+                                          conflict: graph.conflictIds.contains(
+                                            task.id,
+                                          ),
                                           onTap: () =>
                                               context.go('/issues/${task.id}'),
                                         ),
@@ -332,26 +399,56 @@ class _GanttScreenState extends State<GanttScreen> {
                                         height: rowsHeight,
                                         child: Stack(
                                           children: [
+                                            // Bottom of the stack: taps that miss
+                                            // every bar drop the focus again.
                                             Positioned.fill(
-                                              child: CustomPaint(
-                                                painter: _GridPainter(
-                                                  start: chartStart,
-                                                  days: totalDays,
-                                                  pxPerDay: _pxPerDay,
-                                                  zoom: _zoom,
-                                                  todayX: todayX,
-                                                  rowHeight: _rowHeight,
-                                                  rowCount: _tasks.length,
-                                                  line: AppColors.hairline2,
-                                                  monthLine: AppColors.hairline,
-                                                  weekend: AppColors.canvas2,
-                                                  todayColor: AppColors.stTodo,
+                                              child: GestureDetector(
+                                                behavior:
+                                                    HitTestBehavior.opaque,
+                                                onTap: _focusedId == null
+                                                    ? null
+                                                    : () => setState(
+                                                        () => _focusedId = null,
+                                                      ),
+                                                child: CustomPaint(
+                                                  painter: _GridPainter(
+                                                    start: chartStart,
+                                                    days: totalDays,
+                                                    pxPerDay: _pxPerDay,
+                                                    zoom: _zoom,
+                                                    todayX: todayX,
+                                                    rowHeight: _rowHeight,
+                                                    rowCount: _tasks.length,
+                                                    line: AppColors.hairline2,
+                                                    monthLine:
+                                                        AppColors.hairline,
+                                                    weekend: AppColors.canvas2,
+                                                    todayColor:
+                                                        AppColors.stTodo,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                            for (var i = 0; i < _tasks.length; i++)
+                                            Positioned.fill(
+                                              child: GanttLinksLayer(
+                                                graph: graph,
+                                                rowHeight: _rowHeight,
+                                                options: _linkOptions,
+                                                focusedId: _focusedId,
+                                              ),
+                                            ),
+                                            for (
+                                              var i = 0;
+                                              i < _tasks.length;
+                                              i++
+                                            )
                                               _positionedBar(
-                                                  context, _tasks[i], i, chartStart),
+                                                context,
+                                                _tasks[i],
+                                                i,
+                                                graph,
+                                                focused,
+                                              ),
                                           ],
                                         ),
                                       ),
@@ -378,8 +475,23 @@ class _GanttScreenState extends State<GanttScreen> {
                     setState(() => _zoom = z);
                   },
                   onToday: () => _scrollToToday(todayX, timelineWidth),
+                  optionsKey: _optionsKey,
+                  linksActive: _linkOptions.anyLinks,
+                  onOptions: () => showGanttViewOptions(
+                    context,
+                    anchorKey: _optionsKey,
+                    options: _linkOptions,
+                    summary: GanttLinkSummary(
+                      dependencies: graph.dependencyCount,
+                      related: graph.relatedCount,
+                      conflicts: graph.conflictIds.length,
+                    ),
+                    onChanged: (next) => setState(() => _linkOptions = next),
+                  ),
                   maxWidth:
-                      MediaQuery.sizeOf(context).width - 2 * context.pageGutter - 28,
+                      MediaQuery.sizeOf(context).width -
+                      2 * context.pageGutter -
+                      28,
                 ),
               ),
             ],
@@ -390,28 +502,69 @@ class _GanttScreenState extends State<GanttScreen> {
   }
 
   Widget _positionedBar(
-      BuildContext context, GanttTask task, int row, DateTime chartStart) {
-    final startOffset = task.startDate!.difference(chartStart).inDays;
-    final duration = (task.dueDate ?? task.startDate!)
-            .difference(task.startDate!)
-            .inDays +
-        1;
-    final left = startOffset * _pxPerDay;
-    final width = (duration * _pxPerDay).clamp(8.0, double.infinity);
+    BuildContext context,
+    GanttTask task,
+    int row,
+    GanttGraph graph,
+    Set<String> focused,
+  ) {
+    final slot = graph.slots[task.id]!;
+    final dimmed = focused.isNotEmpty && !focused.contains(task.id);
+    final critical =
+        _linkOptions.showCriticalPath && graph.criticalIds.contains(task.id);
+    final conflict = graph.conflictIds.contains(task.id);
+    final child = task.isMilestone
+        ? _MilestoneMarker(task: task, critical: critical, conflict: conflict)
+        : _GanttBar(
+            task: task,
+            width: slot.right - slot.left,
+            showLabel: _zoom == GanttZoom.week,
+            critical: critical,
+            conflict: conflict,
+          );
     return Positioned(
-      left: left,
+      left: slot.left,
       top: row * _rowHeight,
       height: _rowHeight,
-      width: width,
+      width: slot.right - slot.left,
       child: Center(
-        child: _GanttBar(
-          task: task,
-          width: width,
-          showLabel: _zoom == GanttZoom.week,
-          onTap: () => context.go('/issues/${task.id}'),
+        child: _FocusableBar(
+          hint: _barTooltip(context, task, graph),
+          dimmed: dimmed,
+          // A tap pins the issue's relationships; a long-press opens it, as does
+          // a tap on its label in the frozen column.
+          onTap: () => setState(
+            () => _focusedId = _focusedId == task.id ? null : task.id,
+          ),
+          onOpen: () => context.go('/issues/${task.id}'),
+          child: child,
         ),
       ),
     );
+  }
+
+  /// "HIN-4 · In Arbeit · 40% — blocks HIN-9, is blocked by HIN-2".
+  String _barTooltip(BuildContext context, GanttTask task, GanttGraph graph) {
+    final buffer = StringBuffer(
+      '${task.readableId} · ${stateLabel(task.state)} · ${task.progressPercent}%',
+    );
+    final byId = {for (final t in _tasks) t.id: t};
+    final relations = <String>[];
+    for (final edge in graph.edges) {
+      if (!edge.touches(task.id)) continue;
+      final outward = edge.from.id == task.id;
+      final other = byId[outward ? edge.to.id : edge.from.id];
+      if (other == null) continue;
+      relations.add(
+        '${context.t(issueLinkVerbKey(edge.link.type, outward))} '
+        '${other.readableId}',
+      );
+    }
+    if (relations.isNotEmpty) buffer.write('\n${relations.join('\n')}');
+    if (graph.conflictIds.contains(task.id)) {
+      buffer.write('\n⚠ ${context.t('gantt.conflictHint')}');
+    }
+    return buffer.toString();
   }
 
   void _maybeInitialScroll(double? todayX, double timelineWidth) {
@@ -423,17 +576,22 @@ class _GanttScreenState extends State<GanttScreen> {
     });
   }
 
-  void _scrollToToday(double? todayX, double timelineWidth,
-      {bool animate = true}) {
+  void _scrollToToday(
+    double? todayX,
+    double timelineWidth, {
+    bool animate = true,
+  }) {
     if (!_hBody.hasClients) return;
     final viewport = _hBody.position.viewportDimension;
     final max = _hBody.position.maxScrollExtent;
     final anchor = todayX ?? 0;
     final target = (anchor - viewport / 2).clamp(0.0, max);
     if (animate) {
-      _hBody.animateTo(target,
-          duration: const Duration(milliseconds: 360),
-          curve: Curves.easeOutCubic);
+      _hBody.animateTo(
+        target,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+      );
     } else {
       _hBody.jumpTo(target);
     }
@@ -456,7 +614,7 @@ class _ProjectPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = selected != null
         ? projects.where((p) => p.id == selected).firstOrNull?.name ??
-            projects.first.name
+              projects.first.name
         : projects.first.name;
     return GlassPopupMenu<String?>(
       value: selected,
@@ -476,15 +634,18 @@ class _ProjectPicker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown,
-                size: 16, color: AppColors.inkSoft),
+            Icon(LucideIcons.chevronDown, size: 16, color: AppColors.inkSoft),
           ],
         ),
       ),
@@ -494,51 +655,79 @@ class _ProjectPicker extends StatelessWidget {
 
 /// Frozen left-column entry: readable id + title, tappable to open the issue.
 class _TaskLabel extends StatelessWidget {
-  const _TaskLabel(
-      {required this.task, required this.height, required this.onTap});
+  const _TaskLabel({
+    required this.task,
+    required this.height,
+    required this.onTap,
+    this.dimmed = false,
+    this.conflict = false,
+  });
 
   final GanttTask task;
   final double height;
   final VoidCallback onTap;
 
+  /// Faded because another issue's relationships are pinned.
+  final bool dimmed;
+
+  /// Scheduled to start before the issue blocking it is finished.
+  final bool conflict;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: height,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            children: [
-              TypeGlyph(type: task.type, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: RichText(
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    style: const TextStyle(fontSize: 12),
-                    children: [
-                      TextSpan(
-                        text: task.readableId,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontMono,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.inkSoft,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 160),
+        opacity: dimmed ? 0.35 : 1,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Row(
+              children: [
+                TypeGlyph(type: task.type, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: RichText(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 12),
+                      children: [
+                        TextSpan(
+                          text: task.readableId,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontMono,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.inkSoft,
+                          ),
                         ),
-                      ),
-                      const TextSpan(text: '  '),
-                      TextSpan(
-                        text: task.title,
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, color: AppColors.ink),
-                      ),
-                    ],
+                        const TextSpan(text: '  '),
+                        TextSpan(
+                          text: task.title,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+                if (conflict) ...[
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: context.t('gantt.conflictHint'),
+                    child: const Icon(
+                      LucideIcons.triangleAlert,
+                      size: 14,
+                      color: AppColors.danger,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -583,8 +772,11 @@ class _TimeAxis extends StatelessWidget {
               children: [
                 for (final seg in segments)
                   _MonthCell(
-                    label: _monthLabel(context, seg.date,
-                        withYear: seg.width * pxPerDay > 96),
+                    label: _monthLabel(
+                      context,
+                      seg.date,
+                      withYear: seg.width * pxPerDay > 96,
+                    ),
                     width: seg.width * pxPerDay,
                     emphatic: zoom == GanttZoom.month,
                   ),
@@ -601,7 +793,8 @@ class _TimeAxis extends StatelessWidget {
                     _DayTick(
                       date: start.add(Duration(days: i)),
                       width: pxPerDay,
-                      isToday: today != null &&
+                      isToday:
+                          today != null &&
                           start.add(Duration(days: i)) == today,
                     ),
                 ],
@@ -623,7 +816,9 @@ class _TimeAxis extends StatelessWidget {
       final consumed = date.day - 1;
       final remainInMonth = endOfMonth - consumed;
       final remainInChart = days - i;
-      final span = remainInMonth < remainInChart ? remainInMonth : remainInChart;
+      final span = remainInMonth < remainInChart
+          ? remainInMonth
+          : remainInChart;
       out.add((date: monthStart, width: span));
       i += span;
     }
@@ -632,8 +827,11 @@ class _TimeAxis extends StatelessWidget {
 }
 
 class _MonthCell extends StatelessWidget {
-  const _MonthCell(
-      {required this.label, required this.width, required this.emphatic});
+  const _MonthCell({
+    required this.label,
+    required this.width,
+    required this.emphatic,
+  });
 
   final String label;
   final double width;
@@ -669,8 +867,11 @@ class _MonthCell extends StatelessWidget {
 }
 
 class _DayTick extends StatelessWidget {
-  const _DayTick(
-      {required this.date, required this.width, required this.isToday});
+  const _DayTick({
+    required this.date,
+    required this.width,
+    required this.isToday,
+  });
 
   final DateTime date;
   final double width;
@@ -683,7 +884,9 @@ class _DayTick extends StatelessWidget {
       '${date.day}',
       style: TextStyle(
         fontSize: 10,
-        fontWeight: isToday || date.day == 1 ? FontWeight.w800 : FontWeight.w400,
+        fontWeight: isToday || date.day == 1
+            ? FontWeight.w800
+            : FontWeight.w400,
         color: isToday
             ? Colors.white
             : (weekend ? AppColors.inkSoft : AppColors.textSecondary),
@@ -757,8 +960,10 @@ class _GridPainter extends CustomPainter {
         final date = start.add(Duration(days: i));
         if (date.weekday >= DateTime.saturday) {
           final x = i * pxPerDay;
-          canvas.drawRect(Rect.fromLTWH(x, 0, pxPerDay, size.height),
-              weekendPaint);
+          canvas.drawRect(
+            Rect.fromLTWH(x, 0, pxPerDay, size.height),
+            weekendPaint,
+          );
         }
       }
     }
@@ -769,8 +974,11 @@ class _GridPainter extends CustomPainter {
       final isMonthEdge = i == 0 || i == days || date.day == 1;
       if (zoom == GanttZoom.week) {
         final x = i * pxPerDay;
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height),
-            isMonthEdge ? monthPaint : dayPaint);
+        canvas.drawLine(
+          Offset(x, 0),
+          Offset(x, size.height),
+          isMonthEdge ? monthPaint : dayPaint,
+        );
       } else if (isMonthEdge) {
         final x = i * pxPerDay;
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), monthPaint);
@@ -802,67 +1010,39 @@ class _GridPainter extends CustomPainter {
       old.rowCount != rowCount;
 }
 
-class _GanttBar extends StatelessWidget {
-  const _GanttBar({
-    required this.task,
-    required this.width,
-    required this.showLabel,
+/// Wraps a bar (or milestone) with the timeline's shared interaction: tap pins
+/// the issue's relationships, long-press opens it, hovering previews the same
+/// highlight on pointer devices. Unrelated rows fade while a focus is pinned.
+class _FocusableBar extends StatelessWidget {
+  const _FocusableBar({
+    required this.child,
+    required this.hint,
+    required this.dimmed,
     required this.onTap,
+    required this.onOpen,
   });
 
-  final GanttTask task;
-  final double width;
-  final bool showLabel;
+  final Widget child;
+  final String hint;
+  final bool dimmed;
   final VoidCallback onTap;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    final color = task.resolved
-        ? AppColors.stDone
-        : AppColors.stateColor(task.state.toUpperCase());
-    return GestureDetector(
-      onTap: onTap,
-      child: Tooltip(
-        message:
-            '${task.readableId} · ${task.state} · ${task.progressPercent}%',
-        child: Container(
-          width: width,
-          height: 24,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: (task.progressPercent / 100).clamp(0.0, 1.0),
-                  child:
-                      Container(color: Colors.white.withValues(alpha: 0.22)),
-                ),
-              ),
-              if (showLabel && width > 28)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      task.readableId,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      softWrap: false,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontMono,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        onLongPress: onOpen,
+        onDoubleTap: onOpen,
+        child: Tooltip(
+          message: hint,
+          waitDuration: const Duration(milliseconds: 350),
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 160),
+            opacity: dimmed ? 0.26 : 1,
+            child: child,
           ),
         ),
       ),
@@ -870,35 +1050,142 @@ class _GanttBar extends StatelessWidget {
   }
 }
 
-/// Floating bottom-right control: a "today" action separated from the zoom
-/// toggle. Horizontally scrollable internally so it can never overflow.
+/// Zero-duration issue — a deadline. Drawn as the diamond every Gantt chart
+/// uses instead of a bar with no length.
+class _MilestoneMarker extends StatelessWidget {
+  const _MilestoneMarker({
+    required this.task,
+    required this.critical,
+    required this.conflict,
+  });
+
+  final GanttTask task;
+  final bool critical;
+  final bool conflict;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = conflict
+        ? AppColors.danger
+        : critical
+        ? AppColors.accentStrong
+        : (task.resolved
+              ? AppColors.stDone
+              : AppColors.stateColor(task.state.toUpperCase()));
+    return GanttMilestone(color: color, outlined: !task.resolved);
+  }
+}
+
+class _GanttBar extends StatelessWidget {
+  const _GanttBar({
+    required this.task,
+    required this.width,
+    required this.showLabel,
+    this.critical = false,
+    this.conflict = false,
+  });
+
+  final GanttTask task;
+  final double width;
+  final bool showLabel;
+
+  /// On the longest dependency chain — no slack, so it carries the accent ring.
+  final bool critical;
+
+  /// Starts before the issue blocking it is finished.
+  final bool conflict;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = task.resolved
+        ? AppColors.stDone
+        : AppColors.stateColor(task.state.toUpperCase());
+    final ring = conflict
+        ? AppColors.danger
+        : critical
+        ? AppColors.accentStrong
+        : null;
+    return Container(
+      width: width,
+      height: 24,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(7),
+        border: ring == null ? null : Border.all(color: ring, width: 2),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: (task.progressPercent / 100).clamp(0.0, 1.0),
+              child: Container(color: Colors.white.withValues(alpha: 0.22)),
+            ),
+          ),
+          if (showLabel && width > 28)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  task.readableId,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontMono,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Floating bottom-right control on the liquid-glass material: a "today" action
+/// separated from the zoom toggle. Horizontally scrollable internally so it can
+/// never overflow.
 class _ViewSwitcher extends StatelessWidget {
   const _ViewSwitcher({
     required this.zoom,
     required this.onZoom,
     required this.onToday,
+    required this.optionsKey,
+    required this.linksActive,
+    required this.onOptions,
     required this.maxWidth,
   });
 
   final GanttZoom zoom;
   final ValueChanged<GanttZoom> onZoom;
   final VoidCallback onToday;
+
+  /// Anchors the view-options popover to the chip that opens it.
+  final GlobalKey optionsKey;
+  final bool linksActive;
+  final VoidCallback onOptions;
   final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
+    // Phones give the chart every pixel they can: the switcher drops to icons
+    // and keeps its labels in the tooltips.
+    final iconOnly = context.isCompact;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final tokens = SearchTokens.of(dark ? Brightness.dark : Brightness.light);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth.clamp(140.0, 420.0)),
-      child: Material(
-        color: AppColors.surface,
-        elevation: 6,
-        shadowColor: Colors.black.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-            border: Border.all(color: AppColors.hairline),
-          ),
+      child: GlassFloatingSurface(
+        // A pill, not a rounded box: half the switcher's own height, so the
+        // ends stay perfectly round whichever mode it is in.
+        radius: (iconOnly ? 44 : 42) / 2,
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -906,26 +1193,42 @@ class _ViewSwitcher extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _SwitchChip(
+                  key: optionsKey,
+                  label: context.t('gantt.options.short'),
+                  icon: LucideIcons.gitFork,
+                  active: linksActive,
+                  iconOnly: iconOnly,
+                  onTap: onOptions,
+                ),
+                const SizedBox(width: 2),
+                _SwitchChip(
                   label: context.t('gantt.today'),
                   icon: LucideIcons.locateFixed,
                   active: false,
+                  iconOnly: iconOnly,
                   onTap: onToday,
                 ),
                 Container(
                   width: 1,
                   height: 22,
                   margin: const EdgeInsets.symmetric(horizontal: 6),
-                  color: AppColors.hairline,
+                  color: tokens.hairline,
                 ),
                 _SwitchChip(
                   label: context.t('gantt.week'),
+                  // A span of days vs. the full month grid — the two zoom
+                  // levels read apart at a glance without their labels.
+                  icon: LucideIcons.calendarRange,
                   active: zoom == GanttZoom.week,
+                  iconOnly: iconOnly,
                   onTap: () => onZoom(GanttZoom.week),
                 ),
                 const SizedBox(width: 2),
                 _SwitchChip(
                   label: context.t('gantt.month'),
+                  icon: LucideIcons.calendarDays,
                   active: zoom == GanttZoom.month,
+                  iconOnly: iconOnly,
                   onTap: () => onZoom(GanttZoom.month),
                 ),
               ],
@@ -939,10 +1242,12 @@ class _ViewSwitcher extends StatelessWidget {
 
 class _SwitchChip extends StatelessWidget {
   const _SwitchChip({
+    super.key,
     required this.label,
     required this.active,
     required this.onTap,
     this.icon,
+    this.iconOnly = false,
   });
 
   final String label;
@@ -950,39 +1255,57 @@ class _SwitchChip extends StatelessWidget {
   final VoidCallback onTap;
   final IconData? icon;
 
+  /// Drops the label and keeps it as the tooltip — the compact layout, where a
+  /// four-chip switcher with words would run past the screen.
+  final bool iconOnly;
+
   @override
   Widget build(BuildContext context) {
-    final fg = active ? AppColors.accentStrong : AppColors.inkSoft;
-    return Material(
-      color: active ? AppColors.accentSoft : Colors.transparent,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final tokens = SearchTokens.of(dark ? Brightness.dark : Brightness.light);
+    // On glass the active pill is a translucent amber wash, not an opaque
+    // fill — an opaque chip would sit on the lens like a sticker.
+    final fg = active
+        ? (dark ? AppColors.accent : AppColors.accentStrong)
+        : tokens.inkSoft;
+    final compact = iconOnly && icon != null;
+    final chip = Material(
+      color: active
+          ? AppColors.accent.withValues(alpha: dark ? 0.30 : 0.22)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 11 : 12,
+            vertical: 7,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 15, color: fg),
-                const SizedBox(width: 5),
+                Icon(icon, size: compact ? 18 : 15, color: fg),
+                if (!compact) const SizedBox(width: 5),
               ],
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                softWrap: false,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: fg,
+              if (!compact)
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
+    return compact ? Tooltip(message: label, child: chip) : chip;
   }
 }

@@ -6,6 +6,7 @@ import '../../core/models/work_models.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/gantt_links.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
 
@@ -28,17 +29,24 @@ String _monthLabel(
 /// including the hidden backlog column). Issues with a start and/or due date
 /// are placed on the day grid; those without dates are listed underneath.
 ///
-/// Self-contained (operates on [Issue], not the Gantt model) so the Gantt
-/// screen stays untouched. All axes scroll, so it never overflows.
+/// Operates on [Issue] (not the Gantt read model), but shares the Gantt screen's
+/// connector layer, so dependencies, conflicts and milestones read identically
+/// on both surfaces. All axes scroll, so it never overflows.
 class BoardTimeline extends StatefulWidget {
   const BoardTimeline({
     super.key,
     required this.issues,
     required this.onOpen,
+    this.links = const [],
     this.padding = EdgeInsets.zero,
   });
 
   final List<Issue> issues;
+
+  /// The board's issue-link graph. Empty until it has loaded — the chart simply
+  /// draws no connectors until then.
+  final List<GanttLink> links;
+
   final void Function(Issue) onOpen;
   final EdgeInsets padding;
 
@@ -83,6 +91,32 @@ class _BoardTimelineState extends State<BoardTimeline> {
 
   DateTime _start(Issue i) => _dayOnly(i.startDate ?? i.dueDate!);
   DateTime _end(Issue i) => _dayOnly(i.dueDate ?? i.startDate!);
+
+  /// The server's link graph plus the issues' own `dependsOnIds`. The project
+  /// link endpoint only knows about real [IssueLink]s, so the legacy dependency
+  /// field is folded in here — "A depends on B" is "B blocks A" — and deduped
+  /// against a real link that already says the same thing.
+  List<GanttLink> _graphLinks(List<Issue> tasks) {
+    final out = [...widget.links];
+    final seen = {
+      for (final link in out) '${link.type}|${link.sourceId}|${link.targetId}',
+    };
+    for (final issue in tasks) {
+      for (final blockerId in issue.dependsOnIds) {
+        final key = 'BLOCKS|$blockerId|${issue.id}';
+        if (blockerId == issue.id || !seen.add(key)) continue;
+        out.add(
+          GanttLink(
+            id: 'dep:$blockerId:${issue.id}',
+            type: 'BLOCKS',
+            sourceId: blockerId,
+            targetId: issue.id,
+          ),
+        );
+      }
+    }
+    return out;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +204,16 @@ class _BoardTimelineState extends State<BoardTimeline> {
         : null;
 
     _maybeInitialScroll(todayX);
+
+    final graph = GanttGraph.build(
+      rows: [
+        for (final task in tasks)
+          GanttRow(id: task.id, from: _start(task), to: _end(task)),
+      ],
+      links: _graphLinks(tasks),
+      chartStart: chartStart,
+      pxPerDay: _pxPerDay,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -291,8 +335,14 @@ class _BoardTimelineState extends State<BoardTimeline> {
                                           ),
                                         ),
                                       ),
+                                      Positioned.fill(
+                                        child: GanttLinksLayer(
+                                          graph: graph,
+                                          rowHeight: _rowHeight,
+                                        ),
+                                      ),
                                       for (var i = 0; i < tasks.length; i++)
-                                        _positionedBar(tasks[i], i, chartStart),
+                                        _positionedBar(tasks[i], i, graph),
                                     ],
                                   ),
                                 ),
@@ -312,25 +362,41 @@ class _BoardTimelineState extends State<BoardTimeline> {
     );
   }
 
-  Widget _positionedBar(Issue task, int row, DateTime chartStart) {
-    final startOffset = _start(task).difference(chartStart).inDays;
-    final duration = _end(task).difference(_start(task)).inDays + 1;
-    final left = startOffset * _pxPerDay;
-    final width = (duration * _pxPerDay).clamp(8.0, double.infinity);
+  Widget _positionedBar(Issue task, int row, GanttGraph graph) {
+    final slot = graph.slots[task.id]!;
+    final width = slot.right - slot.left;
     final fraction = (task.estimateMinutes != null && task.estimateMinutes! > 0)
         ? (task.spentMinutes / task.estimateMinutes!).clamp(0.0, 1.0)
         : (task.resolved ? 1.0 : 0.0);
+    final conflict = graph.conflictIds.contains(task.id);
+    final color = task.resolved
+        ? AppColors.stDone
+        : AppColors.stateColor(task.state.toUpperCase());
     return Positioned(
-      left: left,
+      left: slot.left,
       top: row * _rowHeight,
       height: _rowHeight,
       width: width,
       child: Center(
-        child: _TimelineBar(
-          task: task,
-          width: width.toDouble(),
-          fraction: fraction.toDouble(),
+        child: GestureDetector(
           onTap: () => widget.onOpen(task),
+          child: Tooltip(
+            message: conflict
+                ? '${task.readableId} · ${stateLabel(task.state)}'
+                      '\n⚠ ${context.t('gantt.conflictHint')}'
+                : '${task.readableId} · ${stateLabel(task.state)}',
+            child: slot.isMilestone
+                ? GanttMilestone(
+                    color: conflict ? AppColors.danger : color,
+                    outlined: !task.resolved,
+                  )
+                : _TimelineBar(
+                    task: task,
+                    width: width,
+                    fraction: fraction.toDouble(),
+                    conflict: conflict,
+                  ),
+          ),
         ),
       ),
     );
@@ -713,62 +779,59 @@ class _TimelineBar extends StatelessWidget {
     required this.task,
     required this.width,
     required this.fraction,
-    required this.onTap,
+    this.conflict = false,
   });
 
   final Issue task;
   final double width;
   final double fraction;
-  final VoidCallback onTap;
+
+  /// Starts before the issue blocking it is finished.
+  final bool conflict;
 
   @override
   Widget build(BuildContext context) {
     final color = task.resolved
         ? AppColors.stDone
         : AppColors.stateColor(task.state.toUpperCase());
-    return GestureDetector(
-      onTap: onTap,
-      child: Tooltip(
-        message: '${task.readableId} · ${stateLabel(task.state)}',
-        child: Container(
-          width: width,
-          height: 24,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(7),
+    return Container(
+      width: width,
+      height: 24,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(7),
+        border: conflict ? Border.all(color: AppColors.danger, width: 2) : null,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: fraction,
+              child: Container(color: Colors.white.withValues(alpha: 0.22)),
+            ),
           ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              Align(
+          if (width > 28)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: Align(
                 alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: fraction,
-                  child: Container(color: Colors.white.withValues(alpha: 0.22)),
-                ),
-              ),
-              if (width > 28)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      task.readableId,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      softWrap: false,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontMono,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                child: Text(
+                  task.readableId,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
+                  style: const TextStyle(
+                    fontFamily: AppTheme.fontMono,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }

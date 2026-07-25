@@ -816,12 +816,35 @@
   },
   "gantt": {
     "title": "Zeitachse",
-    "subtitle": "Gantt-Ansicht mit Abhängigkeiten",
+    "subtitle": "Gantt-Ansicht mit Abhängigkeiten, Meilensteinen und kritischem Pfad",
     "column": "Aufgabe",
     "empty": "Keine geplanten Aufgaben. Setze Start- und Fälligkeitsdatum, um sie auf der Zeitachse zu sehen.",
     "today": "Heute",
     "week": "Woche",
-    "month": "Monat"
+    "month": "Monat",
+    "options": {
+      "short": "Verknüpfungen",
+      "title": "Zeitleisten-Ansicht",
+      "dependencies": "Abhängigkeiten",
+      "dependenciesHint": "{{count}} blockierende Verknüpfung in diesem Diagramm",
+      "dependenciesHint_plural": "{{count}} blockierende Verknüpfungen in diesem Diagramm",
+      "related": "Weitere Verknüpfungen",
+      "relatedHint": "{{count}} weitere Verknüpfung (bezieht sich auf, dupliziert, testet …)",
+      "relatedHint_plural": "{{count}} weitere Verknüpfungen (bezieht sich auf, dupliziert, testet …)",
+      "criticalPath": "Kritischer Pfad",
+      "criticalPathHint": "Die längste Kette von Abhängigkeiten — ohne Puffer"
+    },
+    "conflicts": "{{count}} Terminkonflikt",
+    "conflicts_plural": "{{count}} Terminkonflikte",
+    "conflictHint": "Beginnt, bevor der blockierende Vorgang abgeschlossen ist",
+    "focusHint": "Balken antippen, um Verknüpfungen hervorzuheben; lange drücken zum Öffnen",
+    "legend": {
+      "title": "Legende",
+      "dependency": "blockiert / wird blockiert von",
+      "related": "Andere Verknüpfungstypen",
+      "critical": "Kritischer Pfad",
+      "conflict": "Terminkonflikt"
+    }
   },
   "timesheet": {
     "title": "Stundenzettel",

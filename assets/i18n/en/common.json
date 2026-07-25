@@ -816,12 +816,35 @@
   },
   "gantt": {
     "title": "Timeline",
-    "subtitle": "Gantt view with dependencies",
+    "subtitle": "Gantt view with dependencies, milestones and the critical path",
     "column": "Issue",
     "empty": "No scheduled issues. Set start and due dates on issues to see them on the timeline.",
     "today": "Today",
     "week": "Week",
-    "month": "Month"
+    "month": "Month",
+    "options": {
+      "short": "Links",
+      "title": "Timeline view",
+      "dependencies": "Dependencies",
+      "dependenciesHint": "{{count}} blocking link on this chart",
+      "dependenciesHint_plural": "{{count}} blocking links on this chart",
+      "related": "Other links",
+      "relatedHint": "{{count}} related link (relates to, duplicates, tests …)",
+      "relatedHint_plural": "{{count}} related links (relates to, duplicates, tests …)",
+      "criticalPath": "Critical path",
+      "criticalPathHint": "The longest chain of dependencies — no slack"
+    },
+    "conflicts": "{{count}} scheduling conflict",
+    "conflicts_plural": "{{count}} scheduling conflicts",
+    "conflictHint": "Starts before the issue blocking it is finished",
+    "focusHint": "Tap a bar to highlight its links, long-press to open the issue",
+    "legend": {
+      "title": "Legend",
+      "dependency": "blocks / is blocked by",
+      "related": "Other link types",
+      "critical": "Critical path",
+      "conflict": "Scheduling conflict"
+    }
   },
   "timesheet": {
     "title": "Timesheet",

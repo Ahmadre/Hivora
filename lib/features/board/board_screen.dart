@@ -347,6 +347,12 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   /// epic is its grandparent) for swimlane grouping and the epic filter.
   Map<String, Issue> _issuesById = const {};
 
+  /// Issue links of the board's projects, drawn as dependency connectors on the
+  /// timeline. Only that view needs them, so they load on first switch to it.
+  List<GanttLink> _links = const [];
+  bool _linksLoaded = false;
+  bool _linksLoading = false;
+
   final GlobalKey _filterKey = GlobalKey();
 
   /// Re-fetch when an issue is created/changed elsewhere (e.g. the global
@@ -419,12 +425,46 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         _issuesById = loaded.byId;
         _loading = false;
       });
+      // Links can change with the issues (a reload is triggered by every issue
+      // event), so re-pull them whenever the timeline is the visible view.
+      _linksLoaded = false;
+      if (_mode == BoardViewMode.timeline) await _loadLinks();
     } on ApiFailure catch (failure) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = failure.message;
       });
+    }
+  }
+
+  /// Switches view, pulling the link graph in the first time the timeline is
+  /// shown — the kanban and backlog draw no connectors, so nothing else pays
+  /// for it.
+  void _switchMode(BoardViewMode mode) {
+    setState(() => _mode = mode);
+    if (mode == BoardViewMode.timeline) _loadLinks();
+  }
+
+  Future<void> _loadLinks() async {
+    final view = _view;
+    if (_linksLoaded || _linksLoading || view == null) return;
+    _linksLoading = true;
+    final repository = context.read<ProjectRepository>();
+    try {
+      final lists = await Future.wait(
+        view.board.projectIds.map(repository.ganttLinks),
+      );
+      if (!mounted) return;
+      setState(() {
+        _links = [for (final list in lists) ...list];
+        _linksLoaded = true;
+      });
+    } on ApiFailure {
+      // Connectors are an overlay on a chart that already renders — a failed
+      // graph must not take the board down with it.
+    } finally {
+      _linksLoading = false;
     }
   }
 
@@ -722,7 +762,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           _CompactViewSwitcher(
             items: _switcherItems(),
             selected: _viewModes.indexOf(_mode).clamp(0, _viewModes.length - 1),
-            onChanged: (i) => setState(() => _mode = _viewModes[i]),
+            onChanged: (i) => _switchMode(_viewModes[i]),
           ),
         ],
       );
@@ -850,6 +890,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           issues: _allBoardIssues
               .where((i) => _passes(i) && !i.isSubtask)
               .toList(),
+          links: _links,
           onOpen: _openIssue,
           padding: EdgeInsets.fromLTRB(
             context.pageGutter,

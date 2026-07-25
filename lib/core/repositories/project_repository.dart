@@ -58,12 +58,12 @@ class ProjectRepository {
   Future<List<Project>> resolveProjects(List<String> ids) async {
     if (ids.isEmpty) return const [];
     return ((await _api.get(
-                  '/api/v1/projects/resolve',
-                  query: {'ids': ids.join(',')},
-                ))
-                as List<dynamic>)
-            .map((p) => Project.fromJson(p as Map<String, dynamic>))
-            .toList();
+              '/api/v1/projects/resolve',
+              query: {'ids': ids.join(',')},
+            ))
+            as List<dynamic>)
+        .map((p) => Project.fromJson(p as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Project> project(String id) async => Project.fromJson(
@@ -116,9 +116,18 @@ class ProjectRepository {
     '/api/v1/projects/$projectId/labels?label=${Uri.encodeQueryComponent(label)}',
   );
 
-  Future<List<GanttTask>> gantt(String projectId) async =>
-      ((await _api.get('/api/v1/projects/$projectId/gantt')) as List<dynamic>)
-          .map((t) => GanttTask.fromJson(t as Map<String, dynamic>))
+  /// Scheduled issues of a project plus the link graph between them — the whole
+  /// timeline in one round trip.
+  Future<GanttView> gantt(String projectId) async => GanttView.fromJson(
+    await _api.get('/api/v1/projects/$projectId/gantt') as Map<String, dynamic>,
+  );
+
+  /// Just the connectors of a project, for views that already hold their issues
+  /// (the board timeline).
+  Future<List<GanttLink>> ganttLinks(String projectId) async =>
+      ((await _api.get('/api/v1/projects/$projectId/gantt/links'))
+              as List<dynamic>)
+          .map((l) => GanttLink.fromJson(l as Map<String, dynamic>))
           .toList();
 
   /// Affected boards/issues/etc. + the projects issues could migrate into.
