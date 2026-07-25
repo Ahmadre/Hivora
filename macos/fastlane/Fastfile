@@ -32,6 +32,33 @@ def ci?
   ENV["CI"] == "true"
 end
 
+# App Store Connect refuses to create a new version or to hand out an editable
+# "App Info" while an earlier version is still Waiting for Review / In Review /
+# Pending Developer Release. App Info (name, subtitle, privacy URL) belongs to
+# the app RECORD, not to a platform — so a pending iOS version blocks the macOS
+# metadata upload just as well. Nothing in the pipeline can work around that;
+# the only fix is to unblock the app in App Store Connect.
+LOCKED_APP_HINT = <<~MSG.freeze
+  App Store Connect has no editable state for #{APP_IDENTIFIER} right now.
+
+  This happens when a version (macOS *or* iOS — they share one app record and
+  therefore one App Info) is still "Waiting for Review", "In Review" or
+  "Pending Developer Release". While that lasts, no new version can be created
+  and the localized App Info is read-only.
+
+  To unblock: in App Store Connect either release the approved version, or
+  cancel/reject the pending submission — then re-run "Publish (button)".
+
+  Uploading a build is NOT affected: "Release (button)" goes to TestFlight and
+  keeps working in this state.
+MSG
+
+def locked_app_error?(error)
+  error.message.to_s.match?(
+    /editable 'App Info'|cannot create a new version of the app|in the current state/i
+  )
+end
+
 # Sets the global App Store Connect API key; nested actions read it from the
 # lane context (passing it on triggers an api_key/api_key_path conflict in cert).
 def auth!
@@ -145,7 +172,11 @@ platform :mac do
     )
   end
 
-  desc "Build + upload .pkg, metadata & screenshots to the Mac App Store. SUBMIT=true also submits for review."
+  desc "Build + upload .pkg & metadata to the Mac App Store. SUBMIT=true also submits for review."
+  #
+  # Needs the app to be EDITABLE on App Store Connect (deliver creates the new
+  # version and rewrites App Info). Used by "Publish (button)"; plain TestFlight
+  # drops go through `beta`, which has no such requirement.
   lane :release do
     build
     submit = ENV["SUBMIT"] == "true"
@@ -162,7 +193,14 @@ platform :mac do
       # 2880x1800 MacBook screenshots (fastlane/screenshots).
       skip_metadata: false,
       skip_screenshots: true,
-      overwrite_screenshots: true
+      overwrite_screenshots: true,
+      # Default is 7 retries with backoff (~20 min) before giving up — pointless
+      # when the app is locked rather than merely slow. Two still cover a hiccup.
+      version_check_wait_retry_limit: 2
     )
+  rescue StandardError => e
+    raise unless locked_app_error?(e)
+    UI.error(e.message)
+    UI.user_error!(LOCKED_APP_HINT)
   end
 end

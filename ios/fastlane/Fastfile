@@ -28,6 +28,33 @@ def ci?
   ENV["CI"] == "true"
 end
 
+# App Store Connect refuses to create a new version or to hand out an editable
+# "App Info" while an earlier version is still Waiting for Review / In Review /
+# Pending Developer Release. App Info (name, subtitle, privacy URL) belongs to
+# the app RECORD, not to a platform — so a pending macOS version blocks the iOS
+# metadata upload just as well. Nothing in the pipeline can work around that;
+# the only fix is to unblock the app in App Store Connect.
+LOCKED_APP_HINT = <<~MSG.freeze
+  App Store Connect has no editable state for #{APP_IDENTIFIER} right now.
+
+  This happens when a version (iOS *or* macOS — they share one app record and
+  therefore one App Info) is still "Waiting for Review", "In Review" or
+  "Pending Developer Release". While that lasts, no new version can be created
+  and the localized App Info is read-only.
+
+  To unblock: in App Store Connect either release the approved version, or
+  cancel/reject the pending submission — then re-run "Publish (button)".
+
+  Uploading a build is NOT affected: "Release (button)" goes to TestFlight and
+  keeps working in this state.
+MSG
+
+def locked_app_error?(error)
+  error.message.to_s.match?(
+    /editable 'App Info'|cannot create a new version of the app|in the current state/i
+  )
+end
+
 # Sets the global App Store Connect API key so every subsequent action (match,
 # cert, sigh, pilot, deliver) authenticates without an Apple ID / 2FA. Locally it
 # reads the .p8 file (HINATA_ASC_KEY_PATH); on CI the base64 contents
@@ -148,7 +175,12 @@ platform :ios do
     )
   end
 
-  desc "Build + upload binary, metadata & screenshots to App Store Connect. SUBMIT=true also submits for review."
+  desc "Build + upload binary & metadata to App Store Connect. SUBMIT=true also submits for review."
+  #
+  # This lane needs the app to be EDITABLE on App Store Connect: deliver creates
+  # the new App Store version and rewrites the App Info localizations. Use it for
+  # the "Publish (button)" flow only — plain TestFlight drops go through `beta`,
+  # which has no such requirement.
   lane :release do
     build
     submit = ENV["SUBMIT"] == "true"
@@ -165,7 +197,16 @@ platform :ios do
       # and the framed 6.9" iPhone + 13" iPad screenshots (fastlane/screenshots).
       skip_metadata: false,
       skip_screenshots: true,
-      overwrite_screenshots: true
+      overwrite_screenshots: true,
+      # deliver keeps retrying while it waits for App Store Connect to settle.
+      # The default of 7 backs off up to ~20 minutes before it gives up — far too
+      # long when the app is simply locked and no amount of waiting will help.
+      # Two attempts still absorb a genuine transient hiccup.
+      version_check_wait_retry_limit: 2
     )
+  rescue StandardError => e
+    raise unless locked_app_error?(e)
+    UI.error(e.message)
+    UI.user_error!(LOCKED_APP_HINT)
   end
 end

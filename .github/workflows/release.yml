@@ -6,6 +6,19 @@ name: Store Release
 #      the version + creates the tag for you, then invokes this via workflow_call.
 # Requires the secrets documented in README.md (Play service account, Apple API
 # key, match repo, signing keys).
+#
+# `submit` picks the Apple lane, and that distinction matters:
+#   submit=false → `fastlane beta`    → TestFlight only (pilot). Never creates an
+#                  App Store version and never touches the shared App Info, so it
+#                  keeps working while an earlier version sits in review.
+#   submit=true  → `fastlane release` → deliver: creates the App Store version,
+#                  uploads the listing and submits for review. This REQUIRES an
+#                  editable app on App Store Connect.
+# Running `release` for a plain TestFlight drop is what used to break the Release
+# button ("could not find an editable 'App Info'" / "You cannot create a new
+# version of the App in the current state") whenever a prior version was still in
+# review — App Info is shared by the iOS and macOS platform of one app record, so
+# a pending macOS version locks the iOS metadata upload too.
 on:
   push:
     tags: ['v*']
@@ -25,7 +38,7 @@ on:
 
 jobs:
   android:
-    name: Android → Play Store (internal track)
+    name: Android → Play ${{ inputs.submit == 'true' && 'production (review)' || 'internal track' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +100,7 @@ jobs:
           bundle exec fastlane internal
 
   ios:
-    name: iOS → TestFlight
+    name: iOS → ${{ inputs.submit == 'true' && 'App Store (review)' || 'TestFlight' }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -114,10 +127,17 @@ jobs:
           SUBMIT: ${{ inputs.submit }}
         run: |
           cd ios
-          bundle exec fastlane release
+          # Publish → deliver (App Store version + listing + submit for review).
+          # Release / tag push → pilot (TestFlight only), which is immune to the
+          # app being locked by a version that is still in review.
+          if [ "$SUBMIT" = "true" ]; then
+            bundle exec fastlane release
+          else
+            bundle exec fastlane beta
+          fi
 
   macos:
-    name: macOS → TestFlight (Mac App Store)
+    name: macOS → ${{ inputs.submit == 'true' && 'Mac App Store (review)' || 'TestFlight' }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -145,4 +165,9 @@ jobs:
           SUBMIT: ${{ inputs.submit }}
         run: |
           cd macos
-          bundle exec fastlane release
+          # Same split as iOS: TestFlight for a plain release, deliver for publish.
+          if [ "$SUBMIT" = "true" ]; then
+            bundle exec fastlane release
+          else
+            bundle exec fastlane beta
+          fi

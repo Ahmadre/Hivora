@@ -9,6 +9,11 @@ name: Release (button)
 # "Store Release" workflow (reusable) to build & upload Android + iOS + macOS.
 # The Android versionCode (build number after "+") is always incremented by 1 so
 # Play never rejects the upload.
+#
+# This is the TESTER channel: Play internal track (draft) + iOS/macOS TestFlight.
+# It deliberately uploads no store listing and creates no App Store version, so it
+# stays available even while a previous version is in review. To actually ship to
+# the stores, use "Publish (button)".
 on:
   workflow_dispatch:
     inputs:
