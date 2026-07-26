@@ -12,6 +12,8 @@ import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_loader.dart';
+import '../../core/widgets/hive_widgets.dart'
+    show SegmentItem, SegmentedControl;
 import '../board/board_drag.dart';
 import '../board/board_filter.dart';
 import '../board/board_filter_popup.dart';
@@ -642,9 +644,24 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
 
   Widget _tabBar() {
     final compact = context.isCompact;
-    // Labels are hidden on phones (icons only) to leave room for the filter.
-    final switcher = _SprintTabSwitcher(
+    // Labels are hidden on phones (icons only) to leave room for the filter;
+    // the shared control moves them into tooltips when it does that.
+    final switcher = SegmentedControl(
       iconsOnly: compact,
+      items: [
+        SegmentItem(
+          icon: LucideIcons.listChecks,
+          label: context.t('sprint.tab.planning'),
+        ),
+        SegmentItem(
+          icon: LucideIcons.columns3,
+          label: context.t('sprint.tab.active'),
+        ),
+        SegmentItem(
+          icon: LucideIcons.chartLine,
+          label: context.t('sprint.tab.insights'),
+        ),
+      ],
       selected: _tab.index,
       onChanged: (i) {
         setState(() => _tab = _Tab.values[i]);
@@ -802,80 +819,6 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
   }
 }
 
-/// Planning · Active sprint · Insights switcher. Shows labels on wide layouts
-/// and icons only on phones (so the filter cluster fits on the same row).
-class _SprintTabSwitcher extends StatelessWidget {
-  const _SprintTabSwitcher({
-    required this.iconsOnly,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final bool iconsOnly;
-  final int selected;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <({IconData icon, String label})>[
-      (icon: LucideIcons.listChecks, label: context.t('sprint.tab.planning')),
-      (icon: LucideIcons.columns3, label: context.t('sprint.tab.active')),
-      (icon: LucideIcons.chartLine, label: context.t('sprint.tab.insights')),
-    ];
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < items.length; i++)
-            GestureDetector(
-              onTap: () => onChanged(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: EdgeInsets.symmetric(
-                  horizontal: iconsOnly ? 11 : 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: i == selected ? AppColors.navy : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      items[i].icon,
-                      size: 15,
-                      color: i == selected ? Colors.white : AppColors.inkSoft,
-                    ),
-                    if (!iconsOnly) ...[
-                      const SizedBox(width: 6),
-                      Text(
-                        items[i].label,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: i == selected
-                              ? Colors.white
-                              : AppColors.inkSoft,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 /// White pill that opens the glass filter popup; shows an amber count badge.
 /// Collapses to an icon-only button on phones.
 class _SprintFilterButton extends StatelessWidget {
@@ -893,7 +836,7 @@ class _SprintFilterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = count > 0;
-    return Material(
+    final button = Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppTheme.radiusControl),
       child: InkWell(
@@ -955,6 +898,10 @@ class _SprintFilterButton extends StatelessWidget {
         ),
       ),
     );
+    // Only where the label is gone — a tooltip repeating visible text is noise.
+    return compact
+        ? Tooltip(message: context.t('board.filterButton'), child: button)
+        : button;
   }
 }
 

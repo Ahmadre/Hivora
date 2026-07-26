@@ -141,6 +141,28 @@ void main() {
 
     expect(boards.didReset, isTrue);
   });
+
+  testWidgets('keeps the reset action out of the footer row', (tester) async {
+    // It used to sit in the footer's hint slot, sharing one row with Cancel and
+    // Save; on a phone the leftover width broke "Zurück zu automatisch" into a
+    // column of syllables. It now shares a wrapping row with "add column", which
+    // can give each label a full line. Asserted structurally rather than in
+    // pixels: these tests render i18n keys, and a key is not the label's width.
+    await openEditor(tester);
+
+    final actions = find.ancestor(
+      of: find.text('board.columns.automatic'),
+      matching: find.byType(Wrap),
+    );
+    expect(actions, findsWidgets);
+    expect(
+      find.descendant(
+        of: actions.first,
+        matching: find.text('board.columns.addColumn'),
+      ),
+      findsOneWidget,
+    );
+  });
 }
 
 class _FakeBoardRepository implements BoardRepository {

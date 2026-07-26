@@ -55,7 +55,14 @@ class BoardGroupByButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showLabel = !compact || value != BoardGrouping.none;
+    // Icon-only on phones so the header row still fits the view switcher and
+    // the filter button. An active grouping would otherwise become invisible
+    // once its label is gone, so the icon carries the accent instead.
+    final narrow = compact || context.isCompact;
+    final active = value != BoardGrouping.none;
+    final label = active
+        ? boardGroupingLabel(context, value)
+        : context.t('board.groupBy');
     return GlassPopupMenu<BoardGrouping>(
       value: value,
       width: 220,
@@ -64,36 +71,44 @@ class BoardGroupByButton extends StatelessWidget {
         for (final g in options ?? BoardGrouping.values)
           GlassMenuItem(value: g, label: boardGroupingLabel(context, g)),
       ],
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.rows3, size: 16, color: AppColors.inkSoft),
-              if (showLabel) ...[
-                const SizedBox(width: 7),
-                Text(
-                  value == BoardGrouping.none
-                      ? context.t('board.groupBy')
-                      : boardGroupingLabel(context, value),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              if (!context.isCompact) ...[
-                const SizedBox(width: 4),
+      child: Tooltip(
+        message: label,
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: narrow ? 11 : 14,
+              vertical: 10,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Icon(
-                  LucideIcons.chevronDown,
-                  size: 15,
-                  color: AppColors.inkFaint,
+                  LucideIcons.rows3,
+                  size: 16,
+                  color: narrow && active
+                      ? AppColors.accent
+                      : AppColors.inkSoft,
                 ),
+                if (!narrow) ...[
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    LucideIcons.chevronDown,
+                    size: 15,
+                    color: AppColors.inkFaint,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

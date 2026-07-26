@@ -12,6 +12,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/hue_colors.dart';
 import 'hive_loader.dart';
+import 'hive_widgets.dart' show hiveEase;
 import '../../features/sprint/modals/glass_modal.dart'
     show
         kGlassPopoverBreakpoint,
@@ -66,11 +67,21 @@ Future<List<Project>?> showProjectPicker(
       builder: (_) => panel(false),
     );
   }
-  // Fixed height: results change per keystroke, and a shrink-to-content sheet
-  // would bounce with every debounced page.
+  // Sized to its content, capped so a long catalogue stays a sheet. A fixed
+  // height left a slab of empty glass under the footer whenever the workspace
+  // had few projects — the common case. Results do change per keystroke, so
+  // AnimatedSize turns each debounced page into a motion rather than a jump.
   return showGlassBottomSheet<List<Project>>(
     context,
-    builder: (_) => SizedBox(height: 460, child: panel(true)),
+    builder: (_) => AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      curve: hiveEase,
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 460),
+        child: panel(true),
+      ),
+    ),
   );
 }
 

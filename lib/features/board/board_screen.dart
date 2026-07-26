@@ -774,11 +774,19 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         children: [
           PageHead(title: view.board.name, subtitle: subtitle),
           const SizedBox(height: 12),
-          // Right-aligned, collapsible, responsive-label switcher (mobile).
-          _CompactViewSwitcher(
-            items: _switcherItems(),
-            selected: _viewModes.indexOf(_mode).clamp(0, _viewModes.length - 1),
-            onChanged: (i) => _switchMode(_viewModes[i]),
+          // Right-aligned and icons-only on phones: the labels used to eat the
+          // width this row shares with group-by and filter, and a handle to
+          // fold them away was one control more than the choice is worth.
+          Align(
+            alignment: Alignment.centerRight,
+            child: SegmentedControl(
+              iconsOnly: true,
+              items: _switcherItems(),
+              selected: _viewModes
+                  .indexOf(_mode)
+                  .clamp(0, _viewModes.length - 1),
+              onChanged: (i) => _switchMode(_viewModes[i]),
+            ),
           ),
         ],
       );

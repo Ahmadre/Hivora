@@ -380,7 +380,8 @@ class HiveAvatar extends StatelessWidget {
       // URLs (/api/v1/users/.../avatar) are authenticated and must be loaded as
       // bytes via the ApiClient — a cross-origin NetworkImage taints the
       // CanvasKit canvas on web and silently fails (same fix as AppAvatar).
-      final isExternal = url.startsWith('http') && !url.contains('/api/v1/users/');
+      final isExternal =
+          url.startsWith('http') && !url.contains('/api/v1/users/');
       if (isExternal) return _circle(NetworkImage(url));
       ApiClient? api;
       try {
@@ -402,31 +403,31 @@ class HiveAvatar extends StatelessWidget {
   }
 
   Widget _circle(ImageProvider? image) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: background ?? hiveHueColor(name),
-          shape: BoxShape.circle,
-          image: image != null
-              ? DecorationImage(image: image, fit: BoxFit.cover)
-              : null,
-          boxShadow: ring
-              ? [BoxShadow(color: AppColors.surface, spreadRadius: 2)]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: image != null
-            ? null
-            : glyph ??
-                Text(
-                  _initials(name),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: size * 0.4,
-                  ),
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: background ?? hiveHueColor(name),
+      shape: BoxShape.circle,
+      image: image != null
+          ? DecorationImage(image: image, fit: BoxFit.cover)
+          : null,
+      boxShadow: ring
+          ? [BoxShadow(color: AppColors.surface, spreadRadius: 2)]
+          : null,
+    ),
+    alignment: Alignment.center,
+    child: image != null
+        ? null
+        : glyph ??
+              Text(
+                _initials(name),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: size * 0.4,
                 ),
-      );
+              ),
+  );
 }
 
 /// Overlapping avatar stack with optional +N overflow chip.
@@ -687,11 +688,17 @@ class SegmentedControl extends StatelessWidget {
     required this.items,
     required this.selected,
     required this.onChanged,
+    this.iconsOnly = false,
   });
 
   final List<SegmentItem> items;
   final int selected;
   final ValueChanged<int> onChanged;
+
+  /// Drops the labels and keeps the icons — phone headers have to share their
+  /// row with the group-by and filter buttons. The label moves into a tooltip
+  /// so the meaning stays reachable.
+  final bool iconsOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -704,44 +711,51 @@ class SegmentedControl extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < items.length; i++)
-            GestureDetector(
-              onTap: () => onChanged(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: i == selected ? AppColors.navy : Colors.transparent,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      items[i].icon,
-                      size: 15,
-                      color: i == selected ? Colors.white : AppColors.inkSoft,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      items[i].label,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: i == selected ? Colors.white : AppColors.inkSoft,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+        children: [for (var i = 0; i < items.length; i++) _segment(context, i)],
       ),
     );
+  }
+
+  Widget _segment(BuildContext context, int i) {
+    final segment = GestureDetector(
+      onTap: () => onChanged(i),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.symmetric(
+          horizontal: iconsOnly ? 11 : 12,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          color: i == selected ? AppColors.navy : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              items[i].icon,
+              size: 15,
+              color: i == selected ? Colors.white : AppColors.inkSoft,
+            ),
+            if (!iconsOnly) ...[
+              const SizedBox(width: 6),
+              Text(
+                items[i].label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: i == selected ? Colors.white : AppColors.inkSoft,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    // Only when the label is gone — a tooltip repeating visible text is noise.
+    return iconsOnly
+        ? Tooltip(message: items[i].label, child: segment)
+        : segment;
   }
 }
 

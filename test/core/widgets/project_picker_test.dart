@@ -187,6 +187,23 @@ void main() {
     expect(find.text('Project 1'), findsOneWidget);
     expect(find.text('Project 2'), findsNothing);
   });
+
+  testWidgets('the phone sheet hugs a short catalogue', (tester) async {
+    // Below the popover breakpoint the picker opens as a bottom sheet, which
+    // used to be pinned to 460px — a workspace with a handful of projects got a
+    // slab of empty glass under the confirm button. 700px keeps this on the
+    // sheet path without squeezing the footer, which renders i18n keys here.
+    tester.view.physicalSize = const Size(700 * 2, 800 * 2);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    repo = _FakeProjectRepository(List.generate(3, project));
+
+    await tester.pumpWidget(host());
+    await openPicker(tester);
+
+    expect(find.byType(ListView), findsOneWidget); // the sheet, not the popover
+    expect(tester.getSize(find.byType(AnimatedSize)).height, lessThan(400));
+  });
 }
 
 /// Serves pages out of a fixed catalogue and records what was asked for.

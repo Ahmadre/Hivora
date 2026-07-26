@@ -285,7 +285,6 @@ class _ColumnsEditorBodyState extends State<_ColumnsEditorBody> {
         GlassModalFooter(
           confirmLabel: context.t('common.save'),
           busy: _busy,
-          hint: widget.board.columnsCustomized ? _resetButton() : null,
           onConfirm: (_complete && !_loading) ? _save : null,
         ),
       ],
@@ -295,15 +294,6 @@ class _ColumnsEditorBodyState extends State<_ColumnsEditorBody> {
   Widget _loader() => const Padding(
     padding: EdgeInsets.symmetric(vertical: 40),
     child: Center(child: HiveLoader()),
-  );
-
-  Widget _resetButton() => Align(
-    alignment: Alignment.centerLeft,
-    child: TextButton.icon(
-      onPressed: _busy ? null : _reset,
-      icon: const Icon(LucideIcons.wandSparkles, size: 15),
-      label: Text(context.t('board.columns.automatic')),
-    ),
   );
 
   Widget _body() {
@@ -327,13 +317,25 @@ class _ColumnsEditorBodyState extends State<_ColumnsEditorBody> {
             ),
           ),
           const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _addColumn,
-              icon: const Icon(LucideIcons.plus, size: 15),
-              label: Text(context.t('board.columns.addColumn')),
-            ),
+          // Both layout actions live here rather than in the footer's hint slot:
+          // there they had to share one row with Cancel and Save, and on a phone
+          // the leftover width broke the label across a column of syllables.
+          Wrap(
+            spacing: 4,
+            runSpacing: 2,
+            children: [
+              TextButton.icon(
+                onPressed: _addColumn,
+                icon: const Icon(LucideIcons.plus, size: 15),
+                label: Text(context.t('board.columns.addColumn')),
+              ),
+              if (widget.board.columnsCustomized)
+                TextButton.icon(
+                  onPressed: _busy ? null : _reset,
+                  icon: const Icon(LucideIcons.wandSparkles, size: 15),
+                  label: Text(context.t('board.columns.automatic')),
+                ),
+            ],
           ),
           if (_error != null) ...[
             const SizedBox(height: 6),
@@ -413,12 +415,15 @@ class _ColumnsEditorBodyState extends State<_ColumnsEditorBody> {
             children: [
               ReorderableDragStartListener(
                 index: index,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Icon(
-                    LucideIcons.gripVertical,
-                    size: 16,
-                    color: AppColors.textSecondary,
+                child: Tooltip(
+                  message: context.t('board.columns.dragHint'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      LucideIcons.gripVertical,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -599,33 +604,48 @@ class _WipFieldState extends State<_WipField> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 62,
-      child: TextField(
-        controller: _controller,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 12.5),
-        onChanged: (raw) => widget.onChanged(int.tryParse(raw)),
-        decoration: InputDecoration(
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 7),
-          hintText: context.t('board.columns.wip'),
-          hintStyle: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-          filled: true,
-          fillColor: AppColors.surface.withValues(alpha: 0.5),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: AppColors.hairline),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: AppColors.hairline),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.accent, width: 1.4),
+    // A bare number in a box reads like a position. Prefixing the value with
+    // "max" says what it is at a glance — the field is easy to mistake for the
+    // column order otherwise, and the drag handle is what actually sorts.
+    final hasLimit = _controller.text.isNotEmpty;
+    return Tooltip(
+      message: context.t('board.columns.wipTooltip'),
+      child: SizedBox(
+        width: 74,
+        child: TextField(
+          controller: _controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12.5),
+          onChanged: (raw) {
+            widget.onChanged(int.tryParse(raw));
+            setState(() {});
+          },
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 7),
+            prefixText: hasLimit ? context.t('board.columns.wipPrefix') : null,
+            prefixStyle: TextStyle(
+              fontSize: 10.5,
+              color: AppColors.textSecondary,
+            ),
+            hintText: context.t('board.columns.wipHint'),
+            hintStyle: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            filled: true,
+            fillColor: AppColors.surface.withValues(alpha: 0.5),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.hairline),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: AppColors.hairline),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.accent, width: 1.4),
+            ),
           ),
         ),
       ),

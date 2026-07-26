@@ -16,14 +16,20 @@ class _BoardFilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    // Icon-only on phones — this row also carries the view switcher and the
+    // group-by button, and the count badge already says whether it is active.
+    final compact = context.isCompact;
+    final button = Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppTheme.radiusControl),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusControl),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 11 : 14,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             border: Border.all(
@@ -38,14 +44,16 @@ class _BoardFilterButton extends StatelessWidget {
                 size: 16,
                 color: AppColors.inkSoft,
               ),
-              const SizedBox(width: 7),
-              Text(
-                context.t('board.filterButton'),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              if (!compact) ...[
+                const SizedBox(width: 7),
+                Text(
+                  context.t('board.filterButton'),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
+              ],
               if (count > 0) ...[
                 const SizedBox(width: 7),
                 Container(
@@ -73,162 +81,10 @@ class _BoardFilterButton extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// ─────────────────────────── Compact view switcher ────────────────────────
-
-/// Mobile Board/Backlog/Timeline switcher: right-aligned, manually
-/// collapsible (a chevron handle, expanded initially), with labels that
-/// animate in/out as horizontal space allows, and an animated selection fill.
-class _CompactViewSwitcher extends StatefulWidget {
-  const _CompactViewSwitcher({
-    required this.items,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<SegmentItem> items;
-  final int selected;
-  final ValueChanged<int> onChanged;
-
-  @override
-  State<_CompactViewSwitcher> createState() => _CompactViewSwitcherState();
-}
-
-class _CompactViewSwitcherState extends State<_CompactViewSwitcher> {
-  static const _labelStyle = TextStyle(
-    fontSize: 12.5,
-    fontWeight: FontWeight.w600,
-  );
-  static const _dur = Duration(milliseconds: 240);
-
-  bool _expanded = true;
-
-  /// Whether the handle + all three labelled segments fit within [maxWidth].
-  bool _labelsFit(double maxWidth) {
-    final scaler = MediaQuery.textScalerOf(context);
-    var total = 6.0 + 30.0; // outer pill padding + handle (12 pad + 18 icon)
-    for (final item in widget.items) {
-      final tp = TextPainter(
-        text: TextSpan(text: item.label, style: _labelStyle),
-        maxLines: 1,
-        textDirection: TextDirection.ltr,
-        textScaler: scaler,
-      )..layout();
-      total += 24 + 15 + 6 + tp.width; // segment: h-padding + icon + gap + text
-    }
-    // Comfortable slack so labels never appear right at the overflow boundary.
-    return total + 8 <= maxWidth;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxW = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        final showLabels = _expanded && _labelsFit(maxW);
-        return Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-              border: Border.all(color: AppColors.hairline),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _handle(),
-                for (var i = 0; i < widget.items.length; i++)
-                  _segment(i, showLabels),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _handle() {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _expanded = !_expanded),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
-        child: AnimatedRotation(
-          duration: _dur,
-          curve: hiveEase,
-          turns: _expanded ? 0 : 0.5,
-          child: Icon(
-            LucideIcons.chevronRight,
-            size: 18,
-            color: AppColors.inkFaint,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _segment(int i, bool showLabels) {
-    final selected = i == widget.selected;
-    final fg = selected ? Colors.white : AppColors.inkSoft;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => widget.onChanged(i),
-      child: AnimatedContainer(
-        duration: _dur,
-        curve: hiveEase,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.navy : Colors.transparent,
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TweenAnimationBuilder<Color?>(
-              duration: _dur,
-              curve: hiveEase,
-              tween: ColorTween(end: fg),
-              builder: (_, color, _) =>
-                  Icon(widget.items[i].icon, size: 15, color: color),
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              switchInCurve: hiveEase,
-              switchOutCurve: hiveEase,
-              transitionBuilder: (child, anim) => SizeTransition(
-                axis: Axis.horizontal,
-                alignment: Alignment.centerLeft,
-                sizeFactor: anim,
-                child: FadeTransition(opacity: anim, child: child),
-              ),
-              child: showLabels
-                  ? Padding(
-                      key: const ValueKey('label'),
-                      padding: const EdgeInsets.only(left: 6),
-                      child: AnimatedDefaultTextStyle(
-                        duration: _dur,
-                        curve: hiveEase,
-                        style: _labelStyle.copyWith(color: fg),
-                        child: Text(
-                          widget.items[i].label,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.clip,
-                        ),
-                      ),
-                    )
-                  : const SizedBox(key: ValueKey('empty')),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Only where the label is gone — a tooltip repeating visible text is noise.
+    return compact
+        ? Tooltip(message: context.t('board.filterButton'), child: button)
+        : button;
   }
 }
 
