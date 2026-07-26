@@ -59,6 +59,7 @@ class AgileBoard extends Equatable {
     this.projectIds = const [],
     this.activeSprintId,
     this.ownerId,
+    this.columnsCustomized = false,
   });
 
   final String id;
@@ -72,6 +73,11 @@ class AgileBoard extends Equatable {
   /// User id of the member who created the board; they may always manage it.
   final String? ownerId;
 
+  /// Whether the columns were arranged by hand. While false the board derives
+  /// them from the spanned workflows, so a rename in project settings shows up
+  /// by itself — which is why the editor offers a way back to automatic.
+  final bool columnsCustomized;
+
   bool get isScrum => type == BoardType.scrum;
 
   factory AgileBoard.fromJson(Map<String, dynamic> json) => AgileBoard(
@@ -83,10 +89,55 @@ class AgileBoard extends Equatable {
     projectIds: _stringList(json['projectIds']),
     activeSprintId: json['activeSprintId'] as String?,
     ownerId: json['ownerId'] as String?,
+    columnsCustomized: json['columnsCustomized'] as bool? ?? false,
   );
 
   @override
-  List<Object?> get props => [id, name, type, activeSprintId, ownerId];
+  List<Object?> get props => [
+    id,
+    name,
+    type,
+    activeSprintId,
+    ownerId,
+    columnsCustomized,
+  ];
+}
+
+/// One column of a hand-made board layout — what the column editor sends back.
+/// Unlike [BoardColumnView] it carries no issues: it is the arrangement, not
+/// the wall.
+class BoardColumnLayout extends Equatable {
+  const BoardColumnLayout({
+    required this.name,
+    required this.states,
+    this.wipLimit,
+  });
+
+  final String name;
+
+  /// Workflow state names this column collects, at most one per project.
+  final List<String> states;
+  final int? wipLimit;
+
+  BoardColumnLayout copyWith({
+    String? name,
+    List<String>? states,
+    int? wipLimit,
+    bool clearWipLimit = false,
+  }) => BoardColumnLayout(
+    name: name ?? this.name,
+    states: states ?? this.states,
+    wipLimit: clearWipLimit ? null : (wipLimit ?? this.wipLimit),
+  );
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'states': states,
+    'wipLimit': ?wipLimit,
+  };
+
+  @override
+  List<Object?> get props => [name, states, wipLimit];
 }
 
 class BoardColumnView extends Equatable {

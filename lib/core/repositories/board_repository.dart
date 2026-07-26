@@ -54,6 +54,33 @@ class BoardRepository {
         as Map<String, dynamic>,
   );
 
+  /// Stores a hand-made column layout. The server validates it as a whole: every
+  /// status of every spanned project needs exactly one column, and no column may
+  /// hold two statuses of the same project (a drop there would be ambiguous).
+  Future<AgileBoard> updateBoardColumns(
+    String boardId,
+    List<BoardColumnLayout> columns,
+  ) async => AgileBoard.fromJson(
+    await _api.patch(
+          '/api/v1/boards/$boardId',
+          body: {
+            'columns': [for (final c in columns) c.toJson()],
+          },
+        )
+        as Map<String, dynamic>,
+  );
+
+  /// Drops a hand-made layout and goes back to columns derived from the spanned
+  /// workflows.
+  Future<AgileBoard> resetBoardColumns(String boardId) async =>
+      AgileBoard.fromJson(
+        await _api.patch(
+              '/api/v1/boards/$boardId',
+              body: {'resetColumns': true},
+            )
+            as Map<String, dynamic>,
+      );
+
   Future<BoardView> boardView(String boardId, {String? sprintId}) async =>
       BoardView.fromJson(
         await _api.get(

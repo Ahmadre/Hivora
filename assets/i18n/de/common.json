@@ -812,7 +812,23 @@
     "dropNotInWorkflow": "Das Projekt dieser Karte hat in dieser Spalte keinen passenden Status",
     "editProjects": "Projekte",
     "editProjectsTitle": "Board-Projekte",
-    "editProjectsSubtitle": "Wähle, welche Projekte dieses Board umfasst. Gleichwertige Status der gewählten Projekte werden zu gemeinsamen Spalten zusammengefasst."
+    "editProjectsSubtitle": "Wähle, welche Projekte dieses Board umfasst. Gleichwertige Status der gewählten Projekte werden zu gemeinsamen Spalten zusammengefasst.",
+    "editColumns": "Spalten",
+    "columns": {
+      "title": "Spalten",
+      "subtitle": "Lege fest, welcher Status in welche Spalte gehört — und in welcher Reihenfolge.",
+      "addColumn": "Spalte hinzufügen",
+      "newColumn": "Neue Spalte",
+      "namePlaceholder": "Spaltenname",
+      "unnamed": "Namenlose Spalte",
+      "removeColumn": "Spalte entfernen",
+      "emptyColumn": "Noch keine Status",
+      "wip": "WIP",
+      "assignTo": "In welche Spalte?",
+      "noColumnAvailable": "Keine Spalte möglich — jede enthält schon einen Status dieses Projekts.",
+      "unassignedHint": "Diese Status haben noch keine Spalte. Vorgänge darin würden auf dem Board fehlen.",
+      "automatic": "Zurück zu automatisch"
+    }
   },
   "gantt": {
     "title": "Zeitachse",

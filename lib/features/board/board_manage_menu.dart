@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/project_picker.dart';
 import '../deletion/delete_flows.dart';
 import '../sprint/modals/glass_modal.dart';
+import 'board_columns_editor.dart';
 
 /// Opens the board management menu (Rename · Delete) as an anchored popover at
 /// the trigger and runs the chosen action. Shared by the board overview and the
@@ -36,6 +37,9 @@ Future<void> openBoardManageMenu(
   } else if (action == 'projects') {
     final changed = await _editBoardProjects(context, board);
     if (changed) await onChanged();
+  } else if (action == 'columns') {
+    final changed = await showBoardColumnsEditor(context, board);
+    if (changed == true) await onChanged();
   } else if (action == 'delete') {
     final deleted = await showDeleteBoardFlow(
       context,
@@ -187,6 +191,11 @@ class _BoardMenuBody extends StatelessWidget {
           icon: LucideIcons.folderKanban,
           label: context.t('board.editProjects'),
           onTap: () => Navigator.of(context).pop('projects'),
+        ),
+        _MenuRow(
+          icon: LucideIcons.columns3,
+          label: context.t('board.editColumns'),
+          onTap: () => Navigator.of(context).pop('columns'),
         ),
         _MenuRow(
           icon: LucideIcons.trash2,
