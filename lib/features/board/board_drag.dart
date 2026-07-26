@@ -172,7 +172,7 @@ class BoardDragCard extends StatelessWidget {
     required this.issue,
     required this.child,
     required this.ghost,
-    this.width = 276,
+    this.columnWidth = BoardWall.columnWidth,
     this.enabled = true,
   });
 
@@ -180,9 +180,12 @@ class BoardDragCard extends StatelessWidget {
   final Widget child;
   final Widget ghost;
 
-  /// Width of the carried card — a touch narrower than the column so it reads
-  /// as detached from the wall.
-  final double width;
+  /// Width of the column the card sits in. The carried copy is
+  /// [BoardWall.carryInset] narrower, so it reads as detached from the wall —
+  /// which only holds while it follows a column that had to shrink to fit.
+  final double columnWidth;
+
+  double get _carriedWidth => columnWidth - BoardWall.carryInset;
 
   /// Touch platforms pass false: a card drag there fights the board's scroll
   /// gesture, so state changes happen in the issue sheet instead.
@@ -213,7 +216,7 @@ class BoardDragCard extends StatelessWidget {
         onDragUpdate: (details) =>
             boardDrag.move(details.delta, details.globalPosition),
         onDragEnd: (_) => boardDrag.end(),
-        feedback: _CarriedCard(width: width, child: ghost),
+        feedback: _CarriedCard(width: _carriedWidth, child: ghost),
         childWhenDragging: _VacatedSocket(child: ghost),
         child: child,
       ),
@@ -221,19 +224,64 @@ class BoardDragCard extends StatelessWidget {
   }
 }
 
+/// Geometry of the board wall — how wide a column is and where it may rest.
+abstract final class BoardWall {
+  /// What a column is designed for: two lines of title, a label row and the
+  /// meta line without wrapping. Columns are never made wider than this — a
+  /// half-empty 500 px column is not more board, just a fatter one.
+  static const columnWidth = 300.0;
+
+  /// Gap between columns.
+  static const columnGap = 16.0;
+
+  /// Narrowest a column may be squeezed to so the whole wall fits. Below it the
+  /// card's meta row starts breaking, and the carried card would no longer fit
+  /// inside the column it came from.
+  static const minColumnWidth = 252.0;
+
+  /// How much narrower a carried card is than its column, so it reads as
+  /// detached from the wall rather than as part of it.
+  static const carryInset = 24.0;
+
+  /// How many columns the page's reading width holds at [columnWidth]. Up to
+  /// this many, a board is an ordinary page; beyond it the wall would scroll
+  /// inside a body that still leaves screen unused beside it, which is the one
+  /// case worth breaking the reading width for. Widening a five-column board
+  /// would not give five better columns, just canvas between them and nothing.
+  static const columnsPerReadingWidth = 5;
+}
+
+/// Width of one column so that [count] of them fill [available] px.
+///
+/// A board is meant to be seen at once, so on a screen with room the wall
+/// gives up some column width to show every column rather than hiding the last
+/// ones behind a sideways scroll. Two ways that trade stops being worth it:
+/// past [BoardWall.columnWidth] the columns would only get fatter, and below
+/// [BoardWall.minColumnWidth] shrinking no longer buys a complete wall — it
+/// just makes every card harder to read *and* still scrolls. Both fall back to
+/// the design width, which is also what keeps phones exactly as they were.
+double boardColumnWidth(double available, int count) {
+  if (count <= 0 || !available.isFinite) return BoardWall.columnWidth;
+  final fitted = (available - BoardWall.columnGap * (count - 1)) / count;
+  if (fitted >= BoardWall.columnWidth || fitted < BoardWall.minColumnWidth) {
+    return BoardWall.columnWidth;
+  }
+  return fitted;
+}
+
 /// The wall's snap grid on this width, or null where snapping would be wrong.
 ///
-/// A column is a fixed 300 px — a desktop measure. On a phone that leaves room
-/// for one column and a sliver of the next, so a free scroll almost always
-/// comes to rest mid-column and the user has to re-aim before they can read
-/// anything. Compact is exactly the range where no second column ever fits, so
-/// it is also exactly the range where a rest position between two of them
-/// carries no information. Wider, where three or four are side by side,
-/// stopping between columns is a perfectly good place to be.
+/// A column keeps its full [BoardWall.columnWidth] on a phone — there is no
+/// second column to make room for. So the wall shows one column and a sliver of
+/// the next, a free scroll almost always comes to rest mid-column, and the user
+/// has to re-aim before they can read anything. Compact is exactly the range
+/// where no second column ever fits, so it is also exactly the range where a
+/// rest position between two of them carries no information. Wider, where
+/// several are side by side, stopping between columns is a fine place to be.
 double? boardSnapStride(
   BuildContext context, {
-  double columnWidth = 300,
-  double gap = 16,
+  double columnWidth = BoardWall.columnWidth,
+  double gap = BoardWall.columnGap,
 }) => context.isCompact ? columnWidth + gap : null;
 
 /// Rests the wall on a column boundary instead of wherever the finger let go.

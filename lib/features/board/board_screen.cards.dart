@@ -197,6 +197,7 @@ class _BoardColumn extends StatefulWidget {
     required this.onAddIssue,
     required this.onOpenIssue,
     this.laneMode = false,
+    this.width = BoardWall.columnWidth,
     this.projectNames = const {},
   });
 
@@ -222,8 +223,12 @@ class _BoardColumn extends StatefulWidget {
 
   /// In a swimlane the board scrolls as one unit, so the column sizes to its
   /// content (no [Flexible], which needs a bounded height) instead of filling
-  /// the viewport like the flat board's horizontally-scrolled columns.
+  /// the viewport like the flat board's horizontally-scrolled columns. The lane
+  /// also sizes the column itself, so [width] is ignored there.
   final bool laneMode;
+
+  /// Set by the wall from the space it has — see [boardColumnWidth].
+  final double width;
 
   @override
   State<_BoardColumn> createState() => _BoardColumnState();
@@ -257,7 +262,7 @@ class _BoardColumnState extends State<_BoardColumn> {
     final revealAdd = isTouch || _hovered;
 
     return SizedBox(
-      width: 300,
+      width: widget.width,
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
@@ -380,6 +385,7 @@ class _BoardColumnState extends State<_BoardColumn> {
                               );
                               return BoardDragCard(
                                 issue: issue,
+                                columnWidth: widget.width,
                                 // Touch platforms: no drag — it fights the
                                 // scroll gesture. State changes happen in the
                                 // detail sheet.

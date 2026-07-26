@@ -53,7 +53,16 @@ class PageChromeData {
     this.bottom,
     this.bottomHeight = 0,
     this.actions = const [],
+    this.fullWidth = false,
   });
+
+  /// Whether the page takes the whole content area instead of being centred in
+  /// [Breakpoints.readingWidth]. For pages whose content is a spatial layout
+  /// rather than something to read — and only where that is actually true of
+  /// the data on screen, which is why it is published by the page rather than
+  /// derived from the route. The shell applies it to the sub-page bar as well,
+  /// so the back button never sits off the page's own left edge.
+  final bool fullWidth;
 
   /// The route this chrome belongs to. The shell only honours an override whose
   /// [location] matches the route currently on screen, so stale chrome from a
@@ -95,12 +104,18 @@ class PageChromeController extends ChangeNotifier {
   List<PageAction> actionsFor(String location) =>
       _data.location == location ? _data.actions : const [];
 
+  /// Defaults to false, so a page that publishes nothing — or has not published
+  /// yet — is laid out like every other page rather than flashing wide first.
+  bool fullWidthFor(String location) =>
+      _data.location == location && _data.fullWidth;
+
   void publish(PageChromeData data) {
     if (_data.location == data.location &&
         _data.title == data.title &&
         identical(_data.onBack, data.onBack) &&
         identical(_data.bottom, data.bottom) &&
         _data.bottomHeight == data.bottomHeight &&
+        _data.fullWidth == data.fullWidth &&
         listEquals(_data.actions, data.actions)) {
       return;
     }
@@ -141,6 +156,7 @@ class PageChrome extends StatefulWidget {
     this.bottom,
     this.bottomHeight = 0,
     this.actions = const [],
+    this.fullWidth = false,
     required this.child,
   });
 
@@ -155,6 +171,11 @@ class PageChrome extends StatefulWidget {
   /// Trailing primary actions rendered in the shell's glass app bar.
   /// See [PageChromeData.actions].
   final List<PageAction> actions;
+
+  /// Whether this page sizes itself to the whole content area.
+  /// See [PageChromeData.fullWidth].
+  final bool fullWidth;
+
   final Widget child;
 
   @override
@@ -178,6 +199,7 @@ class _PageChromeState extends State<PageChrome> {
         !identical(oldWidget.onBack, widget.onBack) ||
         !identical(oldWidget.bottom, widget.bottom) ||
         oldWidget.bottomHeight != widget.bottomHeight ||
+        oldWidget.fullWidth != widget.fullWidth ||
         !listEquals(oldWidget.actions, widget.actions)) {
       _schedulePublish();
     }
@@ -198,6 +220,7 @@ class _PageChromeState extends State<PageChrome> {
           bottom: widget.bottom,
           bottomHeight: widget.bottomHeight,
           actions: widget.actions,
+          fullWidth: widget.fullWidth,
         ),
       );
     });

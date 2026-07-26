@@ -491,8 +491,6 @@ class BoardSwimlanes extends StatefulWidget {
     required this.columns,
     required this.lanes,
     required this.columnBuilder,
-    this.columnWidth = 300,
-    this.columnGap = 16,
     this.padding = EdgeInsets.zero,
   });
 
@@ -501,16 +499,17 @@ class BoardSwimlanes extends StatefulWidget {
 
   /// Renders one column of a lane from the issues that fall in it. The [lane]
   /// carries the group context (e.g. the epic id as its key) so builders can
-  /// pre-fill it when creating an issue from within the lane.
+  /// pre-fill it when creating an issue from within the lane. The lane sizes
+  /// the column itself and passes that width on, so what is drawn inside it —
+  /// a carried card, say — can follow.
   final Widget Function(
     BoardColumnView column,
     List<Issue> laneColumnIssues,
     BoardLane lane,
+    double columnWidth,
   )
   columnBuilder;
 
-  final double columnWidth;
-  final double columnGap;
   final EdgeInsets padding;
 
   @override
@@ -530,11 +529,23 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    // Columns share the room the lanes actually got, so a grouped board with
+    // many columns still shows them all where there is space for it.
+    builder: (context, constraints) => _wall(
+      context,
+      boardColumnWidth(
+        constraints.maxWidth - widget.padding.horizontal,
+        widget.columns.length,
+      ),
+    ),
+  );
+
+  Widget _wall(BuildContext context, double columnWidth) {
     final columns = widget.columns;
+    const gap = BoardWall.columnGap;
     final boardWidth =
-        columns.length * widget.columnWidth +
-        (columns.length - 1) * widget.columnGap;
+        columns.length * columnWidth + (columns.length - 1) * gap;
     // Vertical padding lives on the outer scroll view, but the horizontal
     // gutters must live INSIDE the horizontal scroll view — otherwise the
     // lanes are clipped at the gutter edge instead of scrolling under it.
@@ -542,11 +553,7 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
     // Both scroll views are driven by [BoardDragScroller] as well, so a card
     // carried to an edge pulls the wall along and can reach a lane or column
     // that is currently off-screen.
-    final snap = boardSnapStride(
-      context,
-      columnWidth: widget.columnWidth,
-      gap: widget.columnGap,
-    );
+    final snap = boardSnapStride(context, columnWidth: columnWidth);
     return BoardDragScroller(
       snapStride: snap,
       builder: (context, vertical, horizontal) => SingleChildScrollView(
@@ -575,9 +582,9 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         for (var i = 0; i < columns.length; i++) ...[
-                          if (i > 0) SizedBox(width: widget.columnGap),
+                          if (i > 0) const SizedBox(width: gap),
                           SizedBox(
-                            width: widget.columnWidth,
+                            width: columnWidth,
                             child: widget.columnBuilder(
                               columns[i],
                               lane.issues
@@ -586,6 +593,7 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
                                   )
                                   .toList(),
                               lane,
+                              columnWidth,
                             ),
                           ),
                         ],

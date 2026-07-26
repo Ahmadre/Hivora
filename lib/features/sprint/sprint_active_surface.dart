@@ -101,10 +101,11 @@ class SprintActiveSurface extends StatelessWidget {
         gutter,
         gutter + context.bottomGutter,
       ),
-      columnBuilder: (column, colIssues, lane) => _SprintColumn(
+      columnBuilder: (column, colIssues, lane, width) => _SprintColumn(
         column: column,
         issues: colIssues,
         laneMode: true,
+        width: width,
         onAccept: (issue) => onMoveState(
           issue,
           boardDropState(issue, column.states, projectsById) ?? issue.state,
@@ -117,7 +118,6 @@ class SprintActiveSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gutter = context.pageGutter;
-    final snap = boardSnapStride(context);
     final boardColumns = columns
         .where((c) => !_isBacklogColumn(c))
         .toList(growable: false);
@@ -138,42 +138,59 @@ class SprintActiveSurface extends StatelessWidget {
                   ),
                 )
               : grouping == BoardGrouping.none
-              ? BoardDragScroller(
-                  snapStride: snap,
-                  builder: (context, _, horizontal) => ListView.separated(
-                    controller: horizontal,
-                    scrollDirection: Axis.horizontal,
-                    physics: BoardColumnSnapPhysics.maybe(snap),
-                    padding: EdgeInsets.fromLTRB(
-                      gutter,
-                      0,
-                      gutter,
-                      gutter + context.bottomGutter,
-                    ),
-                    itemCount: boardColumns.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final column = boardColumns[index];
-                      final colIssues = issues
-                          .where(
-                            (i) =>
-                                column.states.contains(i.state) &&
-                                _passes(i) &&
-                                boardCardVisible(i, grouping),
-                          )
-                          .toList();
-                      return _SprintColumn(
-                        column: column,
-                        issues: colIssues,
-                        onAccept: (issue) => onMoveState(
-                          issue,
-                          boardDropState(issue, column.states, projectsById) ??
-                              issue.state,
+              ? LayoutBuilder(
+                  // Columns share the room the wall actually got, so a sprint
+                  // with many states still shows them all where there is space.
+                  builder: (context, constraints) {
+                    final width = boardColumnWidth(
+                      constraints.maxWidth - gutter * 2,
+                      boardColumns.length,
+                    );
+                    final snap = boardSnapStride(context, columnWidth: width);
+                    return BoardDragScroller(
+                      snapStride: snap,
+                      builder: (context, _, horizontal) => ListView.separated(
+                        controller: horizontal,
+                        scrollDirection: Axis.horizontal,
+                        physics: BoardColumnSnapPhysics.maybe(snap),
+                        padding: EdgeInsets.fromLTRB(
+                          gutter,
+                          0,
+                          gutter,
+                          gutter + context.bottomGutter,
                         ),
-                        onOpenIssue: onOpenIssue,
-                      );
-                    },
-                  ),
+                        itemCount: boardColumns.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(width: BoardWall.columnGap),
+                        itemBuilder: (context, index) {
+                          final column = boardColumns[index];
+                          final colIssues = issues
+                              .where(
+                                (i) =>
+                                    column.states.contains(i.state) &&
+                                    _passes(i) &&
+                                    boardCardVisible(i, grouping),
+                              )
+                              .toList();
+                          return _SprintColumn(
+                            column: column,
+                            width: width,
+                            issues: colIssues,
+                            onAccept: (issue) => onMoveState(
+                              issue,
+                              boardDropState(
+                                    issue,
+                                    column.states,
+                                    projectsById,
+                                  ) ??
+                                  issue.state,
+                            ),
+                            onOpenIssue: onOpenIssue,
+                          );
+                        },
+                      ),
+                    );
+                  },
                 )
               : _grouped(context, boardColumns, gutter),
         ),
@@ -189,6 +206,7 @@ class _SprintColumn extends StatelessWidget {
     required this.onAccept,
     required this.onOpenIssue,
     this.laneMode = false,
+    this.width = BoardWall.columnWidth,
   });
 
   final BoardColumnView column;
@@ -197,8 +215,12 @@ class _SprintColumn extends StatelessWidget {
   final void Function(Issue) onOpenIssue;
 
   /// In a swimlane the board scrolls as one unit, so the column sizes to its
-  /// content (no [Flexible], which needs a bounded height).
+  /// content (no [Flexible], which needs a bounded height). The lane also sizes
+  /// the column itself, so [width] only follows it there.
   final bool laneMode;
+
+  /// Set by the wall from the space it has — see [boardColumnWidth].
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +244,7 @@ class _SprintColumn extends StatelessWidget {
         platform == TargetPlatform.fuchsia;
 
     return SizedBox(
-      width: 300,
+      width: width,
       child: DragTarget<Issue>(
         onWillAcceptWithDetails: (d) => !column.states.contains(d.data.state),
         onAcceptWithDetails: (d) => onAccept(d.data),
@@ -312,6 +334,7 @@ class _SprintColumn extends StatelessWidget {
                             final issue = issues[index];
                             return BoardDragCard(
                               issue: issue,
+                              columnWidth: width,
                               // Touch platforms: no drag — it fights the scroll
                               // gesture; state changes happen in the sheet.
                               enabled: !isTouch,

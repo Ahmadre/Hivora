@@ -713,6 +713,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     if (view.board.isScrum) {
       return PageChrome(
         title: view.board.name,
+        fullWidth: _needsFullWidth(view),
         child: ScrumBoardView(
           view: view,
           names: _names,
@@ -728,6 +729,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     // generic section title instead of repeating it.
     return PageChrome(
       title: context.t('nav.board'),
+      fullWidth: _needsFullWidth(view),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -754,6 +756,17 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       ),
     );
   }
+
+  /// Whether this board should break out of the page's reading width.
+  ///
+  /// Only when its wall would otherwise not fit: up to
+  /// [BoardWall.columnsPerReadingWidth] columns the board is an ordinary page
+  /// and stays where every other page is — widening it would stretch the header
+  /// across a screen the wall doesn't fill. The count is the board's own, so a
+  /// Scrum board that hides a backlog column may widen one column early; that
+  /// costs empty canvas, never a broken layout.
+  bool _needsFullWidth(BoardView view) =>
+      view.columns.length > BoardWall.columnsPerReadingWidth;
 
   // ---- header: title + view switcher ----
 
@@ -937,42 +950,57 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       );
     }
     if (_grouping != BoardGrouping.none) return _groupedBoard(columns);
-    // The horizontal controller lets a carried card pull the wall along when it
-    // reaches an edge, so an off-screen column is still reachable mid-drag.
-    final snap = boardSnapStride(context);
-    return BoardDragScroller(
-      snapStride: snap,
-      builder: (context, _, horizontal) => ListView.separated(
-        controller: horizontal,
-        scrollDirection: Axis.horizontal,
-        physics: BoardColumnSnapPhysics.maybe(snap),
-        padding: EdgeInsets.fromLTRB(
-          context.pageGutter,
-          0,
-          context.pageGutter,
-          context.pageGutter + context.bottomGutter,
-        ),
-        itemCount: columns.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final column = columns[index];
-          final issues = column.issues
-              .where((i) => _passes(i) && boardCardVisible(i, _grouping))
-              .toList();
-          return _BoardColumn(
-            column: column,
-            issues: issues,
-            palette: _palette,
-            names: _names,
-            avatars: _avatars,
-            projectNames: _cardProjectNames,
-            onAccept: (issue) => _moveIssue(issue, column),
-            canAccept: (issue) => _canDrop(issue, column),
-            onAddIssue: () => _addIssue(column),
-            onOpenIssue: _openIssue,
-          );
-        },
-      ),
+    // The wall sizes its columns to the space it actually got, so a board with
+    // more columns than fit at the design width still shows all of them where
+    // there is room. Hence LayoutBuilder rather than the screen width — the
+    // rail and the page gutters are already taken out here.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = boardColumnWidth(
+          constraints.maxWidth - context.pageGutter * 2,
+          columns.length,
+        );
+        // The horizontal controller lets a carried card pull the wall along
+        // when it reaches an edge, so an off-screen column is still reachable
+        // mid-drag.
+        final snap = boardSnapStride(context, columnWidth: width);
+        return BoardDragScroller(
+          snapStride: snap,
+          builder: (context, _, horizontal) => ListView.separated(
+            controller: horizontal,
+            scrollDirection: Axis.horizontal,
+            physics: BoardColumnSnapPhysics.maybe(snap),
+            padding: EdgeInsets.fromLTRB(
+              context.pageGutter,
+              0,
+              context.pageGutter,
+              context.pageGutter + context.bottomGutter,
+            ),
+            itemCount: columns.length,
+            separatorBuilder: (_, _) =>
+                const SizedBox(width: BoardWall.columnGap),
+            itemBuilder: (context, index) {
+              final column = columns[index];
+              final issues = column.issues
+                  .where((i) => _passes(i) && boardCardVisible(i, _grouping))
+                  .toList();
+              return _BoardColumn(
+                column: column,
+                width: width,
+                issues: issues,
+                palette: _palette,
+                names: _names,
+                avatars: _avatars,
+                projectNames: _cardProjectNames,
+                onAccept: (issue) => _moveIssue(issue, column),
+                canAccept: (issue) => _canDrop(issue, column),
+                onAddIssue: () => _addIssue(column),
+                onOpenIssue: _openIssue,
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -1011,9 +1039,10 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         context.pageGutter,
         context.pageGutter + context.bottomGutter,
       ),
-      columnBuilder: (column, issues, lane) => _BoardColumn(
+      columnBuilder: (column, issues, lane, width) => _BoardColumn(
         column: column,
         laneMode: true,
+        width: width,
         issues: issues,
         palette: _palette,
         names: _names,

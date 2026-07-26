@@ -16,7 +16,6 @@ class _WideShellState extends State<_WideShell> {
   // Desktop-only manual collapse. Medium widths are always collapsed (no room
   // to expand), so the toggle is offered only on the full layout.
   bool _collapsed = false;
-  final double maxBodyWidth = 1618;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +57,7 @@ class _WideShellState extends State<_WideShell> {
                         ),
                         Expanded(
                           child: _ScrollWheelPassthrough(
-                            maxContentWidth: maxBodyWidth,
+                            location: widget.location,
                             child: Column(
                               children: [
                                 // Sub-pages keep a slim back + title bar (the floating
@@ -68,20 +67,16 @@ class _WideShellState extends State<_WideShell> {
                                 // shell must not stack a second back+title row above it.
                                 if (subKey != null &&
                                     !_isImmersive(widget.location))
-                                  ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth: maxBodyWidth,
-                                    ),
+                                  _BodyWidth(
+                                    location: widget.location,
                                     child: _SubPageBar(
                                       location: widget.location,
                                       titleKey: subKey,
                                     ),
                                   ),
                                 Expanded(
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth: maxBodyWidth,
-                                    ),
+                                  child: _BodyWidth(
+                                    location: widget.location,
                                     child: widget.child,
                                   ),
                                 ),
@@ -102,28 +97,56 @@ class _WideShellState extends State<_WideShell> {
   }
 }
 
-/// The centered [maxContentWidth] body leaves empty margins on wide screens
-/// that no [Scrollable] covers, so a mouse wheel there does nothing. This
-/// wraps the full-width area and, when a scroll happens outside the centered
-/// content, re-dispatches it as if it occurred at the nearest point inside
-/// the content so the page underneath still scrolls.
-class _ScrollWheelPassthrough extends StatelessWidget {
-  const _ScrollWheelPassthrough({
-    required this.maxContentWidth,
-    required this.child,
-  });
+/// How wide the page at [location] wants its body — the reading width unless it
+/// published otherwise. Both the sub-page bar and the page itself go through
+/// this, so a full-width page never ends up with its back button off its own
+/// left edge. Listening here rather than in the shell keeps a chrome update
+/// from rebuilding the whole shell: the child instance is unchanged, so the
+/// page subtree below is reused as-is.
+class _BodyWidth extends StatelessWidget {
+  const _BodyWidth({required this.location, required this.child});
 
-  final double maxContentWidth;
+  final String location;
   final Widget child;
 
-  void _onPointerSignal(BuildContext context, PointerSignalEvent event) {
+  static double of(BuildContext context, String location) =>
+      PageChromeScope.of(context).fullWidthFor(location)
+      ? double.infinity
+      : Breakpoints.readingWidth;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: BoxConstraints(maxWidth: of(context, location)),
+    child: child,
+  );
+}
+
+/// The centered body leaves empty margins on wide screens that no [Scrollable]
+/// covers, so a mouse wheel there does nothing. This wraps the full-width area
+/// and, when a scroll happens outside the centered content, re-dispatches it as
+/// if it occurred at the nearest point inside the content so the page
+/// underneath still scrolls. A full-width page has no such margins, and the
+/// infinite half-width below turns the whole thing into a pass-through.
+class _ScrollWheelPassthrough extends StatelessWidget {
+  const _ScrollWheelPassthrough({required this.location, required this.child});
+
+  final String location;
+  final Widget child;
+
+  /// [bodyWidth] is read during build — an inherited-widget lookup while
+  /// dispatching a pointer event would register a dependency mid-event.
+  void _onPointerSignal(
+    BuildContext context,
+    PointerSignalEvent event,
+    double bodyWidth,
+  ) {
     if (event is! PointerScrollEvent) return;
     final box = context.findRenderObject();
     if (box is! RenderBox || !box.attached) return;
 
     final local = box.globalToLocal(event.position);
     final centerX = box.size.width / 2;
-    final halfContent = maxContentWidth / 2;
+    final halfContent = bodyWidth / 2;
     final offsetFromCenter = local.dx - centerX;
     if (offsetFromCenter.abs() <= halfContent) {
       return; // Already inside the content column; let normal hit-testing handle it.
@@ -151,13 +174,14 @@ class _ScrollWheelPassthrough extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bodyWidth = _BodyWidth.of(context, location);
     return Listener(
       // Listener defaults to HitTestBehavior.deferToChild, so in the empty
       // margins beside the centered content (where no child claims the hit)
       // it would never be hit-tested and onPointerSignal would never fire.
       // opaque makes it always participate in hit-testing over its full area.
       behavior: HitTestBehavior.opaque,
-      onPointerSignal: (event) => _onPointerSignal(context, event),
+      onPointerSignal: (event) => _onPointerSignal(context, event, bodyWidth),
       child: child,
     );
   }
