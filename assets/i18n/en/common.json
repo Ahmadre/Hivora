@@ -810,6 +810,8 @@
     "projectsField": "Projects",
     "projectsSelected": "{{count}} selected",
     "dropNotInWorkflow": "This card's project has no matching status in that column",
+    "columnOnlyIn": "This column only exists in {{projects}}’s workflow",
+    "dropBlockedShort": "{{project}} has no status here",
     "editProjects": "Projects",
     "editProjectsTitle": "Board projects",
     "editProjectsSubtitle": "Choose which projects this board covers. Equivalent statuses of the selected projects are merged into shared columns.",

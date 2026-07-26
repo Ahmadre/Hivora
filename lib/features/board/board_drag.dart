@@ -3,11 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../core/i18n/i18n.dart';
 import '../../core/models/work_models.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_widgets.dart' show hiveEase;
+import '../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 
 /// Motion design of a board card drag — shared by the Kanban board and the
 /// Scrum surface so both walls feel like the same physical object.
@@ -122,6 +124,13 @@ class BoardDragState extends ChangeNotifier {
   /// animation — consumed once by the card that renders it.
   String? get landedId => _landedId;
 
+  /// Key of the carried card's project when the column it is currently over
+  /// has no state for it, else null. A refused drop never reaches the target,
+  /// so the release is the only moment left to say why nothing happened — the
+  /// column sets this as the card enters it, [BoardDragCard] reads it once when
+  /// the card is let go. Deliberately not notifying: nothing renders from it.
+  String? blockedFor;
+
   void start(Size? cardSize, Offset pointer) {
     _cardSize = cardSize;
     _pointer = pointer;
@@ -149,6 +158,7 @@ class BoardDragState extends ChangeNotifier {
     _pointer = null;
     _pending = Offset.zero;
     _dragging = false;
+    blockedFor = null;
     notifyListeners();
   }
 
@@ -215,7 +225,21 @@ class BoardDragCard extends StatelessWidget {
         },
         onDragUpdate: (details) =>
             boardDrag.move(details.delta, details.globalPosition),
-        onDragEnd: (_) => boardDrag.end(),
+        onDragEnd: (details) {
+          // A column that refuses the card never gets the drop, so the card
+          // just flies home and nothing is said. Read the reason the column
+          // left behind before [end] clears it.
+          final blockedFor = boardDrag.blockedFor;
+          boardDrag.end();
+          if (details.wasAccepted || blockedFor == null) return;
+          showGlassErrorToast(
+            context,
+            context.t(
+              'board.dropBlockedShort',
+              variables: {'project': blockedFor},
+            ),
+          );
+        },
         feedback: _CarriedCard(width: _carriedWidth, child: ghost),
         childWhenDragging: _VacatedSocket(child: ghost),
         child: child,

@@ -810,6 +810,8 @@
     "projectsField": "Projekte",
     "projectsSelected": "{{count}} ausgewählt",
     "dropNotInWorkflow": "Das Projekt dieser Karte hat in dieser Spalte keinen passenden Status",
+    "columnOnlyIn": "Diese Spalte gibt es nur im Workflow von {{projects}}",
+    "dropBlockedShort": "{{project}} hat hier keinen Status",
     "editProjects": "Projekte",
     "editProjectsTitle": "Board-Projekte",
     "editProjectsSubtitle": "Wähle, welche Projekte dieses Board umfasst. Gleichwertige Status der gewählten Projekte werden zu gemeinsamen Spalten zusammengefasst.",

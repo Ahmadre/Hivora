@@ -114,6 +114,63 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('says why a column refused it once the card is let go', (
+      tester,
+    ) async {
+      // A refused drop never reaches the target, so the release is the last
+      // moment left to explain why nothing happened.
+      await tester.pumpWidget(
+        host(
+          BoardDragCard(
+            issue: issue('1'),
+            ghost: card('ghost'),
+            child: card('card'),
+          ),
+        ),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('card')),
+      );
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+      // What a column with no state for this card's project leaves behind.
+      boardDrag.blockedFor = 'MOB';
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // Widget tests render the raw key, not the translation.
+      expect(find.textContaining('board.dropBlockedShort'), findsOneWidget);
+      // And the reason must not survive into the next drag.
+      expect(boardDrag.blockedFor, isNull);
+    });
+
+    testWidgets('stays quiet when the card was simply carried home', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          BoardDragCard(
+            issue: issue('1'),
+            ghost: card('ghost'),
+            child: card('card'),
+          ),
+        ),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.text('card')),
+      );
+      await gesture.moveBy(const Offset(60, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // Nothing refused it, so there is nothing to report.
+      expect(find.textContaining('board.dropBlockedShort'), findsNothing);
+    });
+
     testWidgets('renders the card untouched when dragging is disabled', (
       tester,
     ) async {

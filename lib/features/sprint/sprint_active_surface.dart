@@ -106,6 +106,7 @@ class SprintActiveSurface extends StatelessWidget {
         issues: colIssues,
         laneMode: true,
         width: width,
+        projectsById: projectsById,
         onAccept: (issue) => onMoveState(
           issue,
           boardDropState(issue, column.states, projectsById) ?? issue.state,
@@ -175,6 +176,7 @@ class SprintActiveSurface extends StatelessWidget {
                           return _SprintColumn(
                             column: column,
                             width: width,
+                            projectsById: projectsById,
                             issues: colIssues,
                             onAccept: (issue) => onMoveState(
                               issue,
@@ -207,12 +209,25 @@ class _SprintColumn extends StatelessWidget {
     required this.onOpenIssue,
     this.laneMode = false,
     this.width = BoardWall.columnWidth,
+    this.projectsById = const {},
   });
 
   final BoardColumnView column;
   final List<Issue> issues;
   final void Function(Issue) onAccept;
   final void Function(Issue) onOpenIssue;
+
+  /// The board's projects by id — see [_BoardColumn.projectsById]. Needed here
+  /// for the same reason: a sprint board may span several projects, and a
+  /// column only some of them have can't take everyone's cards.
+  final Map<String, Project> projectsById;
+
+  /// The key of [issue]'s project when this column refused it for a reason
+  /// worth explaining — its workflow has no state here.
+  String? _refusedProject(Issue issue, bool accepted) {
+    if (accepted || column.states.contains(issue.state)) return null;
+    return projectsById[issue.projectId]?.key;
+  }
 
   /// In a swimlane the board scrolls as one unit, so the column sizes to its
   /// content (no [Flexible], which needs a bounded height). The lane also sizes
@@ -246,10 +261,26 @@ class _SprintColumn extends StatelessWidget {
     return SizedBox(
       width: width,
       child: DragTarget<Issue>(
-        onWillAcceptWithDetails: (d) => !column.states.contains(d.data.state),
+        // Was `!column.states.contains(state)` alone, with no project check: a
+        // card from a project this column doesn't serve was *accepted*, then
+        // resolved to its own state and silently did nothing. A gesture that
+        // looks like it worked and didn't is worse than a refusal.
+        onWillAcceptWithDetails: (d) {
+          final accepted =
+              !column.states.contains(d.data.state) &&
+              boardDropState(d.data, column.states, projectsById) != null;
+          boardDrag.blockedFor = _refusedProject(d.data, accepted);
+          return accepted;
+        },
         onAcceptWithDetails: (d) => onAccept(d.data),
         builder: (context, candidate, rejected) {
           final dropping = candidate.isNotEmpty;
+          final blockedFor = dropping
+              ? null
+              : rejected
+                    .whereType<Issue>()
+                    .map((i) => _refusedProject(i, false))
+                    .firstWhere((key) => key != null, orElse: () => null);
           return AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.all(10),
@@ -257,109 +288,132 @@ class _SprintColumn extends StatelessWidget {
               color: dropping ? AppColors.accentSoft : AppColors.canvas2,
               borderRadius: BorderRadius.circular(AppTheme.radiusCard),
               border: Border.all(
-                color: dropping ? AppColors.accentLine : Colors.transparent,
+                color: dropping
+                    ? AppColors.accentLine
+                    : blockedFor != null
+                    ? AppColors.danger.withValues(alpha: 0.8)
+                    : Colors.transparent,
                 width: 2,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: dotColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Text(
-                          column.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              color: dotColor,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: overWip
-                              ? AppColors.dangerSoft
-                              : AppColors.surface,
-                          borderRadius: BorderRadius.circular(99),
-                          border: Border.all(
-                            color: overWip
-                                ? AppColors.danger.withValues(alpha: 0.3)
-                                : AppColors.hairline,
-                          ),
-                        ),
-                        child: Text(
-                          countLabel,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontMono,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: overWip
-                                ? AppColors.danger
-                                : AppColors.inkSoft,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                LaneAwareFlexible(
-                  laneMode: laneMode,
-                  child: issues.isEmpty
-                      ? const SizedBox(height: 8)
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: laneMode
-                              ? const NeverScrollableScrollPhysics()
-                              : null,
-                          padding: const EdgeInsets.symmetric(horizontal: 2),
-                          itemCount: issues.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 9),
-                          itemBuilder: (context, index) {
-                            final issue = issues[index];
-                            return BoardDragCard(
-                              issue: issue,
-                              columnWidth: width,
-                              // Touch platforms: no drag — it fights the scroll
-                              // gesture; state changes happen in the sheet.
-                              enabled: !isTouch,
-                              ghost: _SprintCard(
-                                issue: issue,
-                                accent: dotColor,
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              column.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
                               ),
-                              child: BoardLandingCard(
-                                issueId: issue.id,
-                                accent: dotColor,
-                                child: _SprintCard(
+                            ),
+                          ),
+                          BoardColumnOwnerMark(
+                            owners: boardColumnOwners(column, projectsById),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: overWip
+                                  ? AppColors.dangerSoft
+                                  : AppColors.surface,
+                              borderRadius: BorderRadius.circular(99),
+                              border: Border.all(
+                                color: overWip
+                                    ? AppColors.danger.withValues(alpha: 0.3)
+                                    : AppColors.hairline,
+                              ),
+                            ),
+                            child: Text(
+                              countLabel,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontMono,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: overWip
+                                    ? AppColors.danger
+                                    : AppColors.inkSoft,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    LaneAwareFlexible(
+                      laneMode: laneMode,
+                      child: issues.isEmpty
+                          ? const SizedBox(height: 8)
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: laneMode
+                                  ? const NeverScrollableScrollPhysics()
+                                  : null,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                              ),
+                              itemCount: issues.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 9),
+                              itemBuilder: (context, index) {
+                                final issue = issues[index];
+                                return BoardDragCard(
                                   issue: issue,
-                                  accent: dotColor,
-                                  onOpen: () => onOpenIssue(issue),
-                                  onOpenIssue: onOpenIssue,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                  columnWidth: width,
+                                  // Touch platforms: no drag — it fights the scroll
+                                  // gesture; state changes happen in the sheet.
+                                  enabled: !isTouch,
+                                  ghost: _SprintCard(
+                                    issue: issue,
+                                    accent: dotColor,
+                                  ),
+                                  child: BoardLandingCard(
+                                    issueId: issue.id,
+                                    accent: dotColor,
+                                    child: _SprintCard(
+                                      issue: issue,
+                                      accent: dotColor,
+                                      onOpen: () => onOpenIssue(issue),
+                                      onOpenIssue: onOpenIssue,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    // The card's future home: opens at the foot of the column in
+                    // the dragged card's own height, so nothing already on the wall
+                    // has to move aside.
+                    BoardDropSlot(open: dropping, hasCards: issues.isNotEmpty),
+                  ],
                 ),
-                // The card's future home: opens at the foot of the column in
-                // the dragged card's own height, so nothing already on the wall
-                // has to move aside.
-                BoardDropSlot(open: dropping, hasCards: issues.isNotEmpty),
+                // Over the cards, never above them — the wall does not move
+                // aside for a drag. Clears the header row.
+                if (blockedFor != null)
+                  Positioned(
+                    left: 4,
+                    right: 4,
+                    top: 38,
+                    child: BoardColumnBlockedNote(projectKey: blockedFor),
+                  ),
               ],
             ),
           );

@@ -144,6 +144,115 @@ String? boardDropState(
   return null;
 }
 
+/// Whether [column] holds a state [project]'s own workflow defines.
+bool boardColumnCarries(Project project, BoardColumnView column) {
+  for (final own in project.stateNames) {
+    for (final state in column.states) {
+      if (own.toLowerCase() == state.toLowerCase()) return true;
+    }
+  }
+  return false;
+}
+
+/// Keys of the projects whose workflow this column carries — empty when every
+/// project on the board has it, and on a single-project board.
+///
+/// A merged column stands for one step across several projects, but a step only
+/// some of them took — a review stage another project never adopted — still
+/// gets a column, and a card from a project without it can't go there. Saying
+/// up front which projects a column belongs to turns that refusal from a
+/// surprise into something the board already told you. A column they all share
+/// says nothing, so it stays unmarked.
+List<String> boardColumnOwners(
+  BoardColumnView column,
+  Map<String, Project> projectsById,
+) {
+  if (projectsById.length < 2) return const [];
+  final owners = [
+    for (final project in projectsById.values)
+      if (boardColumnCarries(project, column)) project.key,
+  ];
+  return owners.length == projectsById.length ? const [] : owners;
+}
+
+/// The project keys of a column only some of the board's projects have.
+/// Renders nothing when [owners] is empty — see [boardColumnOwners].
+class BoardColumnOwnerMark extends StatelessWidget {
+  const BoardColumnOwnerMark({super.key, required this.owners});
+
+  final List<String> owners;
+
+  @override
+  Widget build(BuildContext context) {
+    if (owners.isEmpty) return const SizedBox.shrink();
+    final label = owners.join(' · ');
+    return Tooltip(
+      message: context.t(
+        'board.columnOnlyIn',
+        variables: {'projects': owners.join(', ')},
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+          border: Border.all(color: AppColors.hairline),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppTheme.fontMono,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: AppColors.inkFaint,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Says why a column in the air refuses the card: the card's project has no
+/// state in it. Drawn over the column's cards rather than above them — the
+/// board's rule is that nothing on the wall moves aside for a drag.
+class BoardColumnBlockedNote extends StatelessWidget {
+  const BoardColumnBlockedNote({super.key, required this.projectKey});
+
+  final String projectKey;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: AppColors.dangerSoft,
+      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+      border: Border.all(color: AppColors.danger.withValues(alpha: 0.45)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(LucideIcons.ban, size: 14, color: AppColors.danger),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text(
+            context.t(
+              'board.dropBlockedShort',
+              variables: {'project': projectKey},
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.danger,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Lane key of the catch-all "no epic / no assignee / stand-alone" lane —
 /// lanes with this key carry no group issue to pre-fill on create.
 const String kBoardLaneNoneKey = '__none__';

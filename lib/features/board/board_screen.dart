@@ -583,14 +583,8 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       showIssueDetailSheet(context, issueId: issue.id);
 
   /// Whether this board spans more than one project — the signal that turns on
-  /// the cross-project affordances (project chip on cards, project swimlane).
+  /// the cross-project affordances (column ownership marks, project swimlane).
   bool get _isCrossProject => (_view?.board.projectIds.length ?? 0) > 1;
-
-  /// Project names for the card chips: empty on a single-project board, where
-  /// tagging every card with the one project it can possibly belong to says
-  /// nothing.
-  Map<String, String> get _cardProjectNames =>
-      _isCrossProject ? _projectNames : const {};
 
   /// Whether [column] is a legal drop for [issue] — a different column that
   /// carries a workflow state this card's own project actually defines. Drives
@@ -991,7 +985,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 palette: _palette,
                 names: _names,
                 avatars: _avatars,
-                projectNames: _cardProjectNames,
+                projectsById: _projectsById,
                 onAccept: (issue) => _moveIssue(issue, column),
                 canAccept: (issue) => _canDrop(issue, column),
                 onAddIssue: () => _addIssue(column),
@@ -1047,11 +1041,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         palette: _palette,
         names: _names,
         avatars: _avatars,
-        // The project lane already names the project in its header — repeating
-        // it on every card inside would be noise.
-        projectNames: _grouping == BoardGrouping.project
-            ? const {}
-            : _cardProjectNames,
+        projectsById: _projectsById,
         onAccept: (issue) => _moveIssue(issue, column),
         canAccept: (issue) => _canDrop(issue, column),
         onAddIssue: () => _addIssue(

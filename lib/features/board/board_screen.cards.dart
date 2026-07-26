@@ -185,6 +185,10 @@ class _ProjectFilterChip extends StatelessWidget {
 
 // ─────────────────────────── Kanban column ────────────────────────────────
 
+/// Where the "no status here" note floats: clear of the column's header row
+/// (its 6px top padding, the ~20px title row and its 12px bottom padding).
+const double _blockedNoteTop = 38;
+
 class _BoardColumn extends StatefulWidget {
   const _BoardColumn({
     required this.column,
@@ -198,7 +202,7 @@ class _BoardColumn extends StatefulWidget {
     required this.onOpenIssue,
     this.laneMode = false,
     this.width = BoardWall.columnWidth,
-    this.projectNames = const {},
+    this.projectsById = const {},
   });
 
   final BoardColumnView column;
@@ -207,10 +211,11 @@ class _BoardColumn extends StatefulWidget {
   final Map<String, String> names;
   final Map<String, String> avatars;
 
-  /// Project name by id — non-empty only on a board spanning several projects,
-  /// where each card is tagged with the project it comes from. Empty on a
-  /// single-project board, so nothing redundant is drawn.
-  final Map<String, String> projectNames;
+  /// The board's projects by id — more than one on a merged board, where the
+  /// column says which of them it belongs to and a refused drop says whose
+  /// workflow is missing the state. Empty on a single-project board, where
+  /// neither question can arise.
+  final Map<String, Project> projectsById;
   final void Function(Issue) onAccept;
 
   /// Whether this column is a legal home for [issue] — false for the column it
@@ -236,6 +241,15 @@ class _BoardColumn extends StatefulWidget {
 
 class _BoardColumnState extends State<_BoardColumn> {
   bool _hovered = false;
+
+  /// The key of [issue]'s project when this column refused it for a reason
+  /// worth explaining — its workflow has no state here. Null when the drop is
+  /// legal, when the card already sits in this column (nothing to explain), and
+  /// on a single-project board, where the case cannot arise.
+  String? _refusedProject(Issue issue, bool accepted) {
+    if (accepted || widget.column.states.contains(issue.state)) return null;
+    return widget.projectsById[issue.projectId]?.key;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -267,13 +281,25 @@ class _BoardColumnState extends State<_BoardColumn> {
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: DragTarget<Issue>(
-          onWillAcceptWithDetails: (details) => widget.canAccept(details.data),
+          onWillAcceptWithDetails: (details) {
+            final accepted = widget.canAccept(details.data);
+            // Remember why this column said no, so the release can explain it
+            // even though a refused drop never reaches [onAccept].
+            boardDrag.blockedFor = _refusedProject(details.data, accepted);
+            return accepted;
+          },
           onAcceptWithDetails: (details) => widget.onAccept(details.data),
           builder: (context, candidates, rejected) {
             final dropping = candidates.isNotEmpty;
             // A card hovering the column it already sits in is just home, so it
             // stays neutral; only a column that could never hold this card —
             // a merged cross-project column without its workflow — says no.
+            final blockedFor = dropping
+                ? null
+                : rejected
+                      .whereType<Issue>()
+                      .map((i) => _refusedProject(i, false))
+                      .firstWhere((key) => key != null, orElse: () => null);
             final blocked =
                 !dropping &&
                 rejected.whereType<Issue>().any(
@@ -290,143 +316,170 @@ class _BoardColumnState extends State<_BoardColumn> {
                   color: dropping
                       ? AppColors.accentLine
                       : blocked
-                      ? AppColors.danger.withValues(alpha: 0.35)
+                      // Was 0.35 — on the dark canvas that read as no feedback
+                      // at all, which is how a refusal became a mystery.
+                      ? AppColors.danger.withValues(alpha: 0.8)
                       : Colors.transparent,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: dotColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 9),
-                        Expanded(
-                          child: Text(
-                            column.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                color: dotColor,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: overWip
-                                ? AppColors.dangerSoft
-                                : AppColors.surface,
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(
-                              color: overWip
-                                  ? AppColors.danger.withValues(alpha: 0.3)
-                                  : AppColors.hairline,
-                            ),
-                          ),
-                          child: Text(
-                            countLabel,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontMono,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: overWip
-                                  ? AppColors.danger
-                                  : AppColors.inkSoft,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  LaneAwareFlexible(
-                    laneMode: widget.laneMode,
-                    child: issues.isEmpty
-                        ? const SizedBox(height: 8)
-                        : ListView.separated(
-                            shrinkWrap: true,
-                            physics: widget.laneMode
-                                ? const NeverScrollableScrollPhysics()
-                                : null,
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            itemCount: issues.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 9),
-                            itemBuilder: (context, index) {
-                              final issue = issues[index];
-                              // Plays only for the card that just completed a
-                              // drop; every other card renders untouched.
-                              final card = BoardLandingCard(
-                                issueId: issue.id,
-                                accent: widget.palette.stateColor(issue.state),
-                                child: _BoardCard(
-                                  issue: issue,
-                                  palette: widget.palette,
-                                  assigneeName: widget.names[issue.assigneeId],
-                                  assigneeAvatar:
-                                      widget.avatars[issue.assigneeId],
-                                  projectName:
-                                      widget.projectNames[issue.projectId],
-                                  onOpen: () => widget.onOpenIssue(issue),
-                                  onOpenIssue: widget.onOpenIssue,
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                column.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
                                 ),
-                              );
-                              return BoardDragCard(
-                                issue: issue,
-                                columnWidth: widget.width,
-                                // Touch platforms: no drag — it fights the
-                                // scroll gesture. State changes happen in the
-                                // detail sheet.
-                                enabled: !isTouch,
-                                ghost: _BoardCard(
-                                  issue: issue,
-                                  palette: widget.palette,
-                                  assigneeName: widget.names[issue.assigneeId],
-                                  assigneeAvatar:
-                                      widget.avatars[issue.assigneeId],
-                                  projectName:
-                                      widget.projectNames[issue.projectId],
-                                  dragging: true,
+                              ),
+                            ),
+                            BoardColumnOwnerMark(
+                              owners: boardColumnOwners(
+                                column,
+                                widget.projectsById,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: overWip
+                                    ? AppColors.dangerSoft
+                                    : AppColors.surface,
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(
+                                  color: overWip
+                                      ? AppColors.danger.withValues(alpha: 0.3)
+                                      : AppColors.hairline,
                                 ),
-                                child: card,
-                              );
-                            },
-                          ),
-                  ),
-                  // The card's future home: opens at the foot of the column in
-                  // the dragged card's own height, so nothing already on the
-                  // wall has to move aside.
-                  BoardDropSlot(open: dropping, hasCards: issues.isNotEmpty),
-                  const SizedBox(height: 8),
-                  // Reveal the add button on hover (mouse) / always (touch); keep
-                  // its space reserved so columns don't resize.
-                  SizedBox(
-                    width: double.infinity,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 180),
-                      curve: Curves.easeOut,
-                      opacity: revealAdd ? 1 : 0,
-                      child: IgnorePointer(
-                        ignoring: !revealAdd,
-                        child: DottedAddButton(
-                          label: context.t('board.addIssue'),
-                          onTap: widget.onAddIssue,
+                              ),
+                              child: Text(
+                                countLabel,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontMono,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: overWip
+                                      ? AppColors.danger
+                                      : AppColors.inkSoft,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                      LaneAwareFlexible(
+                        laneMode: widget.laneMode,
+                        child: issues.isEmpty
+                            ? const SizedBox(height: 8)
+                            : ListView.separated(
+                                shrinkWrap: true,
+                                physics: widget.laneMode
+                                    ? const NeverScrollableScrollPhysics()
+                                    : null,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 2,
+                                ),
+                                itemCount: issues.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 9),
+                                itemBuilder: (context, index) {
+                                  final issue = issues[index];
+                                  // Plays only for the card that just completed a
+                                  // drop; every other card renders untouched.
+                                  final card = BoardLandingCard(
+                                    issueId: issue.id,
+                                    accent: widget.palette.stateColor(
+                                      issue.state,
+                                    ),
+                                    child: _BoardCard(
+                                      issue: issue,
+                                      palette: widget.palette,
+                                      assigneeName:
+                                          widget.names[issue.assigneeId],
+                                      assigneeAvatar:
+                                          widget.avatars[issue.assigneeId],
+                                      onOpen: () => widget.onOpenIssue(issue),
+                                      onOpenIssue: widget.onOpenIssue,
+                                    ),
+                                  );
+                                  return BoardDragCard(
+                                    issue: issue,
+                                    columnWidth: widget.width,
+                                    // Touch platforms: no drag — it fights the
+                                    // scroll gesture. State changes happen in the
+                                    // detail sheet.
+                                    enabled: !isTouch,
+                                    ghost: _BoardCard(
+                                      issue: issue,
+                                      palette: widget.palette,
+                                      assigneeName:
+                                          widget.names[issue.assigneeId],
+                                      assigneeAvatar:
+                                          widget.avatars[issue.assigneeId],
+                                      dragging: true,
+                                    ),
+                                    child: card,
+                                  );
+                                },
+                              ),
+                      ),
+                      // The card's future home: opens at the foot of the column in
+                      // the dragged card's own height, so nothing already on the
+                      // wall has to move aside.
+                      BoardDropSlot(
+                        open: dropping,
+                        hasCards: issues.isNotEmpty,
+                      ),
+                      const SizedBox(height: 8),
+                      // Reveal the add button on hover (mouse) / always (touch); keep
+                      // its space reserved so columns don't resize.
+                      SizedBox(
+                        width: double.infinity,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          opacity: revealAdd ? 1 : 0,
+                          child: IgnorePointer(
+                            ignoring: !revealAdd,
+                            child: DottedAddButton(
+                              label: context.t('board.addIssue'),
+                              onTap: widget.onAddIssue,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  // Drawn *over* the cards, never above them: on this wall
+                  // nothing moves aside for a drag, and an explanation is no
+                  // reason to break that. Sits just clear of the header row.
+                  if (blockedFor != null)
+                    Positioned(
+                      left: 4,
+                      right: 4,
+                      top: _blockedNoteTop,
+                      child: BoardColumnBlockedNote(projectKey: blockedFor),
+                    ),
                 ],
               ),
             );
@@ -443,7 +496,6 @@ class _BoardCard extends StatelessWidget {
     required this.palette,
     this.assigneeName,
     this.assigneeAvatar,
-    this.projectName,
     this.dragging = false,
     this.onOpen,
     this.onOpenIssue,
@@ -454,10 +506,6 @@ class _BoardCard extends StatelessWidget {
   final String? assigneeName;
   final String? assigneeAvatar;
 
-  /// Set only on a cross-project board: which project this card belongs to. The
-  /// readable id already encodes the project key, but on a merged wall the name
-  /// is what makes two projects tellable apart at a glance.
-  final String? projectName;
   final bool dragging;
   final VoidCallback? onOpen;
 
@@ -503,10 +551,6 @@ class _BoardCard extends StatelessWidget {
                         TypeGlyph(type: issue.type, size: 18),
                         const SizedBox(width: 8),
                         IdMono(issue.readableId),
-                        if (projectName != null) ...[
-                          const SizedBox(width: 7),
-                          Flexible(child: _ProjectChip(name: projectName!)),
-                        ],
                         const Spacer(),
                         PriorityFlag(priority: issue.priority),
                       ],
@@ -570,37 +614,6 @@ class _BoardCard extends StatelessWidget {
                 SubtaskExpander(issue: issue, onOpenChild: onOpenIssue!),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Small neutral chip naming the project a card belongs to. Deliberately quiet
-/// (no colour of its own): the card's accent stripe already carries the state
-/// colour, and a second strong colour would fight it on a merged board.
-class _ProjectChip extends StatelessWidget {
-  const _ProjectChip({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.canvas2,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w600,
-          color: AppColors.inkSoft,
         ),
       ),
     );
