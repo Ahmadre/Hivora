@@ -886,7 +886,9 @@ class _IssuesScreenState extends State<IssuesScreen> {
                                           context,
                                           projectId: widget.projectId,
                                         );
-                                        if (created != null && mounted) _reload();
+                                        if (created != null && mounted) {
+                                          _reload();
+                                        }
                                       },
                                     )
                                   : Tooltip(
@@ -897,7 +899,9 @@ class _IssuesScreenState extends State<IssuesScreen> {
                                             context,
                                             projectId: widget.projectId,
                                           );
-                                          if (created != null && mounted) _reload();
+                                          if (created != null && mounted) {
+                                            _reload();
+                                          }
                                         },
                                         width: context.isCompact ? 46 : null,
                                         height: 46,
@@ -936,7 +940,8 @@ class _IssuesScreenState extends State<IssuesScreen> {
                                                 Text(
                                                   context.t('issues.new'),
                                                   style: TextStyle(
-                                                    fontFamily: AppTheme.fontBrand,
+                                                    fontFamily:
+                                                        AppTheme.fontBrand,
                                                     fontSize: 17,
                                                     fontWeight: FontWeight.w700,
                                                     letterSpacing: -0.3,
@@ -990,7 +995,9 @@ class _IssuesScreenState extends State<IssuesScreen> {
                                         });
                                         if (refetch) _issues.load();
                                       },
-                                      child: Text(context.t('board.clearFilters')),
+                                      child: Text(
+                                        context.t('board.clearFilters'),
+                                      ),
                                     )
                                   : null,
                             ),
@@ -1187,7 +1194,6 @@ class _IssuesScreenState extends State<IssuesScreen> {
             assignee: names[issue.assigneeId],
             assigneeAvatar: avatars[issue.assigneeId],
             palette: palette,
-            onChanged: _reload,
             selectionMode: _selectionMode,
             selected: _selectedIds.contains(issue.id),
             onToggleSelect: () => _toggleSelection(issue.id),

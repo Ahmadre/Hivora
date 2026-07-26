@@ -174,7 +174,6 @@ class IssueRow extends StatelessWidget {
     this.assignee,
     this.assigneeAvatar,
     this.onTap,
-    this.onChanged,
     this.palette,
     this.selectionMode = false,
     this.selected = false,
@@ -187,9 +186,6 @@ class IssueRow extends StatelessWidget {
   final String? assigneeAvatar;
   final VoidCallback? onTap;
 
-  /// Invoked after the detail sheet edits this issue, so the host list can
-  /// refresh. Only used when [onTap] is not overridden.
-  final VoidCallback? onChanged;
   final ProjectPalette? palette;
 
   /// While the host list is in multi-select mode a tap toggles this row instead
@@ -209,12 +205,9 @@ class IssueRow extends StatelessWidget {
 
     final tap = selectionMode
         ? onToggleSelect
-        : (onTap ??
-              () => showIssueDetailSheet(
-                context,
-                issueId: issue.id,
-                onChanged: onChanged,
-              ));
+        // No refresh callback: the detail sheet broadcasts its changes on
+        // IssueEvents, which every list that renders rows already listens to.
+        : (onTap ?? () => showIssueDetailSheet(context, issueId: issue.id));
     final border = selected
         ? Border.all(color: AppColors.accentStrong, width: 1.5)
         : null;

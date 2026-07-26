@@ -576,8 +576,11 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     return null;
   }
 
+  /// No `onChanged` here on purpose: the detail sheet broadcasts every change on
+  /// [IssueEvents], which this board already listens to. Passing both would run
+  /// the board reload twice per edit.
   void _openIssue(Issue issue) =>
-      showIssueDetailSheet(context, issueId: issue.id, onChanged: _load);
+      showIssueDetailSheet(context, issueId: issue.id);
 
   /// Whether this board spans more than one project — the signal that turns on
   /// the cross-project affordances (project chip on cards, project swimlane).

@@ -55,11 +55,9 @@ class _FocusItem extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => showIssueDetailSheet(
-          context,
-          issueId: issue.id,
-          onChanged: () => context.read<FetchCubit<DashboardData>>().load(),
-        ),
+        // No onChanged: the detail sheet broadcasts on IssueEvents, which the
+        // dashboard already listens to — passing both reloads twice.
+        onTap: () => showIssueDetailSheet(context, issueId: issue.id),
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),

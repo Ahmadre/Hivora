@@ -24,6 +24,7 @@ import '../../core/repositories/sprint_repository.dart';
 import '../../core/repositories/user_repository.dart';
 import '../../core/blocs/app_config_bloc.dart';
 import '../../core/blocs/auth_bloc.dart';
+import '../../core/events/issue_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/core_models.dart';
 import '../../core/responsive/responsive.dart';

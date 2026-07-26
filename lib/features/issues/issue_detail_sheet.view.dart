@@ -668,7 +668,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       if (!mounted) return;
       _issue = updated;
       _publishHeader(updated);
-      widget.onChanged?.call();
+      _notifyChanged();
       // Refresh the change history so the new entry shows immediately (reset to
       // the newest page).
       try {
@@ -690,6 +690,17 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     }
   }
 
+  /// Tells the opener to refresh *and* broadcasts app-wide. The opener callback
+  /// alone only reaches whoever showed this sheet; a change made here is just as
+  /// visible on surfaces that hold their own copy of the issue — a board card's
+  /// sub-task expander, the Scrum sprint containers, the dashboard — and those
+  /// hold no handle to this sheet. Always use this instead of calling
+  /// [IssueDetailBody.onChanged] directly.
+  void _notifyChanged() {
+    widget.onChanged?.call();
+    IssueEvents.instance.notifyChanged();
+  }
+
   /// Pulls the fresh ancestors + children so the breadcrumb and the child /
   /// sub-task panels reflect a re-parent, an inline add, or a state toggle.
   Future<void> _reloadHierarchy() async {
@@ -701,6 +712,15 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     }
   }
 
+  /// A child was added, removed, re-parented or ticked off: refresh this sheet's
+  /// own hierarchy panel *and* tell the rest of the app, since the parent's
+  /// sub-task counters live on every surface that lists it (board cards, issue
+  /// rows, backlog rows) and only the server can recompute them.
+  Future<void> _hierarchyChanged() async {
+    await _reloadHierarchy();
+    _notifyChanged();
+  }
+
   // ── git integration ───────────────────────────────────────────────────────
   bool get _gitConnected => _project?.git != null;
 
@@ -710,7 +730,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (!mounted) return;
     setState(() => _issue = updated);
     _publishHeader(updated);
-    widget.onChanged?.call();
+    _notifyChanged();
     _refreshActivity();
   }
 
@@ -1443,7 +1463,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       currentProjectId: issue.projectId,
     );
     if (moved != true || !mounted) return;
-    widget.onChanged?.call();
+    _notifyChanged();
     await _load();
   }
 
@@ -1855,7 +1875,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     issueId: widget.issueId,
     initial: issue.attachments,
     userNames: _names,
-    onChanged: widget.onChanged,
+    onChanged: _notifyChanged,
   );
 
   /// "Verknüpfte Vorgänge" — the Jira-style issue links (blocks / duplicates /
@@ -1867,7 +1887,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     userNames: _names,
     userAvatars: _avatars,
     onOpenIssue: _openLinkedIssue,
-    onChanged: widget.onChanged,
+    onChanged: _notifyChanged,
   );
 
   /// Hierarchy breadcrumb above the title (`⚡ HIV-12 / ☑ HIV-48`). Hidden for
@@ -2081,7 +2101,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       parentId: epic.id,
       forcedType: 'STORY',
     );
-    if (created != null) await _reloadHierarchy();
+    if (created != null) await _hierarchyChanged();
   }
 
   Future<bool> _addSubtask(Issue parent, String title) async {
@@ -2093,7 +2113,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         'type': 'SUBTASK',
         'parentId': parent.id,
       });
-      await _reloadHierarchy();
+      await _hierarchyChanged();
       return true;
     } on ApiFailure catch (failure) {
       _toast(failure.message);
@@ -2123,7 +2143,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (target == child.state) return;
     try {
       await _issueApi.updateIssue(child.id, {'state': target});
-      await _reloadHierarchy();
+      await _hierarchyChanged();
     } on ApiFailure catch (failure) {
       _toast(failure.message);
     } catch (_) {
@@ -2376,7 +2396,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                 onTap: () async {
                   final logged = await showWorkLogSheet(context, issue.id);
                   if (logged == true && mounted) {
-                    widget.onChanged?.call();
+                    _notifyChanged();
                     await _reloadWorkItems();
                   }
                 },
@@ -2861,7 +2881,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
           await attachFileToIssue(
             context,
             widget.issueId,
-            onChanged: widget.onChanged,
+            onChanged: _notifyChanged,
           );
         }
     }
@@ -2890,7 +2910,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       } else {
         await _refreshTopLevelAfterPost();
       }
-      widget.onChanged?.call();
+      _notifyChanged();
     } catch (_) {
       if (!mounted) return;
       showGlassErrorToast(context, context.t('comments.voiceFailed'));
@@ -3403,7 +3423,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         if (!mounted) return;
         setState(() => _issue = restored);
         _publishHeader(restored);
-        widget.onChanged?.call();
+        _notifyChanged();
       } on ApiFailure catch (failure) {
         _toast(failure.message);
       }
@@ -3422,7 +3442,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         case _IssueRemovalAction.archive:
           await _issueApi.archiveIssue(issue.id);
       }
-      widget.onChanged?.call();
+      _notifyChanged();
       if (!mounted) return;
       // Sheet mode: pop the modal (Wolt owns the root-navigator route). Route
       // mode: reuse the same back-or-home fallback as the top bar's close

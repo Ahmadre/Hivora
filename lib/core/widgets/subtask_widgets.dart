@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../events/issue_events.dart';
 import '../i18n/i18n.dart';
 import '../models/work_models.dart';
 import '../repositories/issue_repository.dart';
@@ -69,9 +72,14 @@ class SubtaskBadge extends StatelessWidget {
 /// (via `GET /issues/{id}/hierarchy`) and lists them as tappable mini-rows so
 /// you can jump straight to a sub-task without opening the parent first.
 ///
-/// Renders nothing when the issue has no children. Children are fetched once and
-/// cached for the widget's lifetime; the progress bar uses the already-known
-/// enriched counts, so it's correct before the list loads.
+/// Renders nothing when the issue has no children. The progress bar uses the
+/// already-known enriched counts, so it's correct before the list loads.
+///
+/// The fetched children are cached, but only until the next issue change
+/// anywhere in the app ([IssueEvents]): a sub-task added, renamed, ticked off or
+/// deleted in the issue detail would otherwise leave this list showing what it
+/// read the first time it was opened. An expanded section re-fetches right away;
+/// a collapsed one just drops its cache and re-fetches on the next open.
 class SubtaskExpander extends StatefulWidget {
   const SubtaskExpander({
     super.key,
@@ -94,6 +102,34 @@ class _SubtaskExpanderState extends State<SubtaskExpander> {
   bool _loading = false;
   bool _failed = false;
   List<Issue>? _children;
+  StreamSubscription<void>? _issueSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _issueSub = IssueEvents.instance.changes.listen((_) => _invalidate());
+  }
+
+  @override
+  void dispose() {
+    _issueSub?.cancel();
+    super.dispose();
+  }
+
+  /// Drops the cached children after an issue changed elsewhere. Re-reads them
+  /// immediately while open (the rows are on screen); otherwise the next expand
+  /// fetches fresh.
+  void _invalidate() {
+    if (!mounted) return;
+    if (_expanded) {
+      _load(silent: _children != null);
+    } else {
+      setState(() {
+        _children = null;
+        _failed = false;
+      });
+    }
+  }
 
   Future<void> _toggle() async {
     final next = !_expanded;
@@ -103,9 +139,12 @@ class _SubtaskExpanderState extends State<SubtaskExpander> {
     }
   }
 
-  Future<void> _load() async {
+  /// Fetches the direct children. A [silent] refresh keeps the rows already on
+  /// screen in place instead of swapping them for a spinner — used when the
+  /// section is open and something changed underneath it.
+  Future<void> _load({bool silent = false}) async {
     setState(() {
-      _loading = true;
+      _loading = !silent;
       _failed = false;
     });
     try {

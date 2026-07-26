@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/events/issue_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/work_models.dart';
 import '../../core/responsive/responsive.dart';
@@ -106,11 +109,25 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
   bool _reportLoading = false;
   String? _reportError;
 
+  /// Re-fetch when an issue changes anywhere — this view owns its own working
+  /// set (sprint containers, backlog, project issue index), so a reload of the
+  /// enclosing board screen never reaches it. Without this an edit made in the
+  /// issue detail (a new sub-task, a sub-task ticked off, a title change) leaves
+  /// the sprint cards showing stale data until the Scrum board is rebuilt.
+  StreamSubscription<void>? _issueSub;
+
   @override
   void initState() {
     super.initState();
     _activeSprintId = _board.activeSprintId;
+    _issueSub = IssueEvents.instance.changes.listen((_) => _loadAll());
     _loadAll();
+  }
+
+  @override
+  void dispose() {
+    _issueSub?.cancel();
+    super.dispose();
   }
 
   List<Issue> get _activeIssues => _activeSprintId == null
