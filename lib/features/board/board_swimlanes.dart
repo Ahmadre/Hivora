@@ -542,7 +542,13 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
     // Both scroll views are driven by [BoardDragScroller] as well, so a card
     // carried to an edge pulls the wall along and can reach a lane or column
     // that is currently off-screen.
+    final snap = boardSnapStride(
+      context,
+      columnWidth: widget.columnWidth,
+      gap: widget.columnGap,
+    );
     return BoardDragScroller(
+      snapStride: snap,
       builder: (context, vertical, horizontal) => SingleChildScrollView(
         controller: vertical,
         padding: EdgeInsets.only(
@@ -552,6 +558,7 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
         child: SingleChildScrollView(
           controller: horizontal,
           scrollDirection: Axis.horizontal,
+          physics: BoardColumnSnapPhysics.maybe(snap),
           padding: EdgeInsets.only(
             left: widget.padding.left,
             right: widget.padding.right,

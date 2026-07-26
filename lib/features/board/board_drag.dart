@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../core/models/work_models.dart';
+import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/hive_widgets.dart' show hiveEase;
 
 /// Motion design of a board card drag — shared by the Kanban board and the
 /// Scrum surface so both walls feel like the same physical object.
@@ -72,6 +74,9 @@ abstract final class BoardDragMotion {
   /// wall, and the speed reached at the very edge.
   static const scrollEdge = 76.0;
   static const scrollSpeed = 900.0;
+
+  /// The wall easing back onto its column grid after an edge scroll.
+  static const settle = Duration(milliseconds: 280);
 
   /// Whether the platform asks for reduced motion. Read off the dispatcher
   /// rather than [MediaQuery] because both users of it decide in `initState`,
@@ -216,6 +221,92 @@ class BoardDragCard extends StatelessWidget {
   }
 }
 
+/// The wall's snap grid on this width, or null where snapping would be wrong.
+///
+/// A column is a fixed 300 px — a desktop measure. On a phone that leaves room
+/// for one column and a sliver of the next, so a free scroll almost always
+/// comes to rest mid-column and the user has to re-aim before they can read
+/// anything. Compact is exactly the range where no second column ever fits, so
+/// it is also exactly the range where a rest position between two of them
+/// carries no information. Wider, where three or four are side by side,
+/// stopping between columns is a perfectly good place to be.
+double? boardSnapStride(
+  BuildContext context, {
+  double columnWidth = 300,
+  double gap = 16,
+}) => context.isCompact ? columnWidth + gap : null;
+
+/// Rests the wall on a column boundary instead of wherever the finger let go.
+///
+/// The grid is a plain stride rather than the viewport, so the same physics
+/// fits the [ListView] walls and the single scroll view the swimlanes move as
+/// one block — and so the column keeps its inset instead of being stretched
+/// edge to edge. What peeks in on the right is the board saying there is more.
+class BoardColumnSnapPhysics extends ScrollPhysics {
+  const BoardColumnSnapPhysics({required this.stride, super.parent})
+    : assert(stride > 0);
+
+  /// Distance from one column's left edge to the next one's.
+  final double stride;
+
+  /// Null in, null out — lets a call site hand the same nullable stride to the
+  /// scroll view and to [BoardDragScroller] without repeating the condition.
+  static ScrollPhysics? maybe(double? stride) =>
+      stride == null ? null : BoardColumnSnapPhysics(stride: stride);
+
+  @override
+  BoardColumnSnapPhysics applyTo(ScrollPhysics? ancestor) =>
+      BoardColumnSnapPhysics(stride: stride, parent: buildParent(ancestor));
+
+  /// The boundary [pixels] should come to rest on. A flick counts for half a
+  /// column, so a short fast swipe still commits to the neighbour rather than
+  /// springing back to where it started.
+  double snapTarget(ScrollMetrics position, double velocity) {
+    var index = position.pixels / stride;
+    final threshold = toleranceFor(position).velocity;
+    if (velocity < -threshold) {
+      index -= 0.5;
+    } else if (velocity > threshold) {
+      index += 0.5;
+    }
+    return (index.roundToDouble() * stride).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    // While a card is in the air the wall belongs to the edge auto-scroll,
+    // which advances it by a jump per frame — and every jump ends in a
+    // zero-velocity ballistic. Snapping into each of those would pull the
+    // auto-scroll off its constant speed, faster near a boundary and slower
+    // leaving one. The wall is put back on the grid once, when the card lands.
+    if (boardDrag.isDragging) return null;
+    // Already past an edge: the parent's overscroll spring has to bring it back
+    // into range first, and snapping here would swallow that bounce.
+    if ((velocity <= 0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+    final tolerance = toleranceFor(position);
+    final target = snapTarget(position, velocity);
+    // Already on a boundary — staying idle beats running a simulation that
+    // would move the wall by less than a pixel.
+    if ((target - position.pixels).abs() < tolerance.distance) return null;
+    return ScrollSpringSimulation(
+      spring,
+      position.pixels,
+      target,
+      velocity,
+      tolerance: tolerance,
+    );
+  }
+}
+
 /// Scrolls the board under a carried card when it is brought near an edge —
 /// the only way to reach a column or lane that is currently off-screen, since
 /// the drag holds the pointer and the board's own scroll gestures can't run.
@@ -224,7 +315,11 @@ class BoardDragCard extends StatelessWidget {
 /// stateless. The speed ramps up towards the edge, so a card parked just inside
 /// the margin creeps rather than shoots.
 class BoardDragScroller extends StatefulWidget {
-  const BoardDragScroller({super.key, required this.builder});
+  const BoardDragScroller({super.key, this.snapStride, required this.builder});
+
+  /// Column grid the wall snaps to, when it snaps at all — see
+  /// [boardSnapStride]. Pass the same value to the scroll view's physics.
+  final double? snapStride;
 
   final Widget Function(
     BuildContext context,
@@ -241,7 +336,11 @@ class _BoardDragScrollerState extends State<BoardDragScroller>
     with SingleTickerProviderStateMixin {
   final ScrollController _vertical = ScrollController();
   final ScrollController _horizontal = ScrollController();
-  late final Ticker _ticker = createTicker(_tick);
+
+  /// Built on the first drag rather than up front. Most boards are only ever
+  /// read, and a `late final` initialiser would run inside [dispose] on those —
+  /// [createTicker] looks up an inherited widget, which is illegal there.
+  Ticker? _ticker;
   Duration _last = Duration.zero;
 
   @override
@@ -253,20 +352,44 @@ class _BoardDragScrollerState extends State<BoardDragScroller>
   @override
   void dispose() {
     boardDrag.removeListener(_onDragChanged);
-    _ticker.dispose();
+    _ticker?.dispose();
     _vertical.dispose();
     _horizontal.dispose();
     super.dispose();
   }
 
   void _onDragChanged() {
-    if (boardDrag.isDragging == _ticker.isActive) return;
+    if (boardDrag.isDragging == (_ticker?.isActive ?? false)) return;
     if (boardDrag.isDragging) {
       _last = Duration.zero;
-      _ticker.start();
+      (_ticker ??= createTicker(_tick)).start();
     } else {
-      _ticker.stop();
+      _ticker?.stop();
+      _settle();
     }
+  }
+
+  /// Puts the wall back on its column grid after a drop.
+  ///
+  /// The edge auto-scroll below advances by [ScrollPosition.jumpTo] frame by
+  /// frame, and a jump has no ballistic phase for the snap physics to act on.
+  /// So a card carried past an edge leaves the wall resting mid-column —
+  /// precisely the misalignment the snapping exists to prevent.
+  void _settle() {
+    final stride = widget.snapStride;
+    if (stride == null || !_horizontal.hasClients) return;
+    final position = _horizontal.position;
+    if (!position.hasContentDimensions) return;
+    final target = ((position.pixels / stride).roundToDouble() * stride).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < 0.5) return;
+    _horizontal.animateTo(
+      target,
+      duration: BoardDragMotion.settle,
+      curve: hiveEase,
+    );
   }
 
   void _tick(Duration elapsed) {

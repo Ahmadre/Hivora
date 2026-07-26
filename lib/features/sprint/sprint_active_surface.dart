@@ -117,6 +117,7 @@ class SprintActiveSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final gutter = context.pageGutter;
+    final snap = boardSnapStride(context);
     final boardColumns = columns
         .where((c) => !_isBacklogColumn(c))
         .toList(growable: false);
@@ -138,9 +139,11 @@ class SprintActiveSurface extends StatelessWidget {
                 )
               : grouping == BoardGrouping.none
               ? BoardDragScroller(
+                  snapStride: snap,
                   builder: (context, _, horizontal) => ListView.separated(
                     controller: horizontal,
                     scrollDirection: Axis.horizontal,
+                    physics: BoardColumnSnapPhysics.maybe(snap),
                     padding: EdgeInsets.fromLTRB(
                       gutter,
                       0,

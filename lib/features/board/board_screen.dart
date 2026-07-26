@@ -939,10 +939,13 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     if (_grouping != BoardGrouping.none) return _groupedBoard(columns);
     // The horizontal controller lets a carried card pull the wall along when it
     // reaches an edge, so an off-screen column is still reachable mid-drag.
+    final snap = boardSnapStride(context);
     return BoardDragScroller(
+      snapStride: snap,
       builder: (context, _, horizontal) => ListView.separated(
         controller: horizontal,
         scrollDirection: Axis.horizontal,
+        physics: BoardColumnSnapPhysics.maybe(snap),
         padding: EdgeInsets.fromLTRB(
           context.pageGutter,
           0,
