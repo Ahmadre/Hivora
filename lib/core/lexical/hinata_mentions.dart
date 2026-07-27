@@ -9,11 +9,16 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassContainer, GlassQuality, LiquidRoundedSuperellipse;
 
+import '../i18n/i18n.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_avatar.dart';
+import '../widgets/glass_panel.dart';
 import '../../features/knowledge/data/knowledge_models.dart' show lucideIcon;
 import '../../features/knowledge/markdown/smart_link_resolver.dart';
+import '../../features/search/search_tokens.dart';
 import 'smart_link_node.dart';
 
 /// The `@` typeahead over [resolver], or null when there is nothing to pick.
@@ -40,23 +45,74 @@ LexicalMentions? hinataMentions({
     maxHeight: 280,
     debounce: const Duration(milliseconds: 120),
     itemBuilder: _row,
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.hairline),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x1F231F3F),
-          blurRadius: 22,
-          offset: Offset(0, 10),
-        ),
-      ],
-    ),
+    // The app's own material, not a box: the picker is a floating overlay and
+    // every other one in hinata is a glass lens. A `Decoration` can draw a
+    // fill, a border and a shadow, which is why this popover was the one
+    // surface in the product that looked like it came from somewhere else.
+    surfaceBuilder: (context, list) => _GlassPopover(child: list),
     // The bundle's node is a stand-in: it exists for the length of one commit
     // so the insertion keeps the package's offset arithmetic, and is replaced
     // by hinata's chip in the same tick.
     onInserted: (suggestion) => _swap(editor, suggestion),
   );
+}
+
+/// The picker's surface: the same liquid-glass lens as the search palette and
+/// every other floating overlay in the app.
+class _GlassPopover extends StatelessWidget {
+  const _GlassPopover({required this.child});
+
+  final Widget child;
+
+  static const double _radius = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final tokens = SearchTokens.of(dark ? Brightness.dark : Brightness.light);
+    return GlassPanelShadow(
+      radius: BorderRadius.circular(_radius),
+      shadows: tokens.panelShadow,
+      child: GlassContainer(
+        useOwnLayer: true,
+        quality: GlassQuality.premium,
+        clipBehavior: Clip.antiAlias,
+        shape: const LiquidRoundedSuperellipse(borderRadius: _radius),
+        settings: liquidGlassPanelSettings(
+          glassFill: tokens.glassFill,
+          dark: dark,
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The list is a list of *targets*, and without a word for what
+                // the rows are the popover reads as an autocomplete of the text
+                // being typed rather than as a picker of things to link to.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 6, 10, 5),
+                  child: Text(
+                    context.t('md.linkTo').toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      letterSpacing: 0.7,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
+                ),
+                Flexible(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Replaces the just-inserted `mention` with hinata's `smartlink`.
@@ -149,58 +205,129 @@ class _SmartLinkMentionSource implements MentionSource {
           data: {
             if (candidate.issueType != null) 'icon': candidate.issueType,
             if (candidate.icon != null) 'docIcon': candidate.icon,
+            // The type glyph's hue. Held as an int rather than a `Color`: the
+            // bundle copies this map onto the node it inserts, and although
+            // that node is replaced before the commit lands, a value that
+            // cannot be serialised has no business being on a document.
+            if (candidate.issueColor != null)
+              'color': candidate.issueColor!.toARGB32(),
           },
         ),
     ];
   }
 }
 
-/// One suggestion row, in the app's list idiom.
+/// One suggestion row, on the glass.
+///
+/// The selected row is a rounded amber lozenge rather than a full-bleed band:
+/// the surface is a lens with rounded corners, and a band painted to its edges
+/// fights the shape it sits in.
 Widget _row(
   BuildContext context,
   MentionSuggestion suggestion,
   bool highlighted,
-) {
-  final icon = switch (suggestion.mentionType) {
-    'issue' => lucideIcon(suggestion.data['icon'] as String? ?? 'circle-dot'),
-    'doc' => lucideIcon(suggestion.data['docIcon'] as String? ?? 'file-text'),
-    _ => LucideIcons.atSign,
-  };
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    color: highlighted ? AppColors.accent.withValues(alpha: 0.14) : null,
-    child: Row(
-      children: [
-        Icon(icon, size: 15, color: AppColors.inkSoft),
-        const SizedBox(width: 10),
-        // Titles are user data of any length and this has to survive a 320 px
-        // phone.
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
+) => Container(
+  margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+  decoration: BoxDecoration(
+    color: highlighted ? AppColors.accentSoft : null,
+    borderRadius: BorderRadius.circular(9),
+  ),
+  child: Row(
+    children: [
+      _leading(suggestion),
+      const SizedBox(width: 10),
+      // Titles are user data of any length and this has to survive a 320 px
+      // phone.
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              suggestion.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
+            if ((suggestion.subtitle ?? '').isNotEmpty)
               Text(
-                suggestion.label,
+                suggestion.subtitle!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.ink,
-                ),
+                style: TextStyle(fontSize: 11, color: AppColors.inkSoft),
               ),
-              if ((suggestion.subtitle ?? '').isNotEmpty)
-                Text(
-                  suggestion.subtitle!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
-                ),
-            ],
-          ),
+          ],
         ),
-      ],
-    ),
+      ),
+      const SizedBox(width: 8),
+      _KindBadge(kind: suggestion.mentionType),
+    ],
+  ),
+);
+
+/// The glyph tile at the head of a row.
+///
+/// A person is their avatar; everything else is its type glyph on a tile tinted
+/// with that type's own hue, which is what tells three issues of different
+/// kinds apart at a glance.
+Widget _leading(MentionSuggestion suggestion) {
+  if (suggestion.mentionType == 'user') {
+    return AppAvatar(name: suggestion.label, radius: 11);
+  }
+  final isDoc = suggestion.mentionType == 'doc';
+  final raw = suggestion.data['color'];
+  final color = isDoc
+      ? AppColors.accentStrong
+      : (raw is int ? Color(raw) : AppColors.accentStrong);
+  final icon = lucideIcon(
+    (isDoc ? suggestion.data['docIcon'] : suggestion.data['icon']) as String? ??
+        (isDoc ? 'file-text' : 'circle-dot'),
   );
+  return Container(
+    width: 22,
+    height: 22,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(7),
+    ),
+    child: Icon(icon, size: 14, color: color),
+  );
+}
+
+/// What kind of thing a row points at, in a word.
+class _KindBadge extends StatelessWidget {
+  const _KindBadge({required this.kind});
+
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (kind) {
+      'issue' => context.t('md.kindIssue'),
+      'doc' => context.t('md.kindDoc'),
+      _ => context.t('md.kindUser'),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 9.5,
+          letterSpacing: 0.5,
+          fontWeight: FontWeight.w700,
+          color: AppColors.inkFaint,
+        ),
+      ),
+    );
+  }
 }

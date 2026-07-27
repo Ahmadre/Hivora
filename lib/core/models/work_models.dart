@@ -267,4 +267,3 @@ List<T> _indexedList<T>(dynamic value, T Function(dynamic, int) build) {
   final list = (value as List<dynamic>?) ?? const [];
   return [for (var i = 0; i < list.length; i++) build(list[i], i)];
 }
-

@@ -1,6 +1,7 @@
 /// Rendering a stored document, in hinata's design language.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart' show ReadContext;
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -9,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
 import '../api/api_image.dart';
+import '../i18n/i18n.dart';
 import '../theme/app_colors.dart';
 import '../../features/knowledge/markdown/smart_link_chip.dart';
 import '../../features/knowledge/markdown/smart_link_resolver.dart';
@@ -153,6 +155,8 @@ Map<String, DecoratorBuilder> hinataDecoratorBuilders({
     editable: editable,
     captionsEnabled: editable,
     imageResolver: hinataImageResolverFor(api),
+    imageStyle: hinataImageStyle(),
+    imagePlaceholderBuilder: hinataImagePlaceholder,
   ),
   'horizontalrule': (context, node) => const _Rule(),
   'smartlink': (context, node) {
@@ -191,6 +195,50 @@ const int hinataMaxInlineImageBytes = 512 * 1024;
 ///   shared tracker whose documents legitimately link images from wikis,
 ///   status pages and CI — refusing unknown hosts would blank those, and the
 ///   only thing a request leaks is what fetching any image leaks.
+/// Drawn where an image should be when it cannot be shown.
+///
+/// The bundle's stand-in is a grey box with the alt text in it, which reads as
+/// "this is what the image is called" rather than as "this failed" — and an
+/// uploaded screenshot that quietly turns into a grey rectangle is the kind of
+/// thing people report as "it saved wrong". This says what happened, and keeps
+/// the name so the picture is still identifiable.
+Widget hinataImagePlaceholder(BuildContext context, String src) => Container(
+  constraints: const BoxConstraints(minHeight: 88),
+  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+  decoration: BoxDecoration(
+    color: AppColors.surfaceMuted,
+    borderRadius: BorderRadius.circular(10),
+    border: Border.all(color: AppColors.hairline),
+  ),
+  child: Row(
+    children: [
+      Icon(LucideIcons.imageOff, size: 18, color: AppColors.inkFaint),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              context.t('md.imageFailed'),
+              style: TextStyle(fontSize: 13, color: AppColors.inkSoft),
+            ),
+            const SizedBox(height: 2),
+            // The address, not the alt text: when an image will not load, what
+            // is worth reading is where it was supposed to come from.
+            Text(
+              src,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
+            ),
+          ],
+        ),
+      ),
+    ],
+  ),
+);
+
 /// Opens [url] in the browser — what tapping a link does unless a host says
 /// otherwise.
 ///
@@ -219,14 +267,29 @@ Future<void> openHinataLink(String url) async {
 /// which is why an upload that reached the server perfectly still rendered as a
 /// broken box. With a client in hand the bytes are fetched properly; without
 /// one — a test, a preview — everything else still resolves as before.
-ImageResolver hinataImageResolverFor(ApiClient? api) {
-  if (api == null) return hinataImageResolver;
-  return (src) {
-    final trimmed = src.trim();
-    if (trimmed.startsWith('/')) return ApiImage(trimmed, api: api);
-    return hinataImageResolver(trimmed);
-  };
-}
+ImageResolver hinataImageResolverFor(ApiClient? api) => (src) {
+  final trimmed = src.trim();
+  if (!trimmed.startsWith('/')) return hinataImageResolver(trimmed);
+  // The client from the tree when there is one, the app's own otherwise.
+  //
+  // The fallback is what makes this reliable rather than nearly reliable. A
+  // decorator map is memoised, an `ImageProvider` outlives the build that made
+  // it, and the surfaces that render documents are sheets and overlays on other
+  // navigators — so "a client was in scope at the moment the resolver was
+  // built" is a condition that holds *almost* always, and an image that almost
+  // always loads is the bug being chased here. There is one client per process,
+  // so taking it directly cannot pick the wrong one.
+  final client = api ?? ApiClient.instance;
+  if (client != null) return ApiImage(trimmed, api: client);
+  // Before `main` has built one — a test, a preview. Handing the path to
+  // [hinataImageResolver] would read it as an asset name and produce a provider
+  // guaranteed to fail, with no request and so no status code to explain it.
+  // Null draws the placeholder at once.
+  if (kDebugMode) {
+    debugPrint('[media] $trimmed cannot be loaded: no ApiClient exists yet');
+  }
+  return null;
+};
 
 ImageProvider<Object>? hinataImageResolver(String src) {
   final trimmed = src.trim();

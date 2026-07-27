@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/hinata_editor.dart';
 import 'package:hinata/core/lexical/hinata_editor_controller.dart';
@@ -378,6 +379,37 @@ void main() {
       expect(controller.plainText, contains('hinata.example'));
     });
 
+    testWidgets('Enter applies the address, however the key arrives', (
+      tester,
+    ) async {
+      // Enter reaches the field two ways — as the text input's "done" action
+      // and as a raw key event — and which one fires depends on the platform.
+      // On the web it was the key event, where nothing was listening and
+      // pressing Enter simply did nothing.
+      for (final byKey in [false, true]) {
+        final controller = await pump(tester, size: const Size(600, 700));
+
+        await tester.tap(find.byTooltip('md.link'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField).last, 'https://a.test');
+        await tester.pumpAndSettle();
+
+        if (byKey) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        } else {
+          await tester.testTextInput.receiveAction(TextInputAction.done);
+        }
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byTooltip('md.linkAdd'),
+          findsNothing,
+          reason: byKey ? 'key event did not apply' : 'action did not apply',
+        );
+        expect(controller.plainText, contains('a.test'));
+      }
+    });
+
     testWidgets('the cancel button closes the field without linking', (
       tester,
     ) async {
@@ -451,6 +483,50 @@ void main() {
       // Absent rather than transparent: an invisible placeholder is still read
       // out by a screen reader and still found by a search.
       expect(find.text('md.placeholder'), findsNothing);
+    });
+
+    testWidgets('space does not travel up to the page behind the editor', (
+      tester,
+    ) async {
+      // `DefaultTextEditingShortcuts` binds space to a text intent that only
+      // `EditableText` supplies an action for. Unhandled, the key carried on up
+      // the tree — and every one of this app's editors sits in a scroll view,
+      // so finishing a word threw the sheet a screen down and the space never
+      // arrived. The editable claims the intent now.
+      tester.view
+        ..physicalSize = const Size(600, 700)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final controller = HinataEditorController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HinataEditor(controller: controller, autofocus: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The lookup starts from whatever the key event would be delivered to.
+      final focused = FocusManager.instance.primaryFocus;
+      expect(focused?.context, isNotNull);
+
+      final action = Actions.maybeFind<Intent>(
+        focused!.context!,
+        intent: const DoNothingAndStopPropagationTextIntent(),
+      );
+      expect(action, isNotNull);
+      // Not consumed: the intent is handled so the key stops travelling, while
+      // the key itself still reaches the input method and types its space.
+      expect(
+        action!.consumesKey(const DoNothingAndStopPropagationTextIntent()),
+        isFalse,
+      );
     });
 
     testWidgets('a swapped controller is the one the toolbar follows', (

@@ -10,20 +10,20 @@ enum AuthOrigin {
   ldap;
 
   static AuthOrigin fromWire(String? value) => switch (value?.toUpperCase()) {
-        'OIDC' => AuthOrigin.oidc,
-        'SAML' => AuthOrigin.saml,
-        'LDAP' => AuthOrigin.ldap,
-        _ => AuthOrigin.local,
-      };
+    'OIDC' => AuthOrigin.oidc,
+    'SAML' => AuthOrigin.saml,
+    'LDAP' => AuthOrigin.ldap,
+    _ => AuthOrigin.local,
+  };
 
   bool get isSso => this != AuthOrigin.local;
 
   String get label => switch (this) {
-        AuthOrigin.local => 'Local account',
-        AuthOrigin.oidc => 'OpenID Connect',
-        AuthOrigin.saml => 'SAML',
-        AuthOrigin.ldap => 'LDAP',
-      };
+    AuthOrigin.local => 'Local account',
+    AuthOrigin.oidc => 'OpenID Connect',
+    AuthOrigin.saml => 'SAML',
+    AuthOrigin.ldap => 'LDAP',
+  };
 }
 
 /// The signed-in user as seen by the self-service `/me` surface.
@@ -64,25 +64,29 @@ class Me extends Equatable {
   final TwoFactor twoFactor;
   final NotifPrefs notificationPreferences;
 
-  Me copyWith({String? displayName, String? title, String? avatarUrl, bool clearAvatar = false}) =>
-      Me(
-        id: id,
-        displayName: displayName ?? this.displayName,
-        username: username,
-        email: email,
-        emailVerified: emailVerified,
-        pendingEmail: pendingEmail,
-        title: title ?? this.title,
-        locale: locale,
-        avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
-        origin: origin,
-        roles: roles,
-        active: active,
-        createdAt: createdAt,
-        passwordChangedAt: passwordChangedAt,
-        twoFactor: twoFactor,
-        notificationPreferences: notificationPreferences,
-      );
+  Me copyWith({
+    String? displayName,
+    String? title,
+    String? avatarUrl,
+    bool clearAvatar = false,
+  }) => Me(
+    id: id,
+    displayName: displayName ?? this.displayName,
+    username: username,
+    email: email,
+    emailVerified: emailVerified,
+    pendingEmail: pendingEmail,
+    title: title ?? this.title,
+    locale: locale,
+    avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
+    origin: origin,
+    roles: roles,
+    active: active,
+    createdAt: createdAt,
+    passwordChangedAt: passwordChangedAt,
+    twoFactor: twoFactor,
+    notificationPreferences: notificationPreferences,
+  );
 
   String get initials {
     final parts = displayName.trim().split(RegExp(r'\s+'));
@@ -91,33 +95,44 @@ class Me extends Equatable {
       final first = parts.first;
       return first.substring(0, first.length >= 2 ? 2 : 1).toUpperCase();
     }
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 
   factory Me.fromJson(Map<String, dynamic> json) => Me(
-        id: json['id'] as String,
-        displayName: json['displayName'] as String? ?? json['username'] as String,
-        username: json['username'] as String,
-        email: json['email'] as String,
-        emailVerified: json['emailVerified'] as bool? ?? true,
-        pendingEmail: json['pendingEmail'] as String?,
-        title: json['title'] as String?,
-        locale: json['locale'] as String? ?? 'en',
-        avatarUrl: json['avatarUrl'] as String?,
-        origin: AuthOrigin.fromWire(json['origin'] as String?),
-        roles: ((json['roles'] as List<dynamic>?) ?? const []).cast<String>(),
-        active: json['active'] as bool? ?? true,
-        createdAt: _date(json['createdAt']),
-        passwordChangedAt: _date(json['passwordChangedAt']),
-        twoFactor: TwoFactor.fromJson(
-            (json['twoFactor'] as Map<String, dynamic>?) ?? const {}),
-        notificationPreferences: NotifPrefs.fromJson(
-            (json['notificationPreferences'] as Map<String, dynamic>?) ?? const {}),
-      );
+    id: json['id'] as String,
+    displayName: json['displayName'] as String? ?? json['username'] as String,
+    username: json['username'] as String,
+    email: json['email'] as String,
+    emailVerified: json['emailVerified'] as bool? ?? true,
+    pendingEmail: json['pendingEmail'] as String?,
+    title: json['title'] as String?,
+    locale: json['locale'] as String? ?? 'en',
+    avatarUrl: json['avatarUrl'] as String?,
+    origin: AuthOrigin.fromWire(json['origin'] as String?),
+    roles: ((json['roles'] as List<dynamic>?) ?? const []).cast<String>(),
+    active: json['active'] as bool? ?? true,
+    createdAt: _date(json['createdAt']),
+    passwordChangedAt: _date(json['passwordChangedAt']),
+    twoFactor: TwoFactor.fromJson(
+      (json['twoFactor'] as Map<String, dynamic>?) ?? const {},
+    ),
+    notificationPreferences: NotifPrefs.fromJson(
+      (json['notificationPreferences'] as Map<String, dynamic>?) ?? const {},
+    ),
+  );
 
   @override
-  List<Object?> get props =>
-      [id, displayName, email, emailVerified, pendingEmail, title, locale, twoFactor];
+  List<Object?> get props => [
+    id,
+    displayName,
+    email,
+    emailVerified,
+    pendingEmail,
+    title,
+    locale,
+    twoFactor,
+  ];
 }
 
 class TwoFactor extends Equatable {
@@ -134,11 +149,11 @@ class TwoFactor extends Equatable {
   final DateTime? enabledAt;
 
   factory TwoFactor.fromJson(Map<String, dynamic> json) => TwoFactor(
-        enabled: json['enabled'] as bool? ?? false,
-        method: json['method'] as String? ?? 'TOTP',
-        recoveryRemaining: (json['recoveryRemaining'] as num?)?.toInt() ?? 0,
-        enabledAt: _date(json['enabledAt']),
-      );
+    enabled: json['enabled'] as bool? ?? false,
+    method: json['method'] as String? ?? 'TOTP',
+    recoveryRemaining: (json['recoveryRemaining'] as num?)?.toInt() ?? 0,
+    enabledAt: _date(json['enabledAt']),
+  );
 
   @override
   List<Object?> get props => [enabled, method, recoveryRemaining];
@@ -169,16 +184,16 @@ class DeviceSession extends Equatable {
   final DateTime? lastActive;
 
   factory DeviceSession.fromJson(Map<String, dynamic> json) => DeviceSession(
-        id: json['id'] as String,
-        current: json['current'] as bool? ?? false,
-        kind: json['kind'] as String? ?? 'desktop',
-        os: json['os'] as String?,
-        client: json['client'] as String?,
-        app: json['app'] as String?,
-        location: json['location'] as String?,
-        ipMasked: json['ipMasked'] as String?,
-        lastActive: _date(json['lastActive']),
-      );
+    id: json['id'] as String,
+    current: json['current'] as bool? ?? false,
+    kind: json['kind'] as String? ?? 'desktop',
+    os: json['os'] as String?,
+    client: json['client'] as String?,
+    app: json['app'] as String?,
+    location: json['location'] as String?,
+    ipMasked: json['ipMasked'] as String?,
+    lastActive: _date(json['lastActive']),
+  );
 
   @override
   List<Object?> get props => [id, current, kind, lastActive];
@@ -195,9 +210,9 @@ class ChannelPair extends Equatable {
       ChannelPair(email: email ?? this.email, push: push ?? this.push);
 
   factory ChannelPair.fromJson(Map<String, dynamic> json) => ChannelPair(
-        email: json['email'] as bool? ?? false,
-        push: json['push'] as bool? ?? false,
-      );
+    email: json['email'] as bool? ?? false,
+    push: json['push'] as bool? ?? false,
+  );
 
   Map<String, dynamic> toJson() => {'email': email, 'push': push};
 
@@ -221,12 +236,11 @@ class NotifPrefs extends Equatable {
     bool? emailEnabled,
     bool? pushEnabled,
     Map<String, ChannelPair>? events,
-  }) =>
-      NotifPrefs(
-        emailEnabled: emailEnabled ?? this.emailEnabled,
-        pushEnabled: pushEnabled ?? this.pushEnabled,
-        events: events ?? this.events,
-      );
+  }) => NotifPrefs(
+    emailEnabled: emailEnabled ?? this.emailEnabled,
+    pushEnabled: pushEnabled ?? this.pushEnabled,
+    events: events ?? this.events,
+  );
 
   factory NotifPrefs.fromJson(Map<String, dynamic> json) {
     final raw = (json['events'] as Map<String, dynamic>?) ?? const {};
@@ -240,10 +254,10 @@ class NotifPrefs extends Equatable {
   }
 
   Map<String, dynamic> toJson() => {
-        'emailEnabled': emailEnabled,
-        'pushEnabled': pushEnabled,
-        'events': events.map((k, v) => MapEntry(k, v.toJson())),
-      };
+    'emailEnabled': emailEnabled,
+    'pushEnabled': pushEnabled,
+    'events': events.map((k, v) => MapEntry(k, v.toJson())),
+  };
 
   @override
   List<Object?> get props => [emailEnabled, pushEnabled, events];
@@ -267,9 +281,9 @@ class TotpSetup extends Equatable {
   }
 
   factory TotpSetup.fromJson(Map<String, dynamic> json) => TotpSetup(
-        secret: json['secret'] as String,
-        otpauthUri: json['otpauthUri'] as String,
-      );
+    secret: json['secret'] as String,
+    otpauthUri: json['otpauthUri'] as String,
+  );
 
   @override
   List<Object?> get props => [secret, otpauthUri];
@@ -294,13 +308,13 @@ class AccessTeam extends Equatable {
   final int members;
 
   factory AccessTeam.fromJson(Map<String, dynamic> json) => AccessTeam(
-        id: json['id'] as String,
-        key: json['key'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        hue: (json['hue'] as num?)?.toInt() ?? 70,
-        role: json['role'] as String? ?? 'Member',
-        members: (json['members'] as num?)?.toInt() ?? 0,
-      );
+    id: json['id'] as String,
+    key: json['key'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    hue: (json['hue'] as num?)?.toInt() ?? 70,
+    role: json['role'] as String? ?? 'Member',
+    members: (json['members'] as num?)?.toInt() ?? 0,
+  );
 
   @override
   List<Object?> get props => [id, role];
@@ -323,12 +337,12 @@ class AccessProject extends Equatable {
   final String role;
 
   factory AccessProject.fromJson(Map<String, dynamic> json) => AccessProject(
-        id: json['id'] as String,
-        key: json['key'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        color: json['color'] as String? ?? '#AEC6F4',
-        role: json['role'] as String? ?? 'Viewer',
-      );
+    id: json['id'] as String,
+    key: json['key'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    color: json['color'] as String? ?? '#AEC6F4',
+    role: json['role'] as String? ?? 'Viewer',
+  );
 
   @override
   List<Object?> get props => [id, role];

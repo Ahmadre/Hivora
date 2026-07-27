@@ -30,9 +30,9 @@ class LocaleCubit extends HydratedCubit<Locale> {
   /// Best match of the user's preferred device/browser languages against the
   /// ones we ship translations for, via Flutter's own resolution algorithm.
   static Locale deviceLocale() => basicLocaleListResolution(
-        PlatformDispatcher.instance.locales,
-        I18n.supportedLocales,
-      );
+    PlatformDispatcher.instance.locales,
+    I18n.supportedLocales,
+  );
 
   void setLocale(String code) => emit(Locale(code));
 

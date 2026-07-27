@@ -4,6 +4,7 @@ library;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter/painting.dart';
 
 import 'api_client.dart';
@@ -56,10 +57,25 @@ class ApiImage extends ImageProvider<ApiImage> {
       await Future<void>.microtask(() => imageCache.evict(key));
       throw StateError('media ${key.path} could not be loaded');
     }
-    final buffer = await ui.ImmutableBuffer.fromUint8List(
-      bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
-    );
-    return decode(buffer);
+    try {
+      final buffer = await ui.ImmutableBuffer.fromUint8List(
+        bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+      );
+      return await decode(buffer);
+    } on Object catch (error) {
+      // The bytes arrived and could not be turned into a picture. Said out
+      // loud, with what did arrive: a decode failure and a failed request both
+      // end as the same grey box, and the difference between them is the
+      // difference between a broken upload and a broken request.
+      if (kDebugMode) {
+        debugPrint(
+          '[media] ${key.path}: ${bytes.length} bytes of '
+          '"${result?.contentType}" did not decode — $error',
+        );
+      }
+      await Future<void>.microtask(() => imageCache.evict(key));
+      rethrow;
+    }
   }
 
   @override

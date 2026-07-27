@@ -52,6 +52,24 @@ const Map<CalloutKind, CalloutStyle> calloutStyles = {
   CalloutKind.tip: CalloutStyle(152, LucideIcons.lightbulb),
 };
 
+/// The selection chrome around an editable image, in hinata's accent.
+///
+/// The bundle's own is a blue borrowed from nothing in this product, and the
+/// handles are the most visible thing about editing an image — so they get the
+/// honey accent, a rounded square rather than a hard one, and a shadow, because
+/// a 10-pixel dot has to stay findable over a screenshot of anything.
+LexicalImageStyle hinataImageStyle() => LexicalImageStyle(
+  accent: AppColors.accent,
+  handleFill: AppColors.accentStrong,
+  handleBorder: _dark ? const Color(0xFF1C1B25) : const Color(0xFFFFFFFF),
+  handleSize: 11,
+  handleRadius: 3.5,
+  outlineWidth: 1.5,
+  handleShadows: const [
+    BoxShadow(color: Color(0x33231F3F), blurRadius: 4, offset: Offset(0, 1)),
+  ],
+);
+
 /// The palette Lexical draws with, taken from the app's theme tokens.
 ///
 /// Read at call time rather than held in a `const`: the neutral tokens are

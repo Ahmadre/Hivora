@@ -122,17 +122,37 @@ class HinataEditorCard extends StatelessWidget {
     child: child,
   );
 
+  /// The card's shadow, kept almost entirely underneath it.
+  ///
+  /// A wide blur with no spread reaches as far sideways as it does downwards,
+  /// and the editor is laid out to the full width of the column it sits in —
+  /// so everything the shadow put beyond that width was cut off dead straight
+  /// by the scroll viewport, leaving a dark band down each edge. Pulling the
+  /// blur in with a negative spread leaves a few pixels of horizontal reach,
+  /// which no clip can catch, and keeps the weight where a card's shadow
+  /// belongs: below it.
   static List<BoxShadow> _restShadow(bool dark) => [
     BoxShadow(
-      color: dark ? const Color(0x66000000) : const Color(0x14231F3F),
-      offset: const Offset(0, 6),
-      blurRadius: 18,
+      color: dark ? const Color(0x59000000) : const Color(0x12231F3F),
+      offset: const Offset(0, 4),
+      blurRadius: 12,
+      spreadRadius: -8,
     ),
   ];
 
   static const List<BoxShadow> _focusShadow = [
-    BoxShadow(color: Color(0x26D9A032), offset: Offset(0, 4), blurRadius: 20),
-    BoxShadow(color: Color(0x14231F3F), offset: Offset(0, 8), blurRadius: 24),
+    BoxShadow(
+      color: Color(0x21D9A032),
+      offset: Offset(0, 3),
+      blurRadius: 12,
+      spreadRadius: -7,
+    ),
+    BoxShadow(
+      color: Color(0x14231F3F),
+      offset: Offset(0, 5),
+      blurRadius: 14,
+      spreadRadius: -8,
+    ),
   ];
 }
 

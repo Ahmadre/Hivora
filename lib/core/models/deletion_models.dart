@@ -50,12 +50,13 @@ class MigrationTarget {
   final String name;
   final String color;
 
-  factory MigrationTarget.fromJson(Map<String, dynamic> json) => MigrationTarget(
-    id: json['id'] as String,
-    key: json['key'] as String? ?? '',
-    name: json['name'] as String? ?? '',
-    color: json['color'] as String? ?? '#AEC6F4',
-  );
+  factory MigrationTarget.fromJson(Map<String, dynamic> json) =>
+      MigrationTarget(
+        id: json['id'] as String,
+        key: json['key'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        color: json['color'] as String? ?? '#AEC6F4',
+      );
 }
 
 /// Impact of deleting a project: affected boards/sprints/issues/articles/teams,
@@ -148,7 +149,13 @@ enum IssueStrategy {
 /// One frame of the delete SSE stream: a [progress] step, a terminal [done], or
 /// an [error]. Decoded from an [SseEvent].
 class DeleteEvent {
-  const DeleteEvent._(this.kind, {this.phase, this.current, this.total, this.message});
+  const DeleteEvent._(
+    this.kind, {
+    this.phase,
+    this.current,
+    this.total,
+    this.message,
+  });
 
   final DeleteEventKind kind;
 
@@ -161,8 +168,9 @@ class DeleteEvent {
   final String? message;
 
   /// Fractional progress in [0, 1] when a total is known, else null.
-  double? get fraction =>
-      (total != null && total! > 0 && current != null) ? current! / total! : null;
+  double? get fraction => (total != null && total! > 0 && current != null)
+      ? current! / total!
+      : null;
 
   static DeleteEvent? tryParse(SseEvent event) {
     final dynamic data = event.data.isEmpty ? null : jsonDecode(event.data);

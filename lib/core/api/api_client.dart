@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 import '../models/core_models.dart';
 import '../storage/app_storage.dart';
@@ -11,7 +12,8 @@ import 'http_client_config.dart'
 // stream an open response, so the web build opens the stream over the Fetch
 // API instead. Same signature on both, selected by the conditional import.
 import 'sse_transport_web.dart'
-    if (dart.library.io) 'sse_transport_io.dart' as sse_transport;
+    if (dart.library.io) 'sse_transport_io.dart'
+    as sse_transport;
 
 /// Exception with a user-presentable message key.
 class ApiFailure implements Exception {
@@ -28,6 +30,13 @@ class ApiFailure implements Exception {
 /// attaches the bearer token and refreshes it once on 401.
 class ApiClient {
   ApiClient(this._storage) {
+    // The app builds exactly one, in `main`. Recorded here because an
+    // `ImageProvider` is not a widget: it is created inside a decorator
+    // builder, cached by Flutter across routes, and asked to fetch its bytes
+    // long after — and whichever `BuildContext` was around at the time may not
+    // be mounted, or may never have been below the provider at all. An
+    // authenticated image cannot depend on a tree lookup happening to succeed.
+    instance = this;
     _dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 10),
@@ -52,8 +61,7 @@ class ApiClient {
           // Do not attach a stale bearer token here: some servers reject an
           // invalid token before reaching a public endpoint, which would make
           // a revoked session look like a failed server connection.
-          final isAnonymousBootRequest =
-              options.path.contains('/api/v1/meta');
+          final isAnonymousBootRequest = options.path.contains('/api/v1/meta');
           if (token != null &&
               !isAnonymousBootRequest &&
               !options.path.contains('/auth/refresh')) {
@@ -68,8 +76,9 @@ class ApiClient {
           // refresh request through this interceptor would await the in-flight
           // `_refreshing` future from inside itself, leaving startup stuck on
           // the connecting screen after sessions are revoked server-side.
-          final isRefreshRequest =
-              error.requestOptions.path.contains('/auth/refresh');
+          final isRefreshRequest = error.requestOptions.path.contains(
+            '/auth/refresh',
+          );
           if (error.response?.statusCode == 401 &&
               !isRefreshRequest &&
               _storage.refreshToken != null &&
@@ -94,6 +103,15 @@ class ApiClient {
       ),
     );
   }
+
+  /// The client this app is running on, or null before `main` has built one.
+  ///
+  /// A last resort for the few callers that genuinely cannot reach a
+  /// `BuildContext` — an [ImageProvider] fetching bytes for a cached image is
+  /// the case this exists for. Everything that *can* take the client from the
+  /// tree still should: this is one instance per process, so a test that builds
+  /// two would see only the second.
+  static ApiClient? instance;
 
   final AppStorage _storage;
   late final Dio _dio;
@@ -188,9 +206,10 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
-      _run(() => _dio.get<dynamic>('$baseUrl$path', queryParameters: query),
-          idempotent: true);
+  Future<dynamic> get(String path, {Map<String, dynamic>? query}) => _run(
+    () => _dio.get<dynamic>('$baseUrl$path', queryParameters: query),
+    idempotent: true,
+  );
 
   /// Raw binary GET (e.g. the logo proxy). Returns the bytes and the response
   /// content-type, or null on any non-2xx / transport error. Retried once on a
@@ -211,8 +230,20 @@ class ApiClient {
         );
       } on DioException catch (error) {
         if (attempt == 0 && _isTransientConnectionLoss(error)) continue;
+        // Said out loud in debug: every caller of this turns a null into a
+        // silent fallback — an avatar's initials, an image's placeholder — so
+        // without this a failure looks exactly like "there was nothing there",
+        // and the status code that would explain it is thrown away here.
+        if (kDebugMode) {
+          debugPrint(
+            '[api] GET $path failed: '
+            '${error.response?.statusCode ?? error.type.name} '
+            '${error.message ?? ''}',
+          );
+        }
         return null;
-      } catch (_) {
+      } catch (error) {
+        if (kDebugMode) debugPrint('[api] GET $path failed: $error');
         return null;
       }
     }

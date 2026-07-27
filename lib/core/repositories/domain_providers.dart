@@ -14,12 +14,18 @@ import 'repositories.dart';
 /// hand-picked subset) keeps modals robust: adding a repository call deep in a
 /// modal's widget tree can never crash at runtime for a missing provider.
 List<RepositoryProvider> domainRepositoryProviders(BuildContext source) => [
-  RepositoryProvider<MetaRepository>.value(value: source.read<MetaRepository>()),
-  RepositoryProvider<AuthRepository>.value(value: source.read<AuthRepository>()),
+  RepositoryProvider<MetaRepository>.value(
+    value: source.read<MetaRepository>(),
+  ),
+  RepositoryProvider<AuthRepository>.value(
+    value: source.read<AuthRepository>(),
+  ),
   RepositoryProvider<AccountRepository>.value(
     value: source.read<AccountRepository>(),
   ),
-  RepositoryProvider<UserRepository>.value(value: source.read<UserRepository>()),
+  RepositoryProvider<UserRepository>.value(
+    value: source.read<UserRepository>(),
+  ),
   RepositoryProvider<ProjectRepository>.value(
     value: source.read<ProjectRepository>(),
   ),
@@ -59,6 +65,8 @@ List<RepositoryProvider> domainRepositoryProviders(BuildContext source) => [
   RepositoryProvider<AdminRepository>.value(
     value: source.read<AdminRepository>(),
   ),
-  RepositoryProvider<TeamRepository>.value(value: source.read<TeamRepository>()),
+  RepositoryProvider<TeamRepository>.value(
+    value: source.read<TeamRepository>(),
+  ),
   RepositoryProvider<GitRepository>.value(value: source.read<GitRepository>()),
 ];

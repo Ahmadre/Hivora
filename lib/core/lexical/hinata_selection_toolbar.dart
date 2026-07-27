@@ -383,11 +383,24 @@ class _LinkField extends StatefulWidget {
   State<_LinkField> createState() => _LinkFieldState();
 }
 
+/// "Take the address as typed" — Enter, from wherever it came.
+class _ApplyLinkIntent extends Intent {
+  const _ApplyLinkIntent();
+}
+
 class _LinkFieldState extends State<_LinkField> {
   late final TextEditingController _url = TextEditingController(
     text: widget.initial,
   );
   bool _unsafe = false;
+
+  /// Whether the address has already been applied.
+  ///
+  /// Enter reaches this field two ways — as the text input's "done" action and
+  /// as a raw key event — and which one arrives depends on the platform and on
+  /// whether the keyboard is a real one. Both are handled, so both can fire;
+  /// applying twice would toggle the link straight back off.
+  bool _applied = false;
 
   @override
   void dispose() {
@@ -396,10 +409,12 @@ class _LinkFieldState extends State<_LinkField> {
   }
 
   void _submit() {
+    if (_applied) return;
     final url = _url.text.trim();
     if (url.isEmpty) {
       // An emptied address on an existing link means "remove it", which is the
       // only reading that does not silently discard the writer's intent.
+      _applied = true;
       widget.onApply(widget.hasLink ? null : '');
       return;
     }
@@ -407,9 +422,11 @@ class _LinkFieldState extends State<_LinkField> {
     // unsafe one is the application's job, at the point it is created. A
     // `javascript:` address in a stored document is XSS waiting for a tap.
     if (!isSafeUrl(url)) {
+      // Not applied: the writer has to be able to correct it and press again.
       setState(() => _unsafe = true);
       return;
     }
+    _applied = true;
     widget.onApply(url);
   }
 
@@ -432,14 +449,29 @@ class _LinkFieldState extends State<_LinkField> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 260),
                 child: Shortcuts(
+                  // Enter is bound here as well as through `onSubmitted`.
+                  // Which of the two fires depends on the platform and on
+                  // whether the key came from a real keyboard or the input
+                  // method — and on the web it is the key event, where the
+                  // action never arrived and pressing Enter did nothing at all.
                   shortcuts: const {
                     SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+                    SingleActivator(LogicalKeyboardKey.enter):
+                        _ApplyLinkIntent(),
+                    SingleActivator(LogicalKeyboardKey.numpadEnter):
+                        _ApplyLinkIntent(),
                   },
                   child: Actions(
                     actions: {
                       DismissIntent: CallbackAction<DismissIntent>(
                         onInvoke: (_) {
                           widget.onCancel();
+                          return null;
+                        },
+                      ),
+                      _ApplyLinkIntent: CallbackAction<_ApplyLinkIntent>(
+                        onInvoke: (_) {
+                          _submit();
                           return null;
                         },
                       ),

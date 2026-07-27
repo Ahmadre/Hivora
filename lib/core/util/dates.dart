@@ -22,8 +22,10 @@ library;
 DateTime? parseInstant(Object? value) {
   if (value == null) return null;
   if (value is num) {
-    return DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true)
-        .toLocal();
+    return DateTime.fromMillisecondsSinceEpoch(
+      value.toInt(),
+      isUtc: true,
+    ).toLocal();
   }
   if (value is String) {
     if (value.isEmpty) return null;

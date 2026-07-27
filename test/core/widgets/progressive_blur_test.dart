@@ -19,23 +19,25 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 /// assert. The Impeller path also emits exactly one, just with the shader.)
 void main() {
   Widget host(double maxSigma) => MaterialApp(
-        home: Scaffold(
-          body: Stack(
-            children: [
-              const Positioned.fill(child: ColoredBox(color: Colors.white)),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 120,
-                child: ProgressiveBlur(maxSigma: maxSigma),
-              ),
-            ],
+    home: Scaffold(
+      body: Stack(
+        children: [
+          const Positioned.fill(child: ColoredBox(color: Colors.white)),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 120,
+            child: ProgressiveBlur(maxSigma: maxSigma),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
-  testWidgets('is a single backdrop pass — never a slice stack', (tester) async {
+  testWidgets('is a single backdrop pass — never a slice stack', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(30));
     await tester.pump();
 
@@ -59,23 +61,27 @@ void main() {
 
   testWidgets('builds with the default (optional) maxSigma', (tester) async {
     // maxSigma is optional now; the default must still render a blur pass.
-    await tester.pumpWidget(const MaterialApp(
-      home: Scaffold(body: SizedBox(height: 120, child: ProgressiveBlur())),
-    ));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: SizedBox(height: 120, child: ProgressiveBlur())),
+      ),
+    );
     await tester.pump();
     expect(find.byType(BackdropFilter), findsOneWidget);
   });
 
   testWidgets('every direction builds as a single pass', (tester) async {
     for (final dir in ProgressiveBlurDirection.values) {
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            height: 120,
-            child: ProgressiveBlur(maxSigma: 24, direction: dir),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 120,
+              child: ProgressiveBlur(maxSigma: 24, direction: dir),
+            ),
           ),
         ),
-      ));
+      );
       await tester.pump();
       expect(find.byType(BackdropFilter), findsOneWidget, reason: 'dir=$dir');
     }

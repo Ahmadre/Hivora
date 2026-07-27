@@ -51,17 +51,17 @@ class IngestConnection extends Equatable {
   final bool passwordSet;
 
   Map<String, dynamic> toJson() => {
-        'name': ?name,
-        'enabled': enabled,
-        'host': host,
-        'port': port,
-        'ssl': ssl,
-        'username': username,
-        if (password != null && password!.isNotEmpty) 'password': password,
-        'folder': folder,
-        'projectId': ?projectId,
-        'pollSeconds': pollSeconds,
-      };
+    'name': ?name,
+    'enabled': enabled,
+    'host': host,
+    'port': port,
+    'ssl': ssl,
+    'username': username,
+    if (password != null && password!.isNotEmpty) 'password': password,
+    'folder': folder,
+    'projectId': ?projectId,
+    'pollSeconds': pollSeconds,
+  };
 
   IngestConnection copyWith({
     String? id,
@@ -76,21 +76,20 @@ class IngestConnection extends Equatable {
     String? projectId,
     int? pollSeconds,
     bool? passwordSet,
-  }) =>
-      IngestConnection(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        enabled: enabled ?? this.enabled,
-        host: host ?? this.host,
-        port: port ?? this.port,
-        ssl: ssl ?? this.ssl,
-        username: username ?? this.username,
-        password: password ?? this.password,
-        folder: folder ?? this.folder,
-        projectId: projectId ?? this.projectId,
-        pollSeconds: pollSeconds ?? this.pollSeconds,
-        passwordSet: passwordSet ?? this.passwordSet,
-      );
+  }) => IngestConnection(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    enabled: enabled ?? this.enabled,
+    host: host ?? this.host,
+    port: port ?? this.port,
+    ssl: ssl ?? this.ssl,
+    username: username ?? this.username,
+    password: password ?? this.password,
+    folder: folder ?? this.folder,
+    projectId: projectId ?? this.projectId,
+    pollSeconds: pollSeconds ?? this.pollSeconds,
+    passwordSet: passwordSet ?? this.passwordSet,
+  );
 
   /// Display label: explicit name, else mailbox identity.
   String get label => (name != null && name!.trim().isNotEmpty)
@@ -99,9 +98,19 @@ class IngestConnection extends Equatable {
 
   @override
   List<Object?> get props => [
-        id, name, enabled, host, port, ssl, username, password, folder,
-        projectId, pollSeconds, passwordSet,
-      ];
+    id,
+    name,
+    enabled,
+    host,
+    port,
+    ssl,
+    username,
+    password,
+    folder,
+    projectId,
+    pollSeconds,
+    passwordSet,
+  ];
 }
 
 /// Lightweight project option for the connection editor's project picker.

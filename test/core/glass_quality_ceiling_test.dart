@@ -21,17 +21,17 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 void main() {
   // Mirror of lib/app.dart's root wrap config. Keep in sync.
   Widget wrapWithAppCeiling(Widget child) => LiquidGlassWidgets.wrap(
-        adaptiveQuality: true,
-        // ignore: experimental_member_use
-        adaptiveConfig: const GlassAdaptiveScopeConfig(
-          initialQuality: GlassQuality.standard,
-          maxQuality: GlassQuality.standard,
-          minQuality: GlassQuality.minimal,
-          allowStepUp: true,
-          targetFrameMs: 16,
-        ),
-        child: child,
-      );
+    adaptiveQuality: true,
+    // ignore: experimental_member_use
+    adaptiveConfig: const GlassAdaptiveScopeConfig(
+      initialQuality: GlassQuality.standard,
+      maxQuality: GlassQuality.standard,
+      minQuality: GlassQuality.minimal,
+      allowStepUp: true,
+      targetFrameMs: 16,
+    ),
+    child: child,
+  );
 
   testWidgets('installs an adaptive scope that never resolves to premium', (
     tester,
@@ -55,7 +55,8 @@ void main() {
     expect(
       captured,
       isNotNull,
-      reason: 'The app root must install a GlassAdaptiveScope so premium glass '
+      reason:
+          'The app root must install a GlassAdaptiveScope so premium glass '
           'is gated by device capability instead of rendering ungated.',
     );
     // The crash-prone / most-expensive premium path must never be the effective
@@ -64,7 +65,8 @@ void main() {
     expect(
       captured!.effectiveQuality,
       isNot(GlassQuality.premium),
-      reason: 'maxQuality is capped at standard; premium must never leak '
+      reason:
+          'maxQuality is capped at standard; premium must never leak '
           'through the ceiling.',
     );
   });

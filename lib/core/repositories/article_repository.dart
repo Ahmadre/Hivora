@@ -41,8 +41,10 @@ class ArticleRepository {
   Future<Article> saveArticle({
     String? id,
     required String title,
+
     /// Markdown. Accepted and converted server-side; [contentDoc] wins.
     String? content,
+
     /// The Lexical document — what the editor produces.
     String? contentDoc,
     String? projectId,

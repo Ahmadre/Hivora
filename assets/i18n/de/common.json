@@ -1007,7 +1007,12 @@
     "placeholder": "Schreib etwas …",
     "codeLanguage": "Sprache",
     "codeLanguagePlain": "Nur Text",
-    "linkUnsafe": "Diese Art von Adresse ist nicht erlaubt."
+    "linkUnsafe": "Diese Art von Adresse ist nicht erlaubt.",
+    "linkTo": "Verknüpfen mit …",
+    "kindIssue": "Issue",
+    "kindDoc": "Artikel",
+    "kindUser": "Person",
+    "imageFailed": "Dieses Bild konnte nicht geladen werden."
   },
   "weeklySummary": {
     "title": "Wochenübersicht",

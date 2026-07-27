@@ -51,27 +51,27 @@ class SearchApiHit {
   final bool archived;
 
   factory SearchApiHit.fromJson(Map<String, dynamic> json) => SearchApiHit(
-        category: json['category'] as String? ?? '',
-        id: json['id'] as String? ?? '',
-        route: json['route'] as String? ?? '/',
-        title: json['title'] as String? ?? '',
-        subtitle: json['subtitle'] as String?,
-        readableId: json['readableId'] as String?,
-        type: json['type'] as String?,
-        state: json['state'] as String?,
-        assigneeName: json['assigneeName'] as String?,
-        assigneeAvatarUrl: json['assigneeAvatarUrl'] as String?,
-        avatarUrl: json['avatarUrl'] as String?,
-        projectKey: json['projectKey'] as String?,
-        projectColor: json['projectColor'] as String?,
-        openCount: json['openCount'] as int?,
-        doneCount: json['doneCount'] as int?,
-        memberNames:
-            ((json['memberNames'] as List<dynamic>?) ?? const []).cast<String>(),
-        space: json['space'] as String?,
-        updatedAt: parseInstant(json['updatedAt']),
-        archived: json['archived'] as bool? ?? false,
-      );
+    category: json['category'] as String? ?? '',
+    id: json['id'] as String? ?? '',
+    route: json['route'] as String? ?? '/',
+    title: json['title'] as String? ?? '',
+    subtitle: json['subtitle'] as String?,
+    readableId: json['readableId'] as String?,
+    type: json['type'] as String?,
+    state: json['state'] as String?,
+    assigneeName: json['assigneeName'] as String?,
+    assigneeAvatarUrl: json['assigneeAvatarUrl'] as String?,
+    avatarUrl: json['avatarUrl'] as String?,
+    projectKey: json['projectKey'] as String?,
+    projectColor: json['projectColor'] as String?,
+    openCount: json['openCount'] as int?,
+    doneCount: json['doneCount'] as int?,
+    memberNames: ((json['memberNames'] as List<dynamic>?) ?? const [])
+        .cast<String>(),
+    space: json['space'] as String?,
+    updatedAt: parseInstant(json['updatedAt']),
+    archived: json['archived'] as bool? ?? false,
+  );
 }
 
 class SearchApiGroup {
@@ -80,11 +80,11 @@ class SearchApiGroup {
   final List<SearchApiHit> items;
 
   factory SearchApiGroup.fromJson(Map<String, dynamic> json) => SearchApiGroup(
-        category: json['category'] as String? ?? '',
-        items: ((json['items'] as List<dynamic>?) ?? const [])
-            .map((e) => SearchApiHit.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+    category: json['category'] as String? ?? '',
+    items: ((json['items'] as List<dynamic>?) ?? const [])
+        .map((e) => SearchApiHit.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class SearchApiResponse {
@@ -99,7 +99,8 @@ class SearchApiResponse {
         groups: ((json['groups'] as List<dynamic>?) ?? const [])
             .map((e) => SearchApiGroup.fromJson(e as Map<String, dynamic>))
             .toList(),
-        counts: ((json['counts'] as Map<String, dynamic>?) ?? const {})
-            .map((k, v) => MapEntry(k, (v as num).toInt())),
+        counts: ((json['counts'] as Map<String, dynamic>?) ?? const {}).map(
+          (k, v) => MapEntry(k, (v as num).toInt()),
+        ),
       );
 }

@@ -367,11 +367,38 @@ void main() {
       );
     });
 
-    test('without a client the resolver behaves exactly as before', () {
+    test('a media path falls back to the app\'s own client', () {
+      // A decorator map is memoised and an `ImageProvider` outlives the build
+      // that made it, so "a client was in scope at that moment" is a condition
+      // that holds almost always — and an image that almost always loads is
+      // not good enough for one that was uploaded on purpose.
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final previous = ApiClient.instance;
+      addTearDown(() => ApiClient.instance = previous);
+
       expect(
         hinataImageResolverFor(null)('/api/v1/media/abc'),
-        isA<AssetImage>(),
+        isA<ApiImage>(),
+        reason: 'the app-wide client was not used',
       );
+    });
+
+    test('with no client at all the placeholder is drawn at once', () {
+      // Read as an asset name — which is all the plain resolver can do with a
+      // path — it produces a provider guaranteed to fail, and the failure is
+      // invisible: the request that would have carried a status code was never
+      // made.
+      final previous = ApiClient.instance;
+      ApiClient.instance = null;
+      addTearDown(() => ApiClient.instance = previous);
+
+      expect(hinataImageResolverFor(null)('/api/v1/media/abc'), isNull);
+      // Everything that is not a path on this server is unaffected.
+      expect(
+        hinataImageResolverFor(null)('https://wiki.example.org/a.png'),
+        isA<NetworkImage>(),
+      );
+      expect(hinataImageResolverFor(null)('bilder/a.png'), isA<AssetImage>());
     });
   });
 

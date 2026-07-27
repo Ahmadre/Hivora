@@ -63,13 +63,12 @@ class AppConfigState extends Equatable {
     ServerMeta? meta,
     String? appVersion,
     String? errorKey,
-  }) =>
-      AppConfigState(
-        status: status ?? this.status,
-        meta: meta ?? this.meta,
-        appVersion: appVersion ?? this.appVersion,
-        errorKey: errorKey,
-      );
+  }) => AppConfigState(
+    status: status ?? this.status,
+    meta: meta ?? this.meta,
+    appVersion: appVersion ?? this.appVersion,
+    errorKey: errorKey,
+  );
 
   @override
   List<Object?> get props => [status, meta, appVersion, errorKey];
@@ -77,7 +76,7 @@ class AppConfigState extends Equatable {
 
 class AppConfigBloc extends Bloc<AppConfigEvent, AppConfigState> {
   AppConfigBloc({required this.repository, required this.storage})
-      : super(const AppConfigState()) {
+    : super(const AppConfigState()) {
     on<AppConfigStarted>(_onStarted, transformer: restartable());
     on<ServerUrlSubmitted>(_onServerUrlSubmitted, transformer: droppable());
     on<SetupFinished>(_onSetupFinished);
@@ -101,26 +100,40 @@ class AppConfigBloc extends Bloc<AppConfigEvent, AppConfigState> {
   static String get _effectiveDefaultServer =>
       kIsWeb ? runtimeDefaultServer : '';
 
-  Future<void> _onStarted(AppConfigStarted event, Emitter<AppConfigState> emit) async {
+  Future<void> _onStarted(
+    AppConfigStarted event,
+    Emitter<AppConfigState> emit,
+  ) async {
     final info = await PackageInfo.fromPlatform();
     final version = info.version;
     if (storage.serverUrl == null) {
       if (_effectiveDefaultServer.isEmpty) {
-        emit(state.copyWith(status: AppConfigStatus.needsServerUrl, appVersion: version));
+        emit(
+          state.copyWith(
+            status: AppConfigStatus.needsServerUrl,
+            appVersion: version,
+          ),
+        );
         return;
       }
       await storage.setServerUrl(_effectiveDefaultServer);
     }
-    emit(state.copyWith(status: AppConfigStatus.connecting, appVersion: version));
+    emit(
+      state.copyWith(status: AppConfigStatus.connecting, appVersion: version),
+    );
     await _verify(emit);
   }
 
   Future<void> _onServerUrlSubmitted(
-      ServerUrlSubmitted event, Emitter<AppConfigState> emit) async {
+    ServerUrlSubmitted event,
+    Emitter<AppConfigState> emit,
+  ) async {
     var url = event.url.trim();
     if (url.endsWith('/')) url = url.substring(0, url.length - 1);
     final uri = Uri.tryParse(url);
-    if (uri == null || !(uri.isScheme('https') || uri.isScheme('http')) || uri.host.isEmpty) {
+    if (uri == null ||
+        !(uri.isScheme('https') || uri.isScheme('http')) ||
+        uri.host.isEmpty) {
       emit(state.copyWith(errorKey: 'connect.invalidUrl'));
       return;
     }
@@ -129,7 +142,10 @@ class AppConfigBloc extends Bloc<AppConfigEvent, AppConfigState> {
     await _verify(emit);
   }
 
-  Future<void> _onSetupFinished(SetupFinished event, Emitter<AppConfigState> emit) async {
+  Future<void> _onSetupFinished(
+    SetupFinished event,
+    Emitter<AppConfigState> emit,
+  ) async {
     await _verify(emit);
   }
 
@@ -145,17 +161,21 @@ class AppConfigBloc extends Bloc<AppConfigEvent, AppConfigState> {
         );
       }
       if (isVersionBelow(state.appVersion, meta.minAppVersion)) {
-        emit(state.copyWith(status: AppConfigStatus.updateRequired, meta: meta));
+        emit(
+          state.copyWith(status: AppConfigStatus.updateRequired, meta: meta),
+        );
       } else if (!meta.setupCompleted) {
         emit(state.copyWith(status: AppConfigStatus.needsSetup, meta: meta));
       } else {
         emit(state.copyWith(status: AppConfigStatus.ready, meta: meta));
       }
     } catch (_) {
-      emit(state.copyWith(
-        status: AppConfigStatus.needsServerUrl,
-        errorKey: 'connect.failed',
-      ));
+      emit(
+        state.copyWith(
+          status: AppConfigStatus.needsServerUrl,
+          errorKey: 'connect.failed',
+        ),
+      );
     }
   }
 }

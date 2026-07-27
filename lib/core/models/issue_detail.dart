@@ -42,10 +42,12 @@ class IssueDetail {
   final bool canDelete;
 
   factory IssueDetail.fromJson(Map<String, dynamic> json) {
-    List<T> parseList<T>(dynamic value, T Function(Map<String, dynamic>) from) =>
-        ((value as List<dynamic>?) ?? const [])
-            .map((e) => from(e as Map<String, dynamic>))
-            .toList();
+    List<T> parseList<T>(
+      dynamic value,
+      T Function(Map<String, dynamic>) from,
+    ) => ((value as List<dynamic>?) ?? const [])
+        .map((e) => from(e as Map<String, dynamic>))
+        .toList();
     final commentsPage =
         (json['comments'] as Map<String, dynamic>?) ?? const {};
     final activityPage =

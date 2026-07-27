@@ -8,7 +8,12 @@ import 'hive_loader.dart';
 
 /// Small rounded pill, e.g. "High Priority" or a workflow state.
 class PillChip extends StatelessWidget {
-  const PillChip({super.key, required this.label, this.background, this.foreground});
+  const PillChip({
+    super.key,
+    required this.label,
+    this.background,
+    this.foreground,
+  });
 
   final String label;
   final Color? background;
@@ -91,10 +96,7 @@ class AsyncView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading && !hasData) {
       return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(40),
-          child: HiveLoader(),
-        ),
+        child: Padding(padding: EdgeInsets.all(40), child: HiveLoader()),
       );
     }
     if (errorKey != null && !hasData) {
@@ -104,8 +106,7 @@ class AsyncView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(LucideIcons.cloudOff,
-                  size: 40, color: AppColors.inkFaint),
+              Icon(LucideIcons.cloudOff, size: 40, color: AppColors.inkFaint),
               const SizedBox(height: 12),
               Text(
                 context.t(errorKey!),
@@ -115,7 +116,9 @@ class AsyncView extends StatelessWidget {
               if (onRetry != null) ...[
                 const SizedBox(height: 16),
                 OutlinedButton(
-                    onPressed: onRetry, child: Text(context.t('common.retry'))),
+                  onPressed: onRetry,
+                  child: Text(context.t('common.retry')),
+                ),
               ],
             ],
           ),

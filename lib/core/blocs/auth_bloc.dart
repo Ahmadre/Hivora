@@ -78,20 +78,20 @@ class AuthState extends Equatable {
     AuthUser? user,
     String? errorKey,
     String? mfaToken,
-  }) =>
-      AuthState(
-        status: status ?? this.status,
-        user: user ?? this.user,
-        errorKey: errorKey,
-        mfaToken: mfaToken ?? this.mfaToken,
-      );
+  }) => AuthState(
+    status: status ?? this.status,
+    user: user ?? this.user,
+    errorKey: errorKey,
+    mfaToken: mfaToken ?? this.mfaToken,
+  );
 
   @override
   List<Object?> get props => [status, user, errorKey, mfaToken];
 }
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc({required this.repository, required this.storage}) : super(const AuthState()) {
+  AuthBloc({required this.repository, required this.storage})
+    : super(const AuthState()) {
     on<AuthChecked>(_onChecked, transformer: restartable());
     on<LoginSubmitted>(_onLogin, transformer: droppable());
     on<TwoFactorSubmitted>(_onTwoFactor, transformer: droppable());
@@ -121,10 +121,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final result = await repository.login(event.identifier, event.password);
       if (result.mfaRequired) {
-        emit(AuthState(
-          status: AuthStatus.twoFactorRequired,
-          mfaToken: result.mfaToken,
-        ));
+        emit(
+          AuthState(
+            status: AuthStatus.twoFactorRequired,
+            mfaToken: result.mfaToken,
+          ),
+        );
         return;
       }
       await storage.setTokens(access: result.access!, refresh: result.refresh!);
@@ -135,7 +137,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   Future<void> _onTwoFactor(
-      TwoFactorSubmitted event, Emitter<AuthState> emit) async {
+    TwoFactorSubmitted event,
+    Emitter<AuthState> emit,
+  ) async {
     final token = state.mfaToken;
     if (token == null) return;
     emit(state.copyWith(status: AuthStatus.authenticating));
@@ -145,27 +149,35 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(AuthState(status: AuthStatus.authenticated, user: result.user));
     } on ApiFailure catch (failure) {
       // Stay on the challenge so the user can re-enter the code.
-      emit(AuthState(
-        status: AuthStatus.twoFactorRequired,
-        mfaToken: token,
-        errorKey: failure.statusCode == 401
-            ? 'auth.invalidTwoFactorCode'
-            : failure.message,
-      ));
+      emit(
+        AuthState(
+          status: AuthStatus.twoFactorRequired,
+          mfaToken: token,
+          errorKey: failure.statusCode == 401
+              ? 'auth.invalidTwoFactorCode'
+              : failure.message,
+        ),
+      );
     }
   }
 
   AuthState _loginFailure(ApiFailure failure) => AuthState(
-        status: AuthStatus.unauthenticated,
-        errorKey: failure.statusCode == 401
-            ? 'auth.invalidCredentials'
-            : failure.statusCode == 429
-                ? 'auth.tooManyAttempts'
-                : failure.message,
-      );
+    status: AuthStatus.unauthenticated,
+    errorKey: failure.statusCode == 401
+        ? 'auth.invalidCredentials'
+        : failure.statusCode == 429
+        ? 'auth.tooManyAttempts'
+        : failure.message,
+  );
 
-  Future<void> _onSsoTokens(SsoTokensReceived event, Emitter<AuthState> emit) async {
-    await storage.setTokens(access: event.accessToken, refresh: event.refreshToken);
+  Future<void> _onSsoTokens(
+    SsoTokensReceived event,
+    Emitter<AuthState> emit,
+  ) async {
+    await storage.setTokens(
+      access: event.accessToken,
+      refresh: event.refreshToken,
+    );
     // Emit a transient "authenticating" BEFORE re-checking. _onChecked ends with
     // emit(AuthState(authenticated, user)); if that user equals a previous
     // attempt's, Equatable suppresses the emit, so auth.stream stays silent and
