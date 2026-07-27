@@ -896,130 +896,130 @@ packages:
     dependency: transitive
     description:
       name: lexical_code
-      sha256: df03ad09ebfb6b11045e87f391697a92c816e4da15c3f62d7f94a0c3077c1a9a
+      sha256: ab6bceaad2edc5721a05e55da7a55ba0b6ade8120bcd3989a70558dc03a2b50e
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_core:
     dependency: transitive
     description:
       name: lexical_core
-      sha256: "2866c6c3aee6ece83faf4456eca8b41e6d4c8b843fed77db92f860b352c859f0"
+      sha256: "54822a0586c1e3d7ca576fffc540296d37b882516829d37ffb46047a3ce4777b"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_editor_flutter:
     dependency: "direct main"
     description:
       name: lexical_editor_flutter
-      sha256: "04d46b63c96eadc7d469c9c4e95b604a0874900e4407b2000c02d84b8b3bd8fc"
+      sha256: e0ea379cf0008539551073a8ce87518426eb4ce939c664feeaf5d25ef972ef4e
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_embed:
     dependency: transitive
     description:
       name: lexical_embed
-      sha256: "6e8757c532892d792f38ae2f422568e1a8bc8925fbfb19ecd2b4be089d616f7f"
+      sha256: "1e93d2df9dd3820875ad30685e7669565edc4d1bc5b991f88f1b53a5a5ec7d28"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_flutter:
     dependency: transitive
     description:
       name: lexical_flutter
-      sha256: "8c73b1088ec307e3f08618be697d2b29bda2ca93056f16109312d57701d0f1d0"
+      sha256: "681cdd2eed6454db984496a775e4b745473f248963422a7c132175510a2248c5"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_hashtag:
     dependency: transitive
     description:
       name: lexical_hashtag
-      sha256: "72d2894ce40f4bb3977a14e080e708511f3daef0612f3ac40207cf7ca84190e6"
+      sha256: e6889dc83203ba6a7a7ae7d9c393d078ac1841df6eff1c36ca3eb7e821022bab
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_history:
     dependency: transitive
     description:
       name: lexical_history
-      sha256: "8480e65a690ec56836541caa410ac8777c44e86f7d499103f6f907fae15b22eb"
+      sha256: b6b2fffaee55b636128c69c3c66a2fccce201052c5a0b2991660ea7b4b3ebdcc
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_image:
     dependency: transitive
     description:
       name: lexical_image
-      sha256: ac7916c86df3193e8eb09a0ffabbea48be4b0103e1c2041a6ec43f235aedc91d
+      sha256: f19d174121b440dea57e9e56effc08d835c1c8ea2bde7bf03cb345d5fa3527f6
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_link:
     dependency: transitive
     description:
       name: lexical_link
-      sha256: "811ad2a7136c401d4457149eb74423f15c6ed7b81966b14187f037e36e18626c"
+      sha256: ed4860d778650c595032e589bfd22e31ac46e2827fd73f50e2b64f921c665482
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_list:
     dependency: transitive
     description:
       name: lexical_list
-      sha256: "18dd795885d139a5406abc576b4953088a6cedd7ea61a5bd1bc870589b3572e3"
+      sha256: "99f4454b73571466079d105cc2f862c1ab478626fe5efaf464aee029ca98d913"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_mark:
     dependency: transitive
     description:
       name: lexical_mark
-      sha256: "04708af51f0d75e91a8f24f1721473ded1bf46f11ed824b9b48241f0d765392a"
+      sha256: a38946cd49d5ff87a64ccd65a071e96158190a1531957ecec9a9556a8adfe970
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_markdown:
     dependency: "direct main"
     description:
       name: lexical_markdown
-      sha256: e31c7d98cae5e94afb84ab90abf69f249384d1e7597c2121d9a6a1a6a3f6ea3c
+      sha256: c04a8689df561d8f2f4c295b0d8b83804d5e7c3862ac68a3f0c6c68514b9115e
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_mention:
     dependency: transitive
     description:
       name: lexical_mention
-      sha256: "879d06de9ff76b2fbb4d093816b53c3f1e62b82ae4ccef01bb8b87a73c322afd"
+      sha256: bf1d685108be0fe6c69229a7858f8d25486aab3a659d04d848245313fcb8514c
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_mention_flutter:
     dependency: transitive
     description:
       name: lexical_mention_flutter
-      sha256: "42f0c3f902d3d70d26bc378138efc20a69bfae83e25ad94621737e27a120352e"
+      sha256: "2772a13b5ebb52fab59ecd416fced7773df64ef86b924bcbae1475e8acaa76c2"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_rich_text:
     dependency: transitive
     description:
       name: lexical_rich_text
-      sha256: "38ae56ca214d96c8e5c5570757ced4b57b2499daec8b84ac0f34042e459eeab2"
+      sha256: "6445d3c64056d4a02583fbae629b7d03996fe222ade68ba6e31e6a6cd5496cfe"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lexical_table:
     dependency: transitive
     description:
       name: lexical_table
-      sha256: "0b219fbe557289aae8619acde8e82c07fb845fd32e8d05d8ef0715a0defa7e00"
+      sha256: "2d334f1d488a556f028163bdedf0e936ebda89cc0a012019b51447b5614170f3"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.1"
+    version: "1.7.3"
   lints:
     dependency: transitive
     description:
