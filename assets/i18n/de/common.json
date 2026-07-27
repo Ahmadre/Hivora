@@ -19,7 +19,8 @@
     "of": "von",
     "add": "Hinzufügen",
     "ok": "OK",
-    "next": "Weiter"
+    "next": "Weiter",
+    "paste": "Einfügen"
   },
   "delete": {
     "cta": "Löschen",
@@ -1002,7 +1003,11 @@
     "linkAdd": "Link einfügen",
     "linkRemove": "Link entfernen",
     "paragraph": "Fließtext",
-    "mentionSearch": "Vorgänge, Artikel, Personen suchen…"
+    "mentionSearch": "Vorgänge, Artikel, Personen suchen…",
+    "placeholder": "Schreib etwas …",
+    "codeLanguage": "Sprache",
+    "codeLanguagePlain": "Nur Text",
+    "linkUnsafe": "Diese Art von Adresse ist nicht erlaubt."
   },
   "weeklySummary": {
     "title": "Wochenübersicht",

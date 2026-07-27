@@ -3,16 +3,22 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/api_client.dart';
 import '../i18n/i18n.dart';
 import '../theme/app_colors.dart';
+import '../../features/knowledge/markdown/smart_link_resolver.dart';
+import 'hinata_code_bar.dart';
 import 'hinata_document.dart';
 import 'hinata_editing.dart';
+import 'hinata_editor_card.dart';
 import 'hinata_editor_controller.dart';
 import 'hinata_lexical.dart';
-import 'hinata_link_dialog.dart';
+import 'hinata_mentions.dart';
+import 'hinata_selection_toolbar.dart';
 import 'hinata_theme.dart';
 
 /// One toolbar button: what it does, and whether it currently looks pressed.
@@ -94,6 +100,8 @@ class HinataEditor extends StatefulWidget {
     this.onTapSmartLink,
     this.chipBuilder,
     this.trailing,
+    this.placeholderKey = 'md.placeholder',
+    this.framed = true,
   });
 
   /// The document being edited.
@@ -123,6 +131,16 @@ class HinataEditor extends StatefulWidget {
   /// whatever the host surface adds.
   final List<Widget>? trailing;
 
+  /// The i18n key of the prompt shown while the document is empty.
+  final String placeholderKey;
+
+  /// Whether to draw the glass card around the editor.
+  ///
+  /// On everywhere: an editing surface has to look like one, and a bare column
+  /// of text in the middle of a form does not. A host that supplies its own
+  /// frame turns it off rather than nesting two.
+  final bool framed;
+
   @override
   State<HinataEditor> createState() => HinataEditorState();
 }
@@ -132,6 +150,16 @@ class HinataEditorState extends State<HinataEditor> {
   final FocusNode _focus = FocusNode();
   final HistoryState _history = HistoryState();
 
+  /// Reaches the editable's geometry — where the selection is on screen — which
+  /// is all anything drawn *around* the caret needs.
+  final GlobalKey<LexicalEditableState> _editableKey =
+      GlobalKey<LexicalEditableState>();
+
+  /// Reaches the floating quick actions, so the toolbar's link button opens the
+  /// same address field the selection overlay does.
+  final GlobalKey<HinataSelectionToolbarState> _quickKey =
+      GlobalKey<HinataSelectionToolbarState>();
+
   LexicalEditor get _editor => widget.controller.editor;
 
   @override
@@ -140,6 +168,12 @@ class HinataEditorState extends State<HinataEditor> {
     // The toolbar's pressed states follow the caret, so it has to rebuild when
     // the selection moves — not only when the document changes.
     widget.controller.addListener(_onChanged);
+    // The card's rim follows focus.
+    _focus.addListener(_onFocus);
+  }
+
+  void _onFocus() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -158,7 +192,9 @@ class HinataEditorState extends State<HinataEditor> {
   @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
-    _focus.dispose();
+    _focus
+      ..removeListener(_onFocus)
+      ..dispose();
     super.dispose();
   }
 
@@ -237,16 +273,11 @@ class HinataEditorState extends State<HinataEditor> {
 
   /// Adds, edits or removes the link over the selection.
   ///
-  /// Opens a glass dialog rather than an inline field: the address is a whole
-  /// second thing to type, and a toolbar that grows a text input mid-row is
-  /// the shape this app explicitly does not use.
-  Future<void> _editLink() async {
-    final current = _editor.editorState.read(() => $getLinkAtSelection()?.url);
-    final url = await showGlassLinkDialog(context, initialUrl: current);
-    if (url == null) return;
-    _editor.dispatchCommand(toggleLinkCommand, url.isEmpty ? null : url);
-    if (mounted) _focus.requestFocus();
-  }
+  /// Hands off to the floating quick actions rather than opening a dialog: the
+  /// address belongs over the words being linked, where the writer can still
+  /// see them, and there must be exactly one place it is typed no matter which
+  /// button was pressed.
+  void _editLink() => _quickKey.currentState?.editLink();
 
   /// The inline formats the toolbar offers, and the only ones it has to read.
   static const List<TextFormat> _formatButtons = [
@@ -387,14 +418,15 @@ class HinataEditorState extends State<HinataEditor> {
   /// is where it costs the most.
   LexicalTheme? _themeCache;
   Map<String, DecoratorBuilder>? _decoratorCache;
-  ({double fontSize, Brightness brightness})? _styleKey;
+  ({double fontSize, Brightness brightness, ApiClient? api})? _styleKey;
 
-  void _refreshStyling() {
+  void _refreshStyling(ApiClient? api) {
     final key = (
       fontSize: widget.fontSize,
       // The neutral tokens are theme-aware getters; a cached theme keeps the
       // light colours after a switch to dark.
       brightness: AppColors.brightness,
+      api: api,
     );
     if (_styleKey == key && _themeCache != null && _decoratorCache != null) {
       return;
@@ -411,6 +443,10 @@ class HinataEditorState extends State<HinataEditor> {
       // This *is* the editable surface: handles and the caption editor belong
       // here, and only here.
       editable: true,
+      // An uploaded image lives behind the media proxy, and its address is a
+      // path rather than a URL. Without the client it renders as a broken box —
+      // which is what "inserting an image does nothing" looked like.
+      api: api,
       onTapSmartLink: (kind, targetId) =>
           widget.onTapSmartLink?.call(kind, targetId),
       // The same fallback the reader uses. Without it a `@`-mention shows the
@@ -425,18 +461,49 @@ class HinataEditorState extends State<HinataEditor> {
     );
   }
 
+  /// The API client, when this surface is inside the app rather than a test.
+  ApiClient? get _api {
+    try {
+      return context.read<ApiClient>();
+    } on Object {
+      return null;
+    }
+  }
+
+  /// The resolver `@` searches, when the host provides one.
+  SmartLinkResolver? get _resolver =>
+      context.dependOnInheritedWidgetOfExactType<SmartLinkScope>()?.resolver;
+
+  /// The typeahead configuration, built once per resolver.
+  ///
+  /// `MentionScope` discards its search controller whenever the configuration
+  /// is not `==` to the last one, and this widget rebuilds on every keystroke —
+  /// a fresh object per build would close the picker on the first character
+  /// typed after `@`, which is the whole feature.
+  LexicalMentions? _mentionsCache;
+  SmartLinkResolver? _mentionsFor;
+  bool _mentionsBuilt = false;
+
+  LexicalMentions? _mentions() {
+    final resolver = _resolver;
+    if (_mentionsBuilt && identical(_mentionsFor, resolver)) {
+      return _mentionsCache;
+    }
+    _mentionsBuilt = true;
+    _mentionsFor = resolver;
+    return _mentionsCache = hinataMentions(editor: _editor, resolver: resolver);
+  }
+
   @override
   Widget build(BuildContext context) {
-    _refreshStyling();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (widget.showToolbar) _toolbar(context),
-        ConstrainedBox(
-          constraints: BoxConstraints(minHeight: widget.minHeight),
-          child: LexicalEditorField(
+    _refreshStyling(_api);
+    final field = ConstrainedBox(
+      constraints: BoxConstraints(minHeight: widget.minHeight),
+      child: Stack(
+        children: [
+          LexicalEditorField(
             editor: _editor,
+            editableKey: _editableKey,
             baseTextStyle: TextStyle(fontSize: widget.fontSize),
             theme: _themeCache!,
             focusNode: _focus,
@@ -447,31 +514,102 @@ class HinataEditorState extends State<HinataEditor> {
             scrollable: false,
             history: _history,
             decoratorBuilders: _decoratorCache!,
+            mentions: _mentions(),
+            // The platform's cut/copy/paste menu is off: hinata draws its own
+            // quick actions on the same gesture, and two menus stacked on one
+            // another is what the writer got before.
+            contextMenuBuilder: (_, _) => const SizedBox.shrink(),
           ),
-        ),
-      ],
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            child: HinataEditorPlaceholder(
+              text: context.t(widget.placeholderKey),
+              visible: _looksEmpty,
+              padding: widget.padding,
+              fontSize: widget.fontSize,
+            ),
+          ),
+        ],
+      ),
     );
+
+    final body = widget.framed
+        ? HinataEditorCard(
+            focused: _focus.hasFocus,
+            toolbar: widget.showToolbar ? _toolbar(context) : null,
+            contextBar: _codeBar(),
+            child: field,
+          )
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.showToolbar) _toolbar(context),
+              ?_codeBar(),
+              field,
+            ],
+          );
+
+    return HinataSelectionToolbar(
+      key: _quickKey,
+      editor: _editor,
+      editableKey: _editableKey,
+      child: body,
+    );
+  }
+
+  /// Whether the document holds nothing yet, so the prompt should show.
+  ///
+  /// Shape rather than content: `HinataEditorController.hasContent` walks the
+  /// whole tree, and this is read on every keystroke. One block that holds
+  /// nothing is the only state a fresh document has.
+  bool get _looksEmpty => _editor.editorState.read(() {
+    final root = $getRoot();
+    if (root.childrenSize > 1) return false;
+    final first = root.getFirstChild();
+    return first == null || (first is ElementNode && first.childrenSize == 0);
+  });
+
+  /// The language strip, present only while the caret is in a code block.
+  Widget? _codeBar() {
+    final inCode = _editor.editorState.read(
+      () => $codeLanguageAtSelection().inCode,
+    );
+    if (!inCode) return null;
+    return HinataCodeBar(editor: _editor, onDone: _focus.requestFocus);
   }
 
   Widget _toolbar(BuildContext context) {
     // One read for the whole row, rather than one per button.
     final state = _readToolbar();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: SizedBox(
-        height: 34,
-        // The toolbar scrolls rather than wrapping: on a phone the full set
-        // does not fit, and a wrapped second row pushes the writing area
-        // off-screen exactly when the keyboard is already taking half of it.
+    final groups = _groups(state);
+    return SizedBox(
+      height: 42,
+      // The toolbar scrolls rather than wrapping: on a phone the full set
+      // does not fit, and a wrapped second row pushes the writing area
+      // off-screen exactly when the keyboard is already taking half of it.
+      child: Center(
         child: ListView(
           scrollDirection: Axis.horizontal,
           physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          shrinkWrap: true,
           children: [
-            for (final (index, group) in _groups(state).indexed) ...[
+            for (final (index, group) in groups.indexed) ...[
               if (index > 0) _separator(),
+              // The host's own buttons — inserting an image, picking a mention
+              // — go in front of undo/redo rather than after them. They are
+              // authoring actions with no keyboard shortcut and no gesture,
+              // and behind twenty-two buttons on a scrolling row they sat past
+              // the fold on every screen narrower than a desktop.
+              if (index == groups.length - 1 && widget.trailing != null) ...[
+                ...widget.trailing!,
+                _separator(),
+              ],
               for (final action in group) _button(context, action),
             ],
-            if (widget.trailing != null) ...[_separator(), ...widget.trailing!],
           ],
         ),
       ),

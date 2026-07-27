@@ -324,19 +324,133 @@ void main() {
       expect(controller.plainText, 'Achtung');
     });
 
-    testWidgets('the link button opens a glass dialog that fits a phone', (
+    testWidgets('the link button opens the address field over the text', (
       tester,
     ) async {
+      // Not a modal: the writer has to keep seeing the words being linked, and
+      // the address is confirmed by the check beside the field rather than by a
+      // button in the corner of a dialog.
       await pump(tester, size: const Size(320, 700));
 
       await tester.tap(find.byTooltip('md.link'));
       await tester.pumpAndSettle();
 
-      expect(find.text('md.linkUrl'), findsOneWidget);
-      expect(find.text('md.linkAdd'), findsOneWidget);
-      // A dialog that overflows the phone it opens on is a dialog that cannot
-      // be used on the phone it opens on.
+      expect(find.byTooltip('md.linkAdd'), findsOneWidget);
+      expect(find.byTooltip('common.cancel'), findsOneWidget);
+      // An overlay that overflows the phone it opens on cannot be used on it.
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the address field links the caret it was opened over', (
+      tester,
+    ) async {
+      final controller = await pump(tester, size: const Size(600, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode();
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+        paragraph.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('md.link'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).last,
+        'https://hinata.example',
+      );
+      await tester.tap(find.byTooltip('md.linkAdd'));
+      await tester.pumpAndSettle();
+
+      // Nothing was selected, so the address becomes the link's own text —
+      // the alternative is the writer watching what they typed disappear.
+      expect(
+        controller.editor.editorState.read(() {
+          bool anyLink(ElementNode element) => element.children.any(
+            (child) =>
+                child is LinkNode || (child is ElementNode && anyLink(child)),
+          );
+          return anyLink($getRoot());
+        }),
+        isTrue,
+      );
+      expect(controller.plainText, contains('hinata.example'));
+    });
+
+    testWidgets('the cancel button closes the field without linking', (
+      tester,
+    ) async {
+      final controller = await pump(tester, size: const Size(600, 700));
+
+      await tester.tap(find.byTooltip('md.link'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'https://nope.test');
+      await tester.tap(find.byTooltip('common.cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('md.linkAdd'), findsNothing);
+      expect(controller.plainText, isNot(contains('nope.test')));
+    });
+
+    testWidgets('the platform selection menu is off', (tester) async {
+      // Two menus on one gesture, one over the other, is what the writer got
+      // before hinata drew its own quick actions.
+      await pump(tester, size: const Size(600, 700));
+
+      final field = tester.widget<LexicalEditorField>(
+        find.byType(LexicalEditorField),
+      );
+
+      expect(
+        field.contextMenuBuilder(
+          tester.element(find.byType(LexicalEditorField)),
+          tester.state<LexicalEditableState>(find.byType(LexicalEditable)),
+        ),
+        isA<SizedBox>(),
+      );
+    });
+
+    testWidgets('the language strip appears with a code block and leaves with '
+        'it', (tester) async {
+      final controller = await pump(tester, size: const Size(900, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode()
+          ..append($createTextNode('print(1)'));
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+        paragraph.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      // Nothing to say about a paragraph.
+      expect(find.text('md.codeLanguagePlain'), findsNothing);
+
+      await tester.tap(find.byTooltip('md.codeBlock'));
+      await tester.pumpAndSettle();
+
+      // A code block with no language is not highlighted at all, and the strip
+      // says so rather than pretending one is chosen.
+      expect(find.text('md.codeLanguagePlain'), findsOneWidget);
+    });
+
+    testWidgets('an empty document shows the prompt and a written one does '
+        'not', (tester) async {
+      final controller = await pump(tester);
+
+      expect(find.text('md.placeholder'), findsOneWidget);
+
+      controller.editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append($createParagraphNode()..append($createTextNode('Text')));
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      // Absent rather than transparent: an invisible placeholder is still read
+      // out by a screen reader and still found by a search.
+      expect(find.text('md.placeholder'), findsNothing);
     });
 
     testWidgets('a swapped controller is the one the toolbar follows', (

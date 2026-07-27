@@ -9,11 +9,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hinata/core/api/api_client.dart';
+import 'package:hinata/core/api/api_image.dart';
 import 'package:hinata/core/lexical/hinata_document.dart';
 import 'package:hinata/core/lexical/hinata_markdown_preview.dart';
 import 'package:hinata/core/lexical/hinata_theme.dart';
+import 'package:hinata/core/storage/app_storage.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   /// A phone in portrait — the width where a table or a long code line
@@ -82,6 +87,36 @@ void main() {
 
       expect(style.padding, EdgeInsets.zero);
       expect(style.spacing, greaterThan(0));
+    });
+
+    testWidgets('its indicator is a straight rule, not a rounded crescent', (
+      tester,
+    ) async {
+      // A one-sided `Border` under a border radius is painted as the difference
+      // of two rounded rects, so it tapers to nothing at both corners. The
+      // block keeps its rounding; the indicator must not have any.
+      await pumpDoc(tester, fixture('callout'));
+
+      final decorations = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>();
+
+      expect(
+        decorations.any(
+          (decoration) =>
+              decoration.border != null && !decoration.border!.isUniform,
+        ),
+        isFalse,
+        reason: 'the callout still draws its rule as a one-sided border',
+      );
+      // Drawn as its own rectangle instead, at the width it says it is.
+      expect(
+        tester
+            .widgetList<SizedBox>(find.byType(SizedBox))
+            .any((box) => box.width == 3),
+        isTrue,
+      );
     });
   });
 
@@ -301,6 +336,59 @@ void main() {
 
     test('a file: URL is still refused', () {
       expect(hinataImageResolver('file:///etc/passwd'), isNull);
+    });
+
+    testWidgets('an uploaded image is fetched through the authenticated '
+        'proxy', (tester) async {
+      // An upload returns an app-relative path, not a URL: no host, and the
+      // media proxy wants the bearer token. Read as an asset name — which is
+      // all the default resolver can do with it — it renders as a broken box,
+      // and inserting an image looks like it did nothing at all.
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final api = ApiClient(
+        AppStorage(
+          await SharedPreferences.getInstance(),
+          const FlutterSecureStorage(),
+        ),
+      );
+
+      expect(
+        hinataImageResolverFor(api)('/api/v1/media/abc'),
+        isA<ApiImage>().having(
+          (image) => image.path,
+          'path',
+          '/api/v1/media/abc',
+        ),
+      );
+      // Everything else keeps the behaviour it had.
+      expect(
+        hinataImageResolverFor(api)('https://wiki.example.org/a.png'),
+        isA<NetworkImage>(),
+      );
+    });
+
+    test('without a client the resolver behaves exactly as before', () {
+      expect(
+        hinataImageResolverFor(null)('/api/v1/media/abc'),
+        isA<AssetImage>(),
+      );
+    });
+  });
+
+  group('links', () {
+    testWidgets('a document with no host callback still reacts to a tap', (
+      tester,
+    ) async {
+      // Every reader in the app left `onTapLink` null, so every link in every
+      // article, issue and comment was rendered blue, underlined and dead.
+      await pumpDoc(tester, fixture('links'));
+
+      final document = tester.widget<LexicalDocument>(
+        find.byType(LexicalDocument),
+      );
+
+      expect(document.interaction, isNotNull);
+      expect(document.interaction!.types, contains('link'));
     });
   });
 

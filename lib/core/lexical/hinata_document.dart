@@ -2,9 +2,13 @@
 library;
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart' show ReadContext;
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../api/api_client.dart';
+import '../api/api_image.dart';
 import '../theme/app_colors.dart';
 import '../../features/knowledge/markdown/smart_link_chip.dart';
 import '../../features/knowledge/markdown/smart_link_resolver.dart';
@@ -50,7 +54,8 @@ Map<String, BlockLayoutBuilder> hinataBlockLayouts({
   },
 };
 
-/// A tinted block with a flavour icon down its left edge.
+/// A tinted block with a flavour rule down its left edge and its glyph beside
+/// it.
 class _Callout extends StatelessWidget {
   const _Callout({
     required this.style,
@@ -65,42 +70,61 @@ class _Callout extends StatelessWidget {
 
   final List<Widget> children;
 
+  /// How round the block is. Small enough that the rule's ends read as flat:
+  /// the corner curve is what clips them, and at 12 it bit eight pixels off
+  /// each end and left the indicator looking like a bracket.
+  static const double _radius = 8;
+
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(_radius),
+    child: ColoredBox(
       color: style.fill,
-      borderRadius: BorderRadius.circular(12),
-      border: Border(left: BorderSide(color: style.rule, width: 3)),
-    ),
-    child: Padding(
-      // The only padding a callout has: the block style carries the spacing
-      // above and below it, and nothing else, so the two do not stack up into
-      // an inset twice as deep as either of them asks for.
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 2, right: 10),
-            child: Icon(style.icon, size: 16, color: style.accent),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (index, child) in children.indexed)
-                  if (index == 0 || spacing <= 0)
-                    child
-                  else
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // A drawn bar, not a `Border(left:)`. A one-sided border under a
+            // border radius is painted as the difference of two rounded rects,
+            // so it tapers to nothing at both corners — a crescent, which is
+            // exactly the rounding that had to go. A rectangle stays the width
+            // it says it is.
+            SizedBox(width: 3, child: ColoredBox(color: style.rule)),
+            Expanded(
+              child: Padding(
+                // The only padding a callout has: the block style carries the
+                // spacing above and below it, and nothing else, so the two do
+                // not stack up into an inset twice as deep as either asks for.
+                padding: const EdgeInsets.fromLTRB(11, 12, 14, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Padding(
-                      padding: EdgeInsets.only(top: spacing),
-                      child: child,
+                      padding: const EdgeInsets.only(top: 2, right: 10),
+                      child: Icon(style.icon, size: 16, color: style.accent),
                     ),
-              ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final (index, child) in children.indexed)
+                            if (index == 0 || spacing <= 0)
+                              child
+                            else
+                              Padding(
+                                padding: EdgeInsets.only(top: spacing),
+                                child: child,
+                              ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     ),
   );
@@ -122,12 +146,13 @@ Map<String, DecoratorBuilder> hinataDecoratorBuilders({
   SmartLinkTapped? onTapSmartLink,
   SmartLinkChipBuilder? chipBuilder,
   bool editable = false,
+  ApiClient? api,
 }) => {
   ...lexicalDecoratorBuilders(
     editor: editor,
     editable: editable,
     captionsEnabled: editable,
-    imageResolver: hinataImageResolver,
+    imageResolver: hinataImageResolverFor(api),
   ),
   'horizontalrule': (context, node) => const _Rule(),
   'smartlink': (context, node) {
@@ -166,6 +191,43 @@ const int hinataMaxInlineImageBytes = 512 * 1024;
 ///   shared tracker whose documents legitimately link images from wikis,
 ///   status pages and CI — refusing unknown hosts would blank those, and the
 ///   only thing a request leaks is what fetching any image leaks.
+/// Opens [url] in the browser — what tapping a link does unless a host says
+/// otherwise.
+///
+/// Refuses anything [isSafeUrl] refuses. A document is written by whoever wrote
+/// it — a colleague, an inbound e-mail, an agent — so a `javascript:` or `file:`
+/// address in one is a stored attack waiting for a tap, and the tap is exactly
+/// where it has to be stopped.
+Future<void> openHinataLink(String url) async {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty || !isSafeUrl(trimmed)) return;
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return;
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } on Object {
+    // No handler for the scheme, or the platform refused. Silently: a reader
+    // tapping a link is not a place for an error dialog about URL handlers.
+  }
+}
+
+/// The resolver a surface uses, given the API client it can reach.
+///
+/// An uploaded image is stored behind the authenticated media proxy, so its
+/// address is an app-relative path — `/api/v1/media/<uuid>` — with no host and
+/// no bearer token. [defaultImageResolver] can only read that as an asset name,
+/// which is why an upload that reached the server perfectly still rendered as a
+/// broken box. With a client in hand the bytes are fetched properly; without
+/// one — a test, a preview — everything else still resolves as before.
+ImageResolver hinataImageResolverFor(ApiClient? api) {
+  if (api == null) return hinataImageResolver;
+  return (src) {
+    final trimmed = src.trim();
+    if (trimmed.startsWith('/')) return ApiImage(trimmed, api: api);
+    return hinataImageResolver(trimmed);
+  };
+}
+
 ImageProvider<Object>? hinataImageResolver(String src) {
   final trimmed = src.trim();
   if (trimmed.toLowerCase().startsWith('data:')) {
@@ -350,6 +412,11 @@ class HinataDocument extends StatefulWidget {
   final SmartLinkChipBuilder? chipBuilder;
 
   /// What tapping an external link does.
+  ///
+  /// Defaults to [openHinataLink] — the browser — rather than to nothing. Every
+  /// reader in the app left this null, so every link in every article, issue
+  /// and comment was inert: rendered blue, underlined, and dead. A link that
+  /// cannot be followed is worse than plain text, because it promises.
   final void Function(String url)? onTapLink;
 
   /// Rebuild counters, forwarded to the renderer.
@@ -390,8 +457,21 @@ class _HinataDocumentState extends State<HinataDocument> {
     Brightness brightness,
     LexicalEditor? editor,
     bool tappable,
+    ApiClient? api,
   })?
   _memoKey;
+
+  /// The API client, when this surface is inside the app rather than a test.
+  ///
+  /// Only images stored behind the media proxy need it; everything else renders
+  /// identically without one.
+  ApiClient? get _api {
+    try {
+      return context.read<ApiClient>();
+    } on Object {
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -458,6 +538,7 @@ class _HinataDocumentState extends State<HinataDocument> {
   /// Rebuilds the theme and the decorator map only when something they depend
   /// on actually changed.
   void _refreshStyling(LexicalEditor editor) {
+    final api = _api;
     final key = (
       fontSize: widget.fontSize,
       blockSpacing: widget.blockSpacing,
@@ -466,6 +547,7 @@ class _HinataDocumentState extends State<HinataDocument> {
       brightness: AppColors.brightness,
       editor: editor,
       tappable: widget.onTapSmartLink != null,
+      api: api,
     );
     if (_memoKey == key && _theme != null && _decorators != null) return;
     _memoKey = key;
@@ -479,6 +561,7 @@ class _HinataDocumentState extends State<HinataDocument> {
     );
     _decorators = hinataDecoratorBuilders(
       editor: editor,
+      api: api,
       onTapSmartLink: widget.onTapSmartLink == null ? null : _tapSmartLink,
       chipBuilder: _chipBuilder,
     );
@@ -498,17 +581,16 @@ class _HinataDocumentState extends State<HinataDocument> {
       decoratorBuilders: _decorators!,
       // ignore: invalid_use_of_visible_for_testing_member
       stats: widget.stats,
-      interaction: widget.onTapLink == null
-          ? null
-          : LexicalInteraction(
-              types: hinataInteractiveNodeTypes,
-              onTap: (hit) {
-                // The hit carries the node's serialized fields, which is where
-                // a link's url lives — no read scope needed to get at it.
-                final url = hit.json['url'];
-                if (url is String && url.isNotEmpty) widget.onTapLink!(url);
-              },
-            ),
+      interaction: LexicalInteraction(
+        types: hinataInteractiveNodeTypes,
+        onTap: (hit) {
+          // The hit carries the node's serialized fields, which is where a
+          // link's url lives — no read scope needed to get at it.
+          final url = hit.json['url'];
+          if (url is! String || url.isEmpty) return;
+          (widget.onTapLink ?? openHinataLink)(url);
+        },
+      ),
     );
   }
 }

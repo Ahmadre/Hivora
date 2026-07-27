@@ -73,7 +73,7 @@ bool _isContainer(ElementNode node) => node is ListNode || node is CalloutNode;
 ElementNode? _subjectOf(LexicalNode node) {
   ElementNode? leaf;
   ElementNode? container;
-  for (LexicalNode? current = node; current != null; ) {
+  for (LexicalNode? current = node; current != null;) {
     if (current is ElementNode) {
       if (leaf == null && $isBlock(current)) leaf = current;
       if (_isContainer(current)) container = current;

@@ -19,7 +19,8 @@
     "of": "of",
     "add": "Add",
     "ok": "OK",
-    "next": "Next"
+    "next": "Next",
+    "paste": "Paste"
   },
   "delete": {
     "cta": "Delete",
@@ -1002,7 +1003,11 @@
     "linkAdd": "Add link",
     "linkRemove": "Remove link",
     "paragraph": "Body text",
-    "mentionSearch": "Search issues, articles, people…"
+    "mentionSearch": "Search issues, articles, people…",
+    "placeholder": "Write something…",
+    "codeLanguage": "Language",
+    "codeLanguagePlain": "Plain text",
+    "linkUnsafe": "This kind of address is not allowed."
   },
   "weeklySummary": {
     "title": "Weekly Summary",
