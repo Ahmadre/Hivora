@@ -26,6 +26,9 @@ void main() {
           .listSync()
           .whereType<File>()
           .where((file) => file.path.endsWith('.json'))
+          // `_`-prefixed files are the corpus's own metadata — the markdown each
+          // document was produced from — not documents to open.
+          .where((file) => !file.uri.pathSegments.last.startsWith('_'))
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
 

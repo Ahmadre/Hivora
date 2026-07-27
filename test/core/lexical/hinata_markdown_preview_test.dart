@@ -143,18 +143,31 @@ void main() {
   });
 
   group('the same document the server would store', () {
-    // Not "a document of roughly the same shape": these fixtures were produced
-    // by the server's own converter from exactly these markdown strings
-    // (hinata-server RichTextCorpusTest). A deep comparison against them is the
-    // only assertion that can tell the preview is honest — and it keeps
-    // catching drift when either converter changes.
-    const corpus = {
-      'image': '![Ringelblumen](https://example.org/f.jpg)',
-      'table':
-          '| View | Groups by |\n|---|---|\n'
-          '| Board | Status |\n| Backlog | Sprint |',
-      'rule': 'davor\n\n---\n\ndanach',
-    };
+    // Not "a document of roughly the same shape": every fixture was produced by
+    // the server's own converter from exactly the markdown in `_sources.json`,
+    // which is shipped alongside them rather than transcribed here — a
+    // transcribed string drifts from the one that made the fixture, and then the
+    // comparison passes while comparing the wrong things.
+    //
+    // The whole corpus, not a chosen few: picking three is what let images,
+    // tables and rules diverge unnoticed, and then let link labels and nested
+    // lists diverge after those three were fixed. A construct the server stores
+    // is a construct the preview has to promise correctly.
+    final corpus =
+        (jsonDecode(
+                  File(
+                    'test/fixtures/richtext/_sources.json',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>)
+            .map((name, markdown) => MapEntry(name, markdown! as String));
+
+    test('the corpus sources are present', () {
+      // Without this, a missing or empty `_sources.json` would silently turn the
+      // loop below into no tests at all.
+      expect(corpus, isNotEmpty);
+      expect(corpus.length, greaterThanOrEqualTo(17));
+    });
 
     for (final entry in corpus.entries) {
       test('${entry.key} converts to exactly what the server writes', () {

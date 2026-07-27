@@ -136,6 +136,8 @@ String? markdownToDocument(String markdown) {
         transformers: hinataMarkdownTransformers,
       );
       final root = $getRoot();
+      _canonicaliseLists(root);
+      _parseLinkLabels(root);
       _foldThematicBreaks(root);
       _foldCallouts(root);
       _replaceSmartLinkTokens(root);
@@ -147,6 +149,138 @@ String? markdownToDocument(String markdown) {
     // nothing rather than an exception where the preview should be.
     return null;
   }
+}
+
+/// Rewrites nested lists into the shape the server stores.
+///
+/// The importer appends a nested list into the very item that holds its
+/// parent's text, and leaves every item at `indent: 0`. Lexical's own shape —
+/// and the server's — gives the nested list an item of its own, next to the
+/// one it belongs under, and carries the nesting depth on the inner items.
+///
+/// Both shapes hold the same words, which is why this survived: the preview
+/// looked fine and the stored document was a different tree. Anything reading
+/// structure rather than text — the outline, an export, Lexical web — sees two
+/// different documents for one draft.
+void _canonicaliseLists(ElementNode container) {
+  for (final child in container.children.toList()) {
+    if (child is ListNode) {
+      _canonicaliseList(child, 0);
+    } else if (child is ElementNode) {
+      // Lists live inside callouts, quotes and table cells too.
+      _canonicaliseLists(child);
+    }
+  }
+}
+
+/// Canonicalises one list whose own nesting depth is [depth].
+void _canonicaliseList(ListNode list, int depth) {
+  // The depth is carried by the items, never by the list element itself.
+  list.setIndent(0);
+  for (final item in list.children.toList()) {
+    if (item is ListItemNode) _splitOutNestedLists(item);
+  }
+  for (final item in list.children.toList()) {
+    if (item is! ListItemNode) continue;
+    item.setIndent(depth);
+    for (final child in item.children.toList()) {
+      if (child is ListNode) _canonicaliseList(child, depth + 1);
+    }
+  }
+  // The split inserts items, and an item's number is its position — including
+  // the ones that hold nothing but a nested list, which is how the server
+  // numbers them.
+  renumberItems(list);
+}
+
+/// Moves each nested list out of [item] and into an item of its own.
+///
+/// Content and lists are kept in the order they were typed, so an item holding
+/// text, a nested list and then more text becomes three items rather than a
+/// reshuffle of one.
+void _splitOutNestedLists(ListItemNode item) {
+  final children = item.children.toList();
+  if (!children.any((child) => child is ListNode)) return;
+
+  final runs = <List<LexicalNode>>[];
+  var run = <LexicalNode>[];
+  for (final child in children) {
+    if (child is ListNode) {
+      if (run.isNotEmpty) {
+        runs.add(run);
+        run = <LexicalNode>[];
+      }
+      runs.add([child]);
+    } else {
+      run.add(child);
+    }
+  }
+  if (run.isNotEmpty) runs.add(run);
+  // A single run is an item that already holds nothing but its nested list.
+  if (runs.length <= 1) return;
+
+  // The first run stays put; appending the rest to fresh siblings moves them
+  // out of this item, which is what leaves it holding just that first run.
+  LexicalNode anchor = item;
+  for (final sibling in runs.skip(1)) {
+    final next = $createListItemNode()..appendAll(sibling);
+    anchor.insertAfter(next);
+    anchor = next;
+  }
+}
+
+/// Any character that can open an inline format run.
+final RegExp _inlineMarker = RegExp(r'[*_~`]');
+
+/// Parses a link's label as inline markdown.
+///
+/// The importer's link rule takes the label verbatim, so `[ein *kursiver*
+/// Link](url)` keeps its asterisks as characters. CommonMark resolves emphasis
+/// inside a label and so does the server — which means the preview shows the
+/// syntax that the stored document will already have turned into formatting.
+void _parseLinkLabels(ElementNode container) {
+  for (final child in container.children.toList()) {
+    if (child is LinkNode) {
+      _reparseLabel(child);
+      continue;
+    }
+    if (child is ElementNode) _parseLinkLabels(child);
+  }
+}
+
+void _reparseLabel(LinkNode link) {
+  final children = link.children.toList();
+  if (children.length != 1) return;
+  final label = children.first;
+  if (label is! TextNode) return;
+
+  final text = label.getTextContent();
+  // Checked before parsing rather than after: a label with nothing to resolve
+  // is the common case, and parsing it would build nodes only to drop them.
+  if (!_inlineMarker.hasMatch(text)) return;
+
+  final parsed = $parseMarkdownInline(
+    text,
+    transformers: hinataMarkdownTransformers,
+  );
+  if (parsed.isEmpty) return;
+
+  // The label may sit inside emphasis of its own — `**[a *b* c](url)**` — and
+  // the importer put that format on the node being replaced. Carrying it onto
+  // every run keeps the outer emphasis instead of trading it for the inner.
+  final outer = label.getFormat();
+  if (outer != 0) {
+    for (final node in parsed) {
+      if (node is TextNode) node.setFormat(node.getFormat() | outer);
+    }
+  }
+
+  LexicalNode anchor = label;
+  for (final node in parsed) {
+    anchor.insertAfter(node);
+    anchor = node;
+  }
+  label.remove();
 }
 
 /// Rewrites `***` and `___` break lines as `---`.

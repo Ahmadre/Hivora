@@ -1,0 +1,19 @@
+{
+  "paragraph" : "Ein schlichter Absatz.",
+  "headings" : "# Eins\n\n## Zwei\n\n### Drei\n\n###### Sechs",
+  "inline-formats" : "**fett**, *kursiv*, ~~weg~~, `code` und **fett mit `code` drin**",
+  "links" : "[die Doku](https://example.org) und [ein *kursiver* Link](https://x.de)",
+  "lists" : "- eins\n- zwei\n\n1. erstens\n2. zweitens",
+  "nested-list" : "- außen\n  - innen\n    - ganz innen\n- zurück",
+  "task-list" : "- [x] erledigt\n- [ ] offen",
+  "quote" : "> Ein Zitat mit **Betonung**.",
+  "code-block" : "```dart\nvoid main() {\n  print(\"hi\");\n}\n```",
+  "table" : "| View | Groups by |\n|---|---|\n| Board | Status |\n| Backlog | Sprint |",
+  "rule" : "davor\n\n---\n\ndanach",
+  "image" : "![Ringelblumen](https://example.org/f.jpg)",
+  "callout" : ":::info\nJede Produktivänderung wird geprüft.\n:::",
+  "callout-with-list" : ":::warn\n- eins\n- zwei\n:::",
+  "inline-html" : "Wir brauchen List<String> statt List<Object>.\n\nDas <Widget> rendert nicht, und der <br> fehlt.\n\nXML: <note>Hallo</note> im Body.",
+  "smart-links" : "Siehe {{issue:HIN-5}}, {{doc:507f1f77bcf86cd799439011}} und {{user:507f191e810c19729de860ea}}.",
+  "mixed" : "# Release-Checkliste\n\nVor jedem Deploy, siehe {{issue:HIN-1}}.\n\n:::info\nJede Änderung wird von **{{user:507f191e810c19729de860ea}}** geprüft.\n:::\n\n- [x] Tests grün\n- [ ] Changelog\n\n| Umgebung | Ziel |\n|---|---|\n| prod | `track.asta.hn` |\n\n> Im Zweifel: nicht deployen.\n"
+}
