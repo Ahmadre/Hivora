@@ -11,6 +11,9 @@ import '../api/api_client.dart';
 import '../i18n/i18n.dart';
 import '../theme/app_colors.dart';
 import '../../features/knowledge/markdown/smart_link_resolver.dart';
+import '../../features/sprint/modals/glass_modal.dart'
+    show kGlassPopoverBreakpoint;
+import '../widgets/glass_popup_menu.dart';
 import 'hinata_code_bar.dart';
 import 'hinata_document.dart';
 import 'hinata_editing.dart';
@@ -55,6 +58,7 @@ class _ToolbarState {
     required this.formats,
     required this.block,
     required this.callout,
+    required this.align,
     required this.linked,
   });
 
@@ -62,6 +66,7 @@ class _ToolbarState {
     : formats = 0,
       block = null,
       callout = null,
+      align = null,
       linked = false;
 
   /// Bitmask of the formats every selected text node carries.
@@ -72,6 +77,9 @@ class _ToolbarState {
 
   /// The callout flavour under the caret, or null.
   final CalloutKind? callout;
+
+  /// The alignment every selected block has, or null when they differ.
+  final ElementFormat? align;
 
   /// Whether the selection sits inside a link.
   final bool linked;
@@ -252,12 +260,29 @@ class HinataEditorState extends State<HinataEditor> {
       formats: formats,
       block: $selectedBlockKind(),
       callout: $selectedCalloutKind(),
+      align: $selectedAlignment(),
       linked: $getLinkAtSelection() != null,
     );
   });
 
-  void _block(BlockKind kind, {CalloutKind callout = CalloutKind.info}) {
-    _editor.update(() => $setBlockKind(kind, callout: callout));
+  void _block(
+    BlockKind kind, {
+    CalloutKind callout = CalloutKind.info,
+    bool toggle = true,
+  }) {
+    _editor.update(() => $setBlockKind(kind, callout: callout, toggle: toggle));
+    _focus.requestFocus();
+  }
+
+  /// Hides the floating quick actions while a toolbar menu is over them.
+  ///
+  /// Two panels floating over the same words is a mess to read and an
+  /// ambiguous thing to tap.
+  void _suppressQuickActions(bool open) =>
+      _quickKey.currentState?.setSuppressed(suppressed: open);
+
+  void _alignBlocks(ElementFormat format) {
+    $setAlignment(_editor, format);
     _focus.requestFocus();
   }
 
@@ -296,6 +321,33 @@ class HinataEditorState extends State<HinataEditor> {
     TextFormat.code: (LucideIcons.code, 'md.inlineCode'),
   };
 
+  /// The block shapes the picker offers, in reading order: body text, the
+  /// three headings, then the shapes that are a container rather than a line.
+  ///
+  /// Everything here used to be a button of its own — nine of them, ahead of
+  /// the callouts on a row that scrolls. They are also the one set where only
+  /// *one* can be true at a time, which is what a dropdown says and a row of
+  /// toggles does not.
+  static const Map<BlockKind, (IconData, String)> _blockKinds = {
+    BlockKind.paragraph: (LucideIcons.pilcrow, 'md.paragraph'),
+    BlockKind.heading1: (LucideIcons.heading1, 'md.heading1'),
+    BlockKind.heading2: (LucideIcons.heading2, 'md.heading2'),
+    BlockKind.heading3: (LucideIcons.heading3, 'md.heading3'),
+    BlockKind.quote: (LucideIcons.quote, 'md.quote'),
+    BlockKind.bulletList: (LucideIcons.list, 'md.bulletList'),
+    BlockKind.numberList: (LucideIcons.listOrdered, 'md.numberedList'),
+    BlockKind.checkList: (LucideIcons.listChecks, 'md.taskList'),
+    BlockKind.code: (LucideIcons.squareCode, 'md.codeBlock'),
+  };
+
+  /// The four alignments, in the order every word processor lists them.
+  static const Map<ElementFormat, (IconData, String)> _alignButtons = {
+    ElementFormat.left: (LucideIcons.alignLeft, 'md.alignLeft'),
+    ElementFormat.center: (LucideIcons.alignCenter, 'md.alignCenter'),
+    ElementFormat.right: (LucideIcons.alignRight, 'md.alignRight'),
+    ElementFormat.justify: (LucideIcons.alignJustify, 'md.alignJustify'),
+  };
+
   /// The callout flavours, in the order they read as a scale: neutral, then
   /// louder, then quieter.
   static const Map<CalloutKind, (IconData, String)> _calloutButtons = {
@@ -305,15 +357,16 @@ class HinataEditorState extends State<HinataEditor> {
     CalloutKind.tip: (LucideIcons.lightbulb, 'md.calloutTip'),
   };
 
-  /// The toolbar, left to right.
+  /// The toolbar's buttons, left to right; the block picker sits between the
+  /// first two groups and is not one of them.
   ///
   /// Undo and redo come first: they are the two buttons a writer reaches for
   /// without looking, they are the ones needed *fastest* — the longer a
   /// mistake stands the more of it there is to undo — and on a phone there is
   /// no keyboard shortcut for them at all. Everything after them is ordered by
   /// how often it is used, because the row scrolls and each button past the
-  /// fold costs a swipe: formatting, then block shape, then the occasional
-  /// ones.
+  /// fold costs a swipe: the block shape, then formatting, then alignment,
+  /// then the occasional ones.
   List<List<_Action>> _groups(_ToolbarState state) => [
     [
       _Action(LucideIcons.undo2, 'md.undo', _undo, enabled: _history.canUndo),
@@ -335,64 +388,19 @@ class HinataEditorState extends State<HinataEditor> {
       ),
     ],
     [
-      _Action(
-        LucideIcons.pilcrow,
-        'md.paragraph',
-        () => _block(BlockKind.paragraph),
-        active: state.block == BlockKind.paragraph,
-      ),
-      _Action(
-        LucideIcons.heading1,
-        'md.heading1',
-        () => _block(BlockKind.heading1),
-        active: state.block == BlockKind.heading1,
-      ),
-      _Action(
-        LucideIcons.heading2,
-        'md.heading2',
-        () => _block(BlockKind.heading2),
-        active: state.block == BlockKind.heading2,
-      ),
-      _Action(
-        LucideIcons.heading3,
-        'md.heading3',
-        () => _block(BlockKind.heading3),
-        active: state.block == BlockKind.heading3,
-      ),
+      for (final entry in _alignButtons.entries)
+        _Action(
+          entry.value.$1,
+          entry.value.$2,
+          () => _alignBlocks(entry.key),
+          // Nothing is pressed for an unaligned block. `left` and *no
+          // alignment* look identical in a left-to-right language and are not
+          // the same document, and only one of them is something the writer
+          // chose.
+          active: state.align == entry.key,
+        ),
     ],
     [
-      _Action(
-        LucideIcons.list,
-        'md.bulletList',
-        () => _block(BlockKind.bulletList),
-        active: state.block == BlockKind.bulletList,
-      ),
-      _Action(
-        LucideIcons.listOrdered,
-        'md.numberedList',
-        () => _block(BlockKind.numberList),
-        active: state.block == BlockKind.numberList,
-      ),
-      _Action(
-        LucideIcons.listChecks,
-        'md.taskList',
-        () => _block(BlockKind.checkList),
-        active: state.block == BlockKind.checkList,
-      ),
-    ],
-    [
-      _Action(
-        LucideIcons.quote,
-        'md.quote',
-        () => _block(BlockKind.quote),
-        active: state.block == BlockKind.quote,
-      ),
-      _Action(
-        LucideIcons.squareCode,
-        'md.codeBlock',
-        () => _block(BlockKind.code),
-        active: state.block == BlockKind.code,
-      ),
       for (final entry in _calloutButtons.entries)
         _Action(
           entry.value.$1,
@@ -580,7 +588,11 @@ class HinataEditorState extends State<HinataEditor> {
       () => $codeLanguageAtSelection().inCode,
     );
     if (!inCode) return null;
-    return HinataCodeBar(editor: _editor, onDone: _focus.requestFocus);
+    return HinataCodeBar(
+      editor: _editor,
+      onDone: _focus.requestFocus,
+      onMenu: _suppressQuickActions,
+    );
   }
 
   Widget _toolbar(BuildContext context) {
@@ -601,6 +613,20 @@ class HinataEditorState extends State<HinataEditor> {
           children: [
             for (final (index, group) in groups.indexed) ...[
               if (index > 0) _separator(),
+              // Straight after undo/redo: it is the widest control in the row
+              // and the one a writer aims at first, so it does not belong
+              // anywhere a swipe could put it off-screen.
+              if (index == 1) ...[
+                _BlockPicker(
+                  // Findable whatever it currently says it is.
+                  key: const ValueKey<String>('md.blockType'),
+                  kinds: _blockKinds,
+                  current: state.block,
+                  onPicked: (kind) => _block(kind, toggle: false),
+                  onMenu: _suppressQuickActions,
+                ),
+                _separator(),
+              ],
               for (final action in group) _button(context, action),
             ],
             // The host's own buttons — inserting an image, picking a mention.
@@ -651,6 +677,129 @@ class HinataEditorState extends State<HinataEditor> {
                   : active
                   ? AppColors.accent
                   : AppColors.inkSoft,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The block-shape dropdown: what the selected lines *are*, and the only
+/// control in the row that names its state instead of implying it.
+///
+/// Nine shapes of which exactly one can be true at a time. As nine toggle
+/// buttons they took half the row to say something a reader still had to
+/// decode from which icon looked pressed — and on a phone most of them sat
+/// past the fold.
+///
+/// Wide enough, it reads as a dropdown: icon, name, chevron. Narrow, it is
+/// icon and chevron like every other control in the row, and the names live in
+/// the menu.
+///
+/// The menu is the same anchored glass popover the code block's language
+/// dropdown opens, at every size. A bottom sheet is the right shape for a
+/// field editor on a phone and the wrong one here: this is a dropdown on a
+/// strip *inside* the editor, and pulling the whole page behind a sheet to
+/// answer "which shape" is far more ceremony than the question deserves.
+class _BlockPicker extends StatelessWidget {
+  const _BlockPicker({
+    required this.kinds,
+    required this.current,
+    required this.onPicked,
+    required this.onMenu,
+    super.key,
+  });
+
+  /// The shapes on offer, in the order they are listed.
+  final Map<BlockKind, (IconData, String)> kinds;
+
+  /// The shape every selected block has, or `null` when they differ.
+  final BlockKind? current;
+
+  final ValueChanged<BlockKind> onPicked;
+
+  /// Called while the menu is up, so the selection overlay can step aside.
+  final ValueChanged<bool> onMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final look = current == null ? null : kinds[current];
+    final label = look == null
+        // Not "Body text": a selection covering a heading and a paragraph is
+        // neither, and saying so is the whole point of a control that names
+        // what you are in.
+        ? context.t('md.blockMixed')
+        : context.t(look.$2);
+    final wide = MediaQuery.sizeOf(context).width >= kGlassPopoverBreakpoint;
+
+    return Tooltip(
+      message: '${context.t('md.blockType')}: $label',
+      child: Semantics(
+        button: true,
+        label: '${context.t('md.blockType')}: $label',
+        child: GlassPopupMenu<BlockKind?>(
+          width: 232,
+          value: current,
+          onOpenChanged: onMenu,
+          onSelected: (kind) {
+            if (kind != null) onPicked(kind);
+          },
+          items: [
+            for (final entry in kinds.entries)
+              GlassMenuItem<BlockKind?>(
+                value: entry.key,
+                label: context.t(entry.value.$2),
+                leading: Icon(
+                  entry.value.$1,
+                  size: 17,
+                  color: entry.key == current
+                      ? AppColors.accent
+                      : AppColors.inkSoft,
+                ),
+              ),
+          ],
+          child: Container(
+            height: 34,
+            padding: EdgeInsets.symmetric(horizontal: wide ? 10 : 7),
+            // No minimum width. It was there to keep the control from
+            // changing size as the caret moves between shapes, and it paid
+            // for that with a gap after every short name — "Zitat" left a
+            // third of the button empty. A control that fits its label is
+            // worth more than one that never moves.
+            //
+            // A fill rather than an outline, for the same kind of reason: the
+            // toolbar sits inside the editor's own framed card and every
+            // other control in the row is frameless, so a border here read as
+            // a second rim drawn around one button — and the chevron already
+            // says this one opens.
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: AppColors.surfaceMuted,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  look?.$1 ?? LucideIcons.type,
+                  size: 16,
+                  color: AppColors.inkSoft,
+                ),
+                if (wide) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: TextStyle(fontSize: 13, color: AppColors.ink),
+                  ),
+                  const SizedBox(width: 6),
+                ] else
+                  const SizedBox(width: 2),
+                Icon(
+                  LucideIcons.chevronDown,
+                  size: 14,
+                  color: AppColors.inkFaint,
+                ),
+              ],
             ),
           ),
         ),

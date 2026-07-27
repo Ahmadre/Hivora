@@ -44,6 +44,7 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   OverlayEntry? _entry;
   Unsubscribe? _unsubscribe;
   bool _editingLink = false;
+  bool _suppressed = false;
 
   @override
   void initState() {
@@ -101,8 +102,30 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     return bounds == null ? null : Rect.fromLTWH(bounds.left, bounds.top, 0, 0);
   }
 
+  /// Takes the quick actions off the screen while something else is over the
+  /// same words, and puts them back afterwards.
+  ///
+  /// The dropdowns in the editor's toolbar open right on top of the selection
+  /// they are about, and two floating panels over the same line is a mess to
+  /// read and an ambiguous thing to tap. The selection itself is untouched:
+  /// this is about what is drawn, which is why it does not go through `_hide`
+  /// — an address field half-typed has to still be there when the menu closes.
+  void setSuppressed({required bool suppressed}) {
+    if (_suppressed == suppressed) return;
+    _suppressed = suppressed;
+    if (suppressed) {
+      _detach();
+    } else {
+      _sync();
+    }
+  }
+
   void _sync() {
     if (!mounted) return;
+    if (_suppressed) {
+      _detach();
+      return;
+    }
     if (_anchor == null) {
       _hide();
       return;
@@ -119,9 +142,14 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
 
   void _hide() {
     if (_entry == null) return;
-    _entry!.remove();
-    _entry = null;
+    _detach();
     if (_editingLink && mounted) setState(() => _editingLink = false);
+  }
+
+  /// Removes the overlay without deciding anything about the link editor.
+  void _detach() {
+    _entry?.remove();
+    _entry = null;
   }
 
   // --- reading the selection --------------------------------------------

@@ -33,17 +33,25 @@ enum BlockKind {
 
 /// Replaces every selected top-level block with [kind].
 ///
-/// A second application of the same kind returns the block to a paragraph, so
-/// the toolbar buttons toggle rather than only ever converting one way — which
-/// is what a writer expects from a pressed-looking button.
-void $setBlockKind(BlockKind kind, {CalloutKind callout = CalloutKind.info}) {
+/// With [toggle] on, a second application of the same kind returns the block to
+/// a paragraph — which is what a writer expects from a pressed-looking button.
+/// A picker that *names* the kind it is on is the opposite case: choosing
+/// "Heading 2" while already in one has to leave a heading 2, not silently
+/// undo it.
+void $setBlockKind(
+  BlockKind kind, {
+  CalloutKind callout = CalloutKind.info,
+  bool toggle = true,
+}) {
   final selection = $getSelection();
   if (selection == null) return;
 
   final subjects = _selectedSubjects(selection);
   if (subjects.isEmpty) return;
 
-  final target = $selectedBlockKind() == kind ? BlockKind.paragraph : kind;
+  final target = toggle && $selectedBlockKind() == kind
+      ? BlockKind.paragraph
+      : kind;
   final containers = subjects.any(_isContainer);
 
   // No container on either side: this is the package's operation exactly — one
@@ -122,6 +130,36 @@ BlockKind? $selectedBlockKind() {
   final first = _kindOf(subjects.first);
   if (first == null) return null;
   return subjects.every((subject) => _kindOf(subject) == first) ? first : null;
+}
+
+/// The alignment every selected block has, or null when they differ.
+///
+/// Read from the *blocks the selection covers* rather than from the subjects a
+/// block button acts on: alignment applies to the line, so a caret inside a
+/// callout aligns that paragraph, not the box around it — which is also what
+/// `formatElementCommand` writes to.
+ElementFormat? $selectedAlignment() {
+  final selection = $getSelection();
+  if (selection is! RangeSelection) return null;
+  final blocks = selection.getBlocks().toList();
+  if (blocks.isEmpty) return null;
+  final first = blocks.first.getFormat();
+  return blocks.every((block) => block.getFormat() == first) ? first : null;
+}
+
+/// Sets [format] on every selected block, or clears it when it is already the
+/// one they have.
+///
+/// Pressing the pressed button undoes it, the same way the block buttons
+/// return a heading to a paragraph — there is otherwise no way back to "no
+/// alignment at all" from the toolbar, and `left` and *unaligned* are not the
+/// same document even though they look alike in a left-to-right language.
+void $setAlignment(LexicalEditor editor, ElementFormat format) {
+  final current = editor.editorState.read($selectedAlignment);
+  editor.dispatchCommand(
+    formatElementCommand,
+    current == format ? ElementFormat.none : format,
+  );
 }
 
 /// The flavour every selected block is a callout of, or null.

@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hinata/core/lexical/callout_node.dart';
 import 'package:hinata/core/lexical/hinata_editor.dart';
 import 'package:hinata/core/lexical/hinata_editor_controller.dart';
 import 'package:hinata/core/theme/app_colors.dart';
@@ -214,7 +215,7 @@ void main() {
       final controller = await pump(tester);
       controller.editor.update(() {
         final paragraph = $createParagraphNode()
-          ..append($createTextNode('Titel'));
+          ..append($createTextNode('Zitat'));
         $getRoot()
           ..clear()
           ..append(paragraph);
@@ -225,19 +226,19 @@ void main() {
       // Scrolled to first: the row scrolls, so which buttons are on screen
       // depends on the order and the width, and a test that taps blind breaks
       // the next time either changes.
-      final heading = find.byTooltip('md.heading2', skipOffstage: false);
-      await tester.ensureVisible(heading);
+      final callout = find.byTooltip('md.calloutWarn', skipOffstage: false);
+      await tester.ensureVisible(callout);
       await tester.pumpAndSettle();
-      await tester.tap(heading);
+      await tester.tap(callout);
       await tester.pumpAndSettle();
 
       expect(
         controller.editor.editorState.read(
-          () => $getRoot().getFirstChild() is HeadingNode,
+          () => $getRoot().getFirstChild() is CalloutNode,
         ),
         isTrue,
       );
-      expect(controller.plainText, 'Titel');
+      expect(controller.plainText, 'Zitat');
     });
 
     testWidgets('every authoring action the toolbar advertises is there', (
@@ -258,15 +259,10 @@ void main() {
         'md.strikethrough',
         'md.inlineCode',
         'md.link',
-        'md.paragraph',
-        'md.heading1',
-        'md.heading2',
-        'md.heading3',
-        'md.bulletList',
-        'md.numberedList',
-        'md.taskList',
-        'md.quote',
-        'md.codeBlock',
+        'md.alignLeft',
+        'md.alignCenter',
+        'md.alignRight',
+        'md.alignJustify',
         'md.calloutInfo',
         'md.calloutWarn',
         'md.calloutNote',
@@ -282,6 +278,119 @@ void main() {
         );
       }
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('every block shape is in the picker', (tester) async {
+      // The nine shapes that used to be nine buttons. Exactly one of them can
+      // be true at a time, which is what a dropdown says and a row of toggles
+      // does not — but they still all have to be reachable.
+      await pump(tester, size: const Size(1400, 700));
+
+      await tester.tap(find.byKey(const ValueKey<String>('md.blockType')));
+      await tester.pumpAndSettle();
+
+      for (final key in [
+        'md.paragraph',
+        'md.heading1',
+        'md.heading2',
+        'md.heading3',
+        'md.quote',
+        'md.bulletList',
+        'md.numberedList',
+        'md.taskList',
+        'md.codeBlock',
+      ]) {
+        // Not exactly one: the trigger names the shape the caret is in, so
+        // that one label is on screen twice.
+        expect(find.text(key), findsWidgets, reason: '$key is not offered');
+      }
+    });
+
+    testWidgets('picking a shape converts the block', (tester) async {
+      final controller = await pump(tester, size: const Size(1400, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode()
+          ..append($createTextNode('Titel'));
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+        paragraph.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey<String>('md.blockType')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('md.heading2').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        controller.editor.editorState.read(
+          () => $getRoot().getFirstChild() is HeadingNode,
+        ),
+        isTrue,
+      );
+      // And the trigger says what you are in now.
+      expect(find.byTooltip('md.blockType: md.heading2'), findsOneWidget);
+    });
+
+    testWidgets('picking the shape you are already in keeps it', (
+      tester,
+    ) async {
+      // The block *buttons* toggle: pressing the pressed one returns a heading
+      // to a paragraph. A picker that names the shape it is on must not — the
+      // gesture there says "be this", not "toggle this".
+      final controller = await pump(tester, size: const Size(1400, 700));
+      controller.editor.update(() {
+        final heading = $createHeadingNode(HeadingTag.h2)
+          ..append($createTextNode('Titel'));
+        $getRoot()
+          ..clear()
+          ..append(heading);
+        heading.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey<String>('md.blockType')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('md.heading2').last);
+      await tester.pumpAndSettle();
+
+      expect(
+        controller.editor.editorState.read(
+          () => $getRoot().getFirstChild() is HeadingNode,
+        ),
+        isTrue,
+      );
+    });
+
+    testWidgets('an alignment button aligns the block, and undoes itself', (
+      tester,
+    ) async {
+      final controller = await pump(tester, size: const Size(1400, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode()
+          ..append($createTextNode('Titel'));
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+        paragraph.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      ElementFormat format() => controller.editor.editorState.read(
+        () => ($getRoot().getFirstChild()! as ElementNode).getFormat(),
+      );
+
+      await tester.tap(find.byTooltip('md.alignCenter'));
+      await tester.pumpAndSettle();
+      expect(format(), ElementFormat.center);
+
+      // Pressing the pressed one clears it: `left` and *unaligned* look alike
+      // in a left-to-right language and are not the same document, so there
+      // has to be a way back to neither.
+      await tester.tap(find.byTooltip('md.alignCenter'));
+      await tester.pumpAndSettle();
+      expect(format(), ElementFormat.none);
     });
 
     testWidgets('the fuller toolbar still scrolls rather than overflowing', (
@@ -344,7 +453,10 @@ void main() {
       // button in the corner of a dialog.
       await pump(tester, size: const Size(320, 700));
 
-      await tester.tap(find.byTooltip('md.link'));
+      final link = find.byTooltip('md.link', skipOffstage: false);
+      await tester.ensureVisible(link);
+      await tester.pumpAndSettle();
+      await tester.tap(link);
       await tester.pumpAndSettle();
 
       expect(find.byTooltip('md.linkAdd'), findsOneWidget);
@@ -470,7 +582,11 @@ void main() {
       // Nothing to say about a paragraph.
       expect(find.text('md.codeLanguagePlain'), findsNothing);
 
-      await tester.tap(find.byTooltip('md.codeBlock'));
+      // Through the picker, and at the narrow size that means the bottom
+      // sheet — where every shape is spelled out.
+      await tester.tap(find.byKey(const ValueKey<String>('md.blockType')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('md.codeBlock').last);
       await tester.pumpAndSettle();
 
       // A code block with no language is not highlighted at all, and the strip
@@ -585,13 +701,9 @@ void main() {
       }, discrete: true);
       await tester.pumpAndSettle();
 
-      final icon = tester.widget<Icon>(
-        find.descendant(
-          of: find.byTooltip('md.heading2'),
-          matching: find.byType(Icon),
-        ),
-      );
-      expect(icon.color, AppColors.accent);
+      // The picker names what the caret is in, so it is the whole assertion:
+      // it can only say "heading 2" if it is reading the second controller.
+      expect(find.byTooltip('md.blockType: md.heading2'), findsOneWidget);
     });
 
     testWidgets('a smart link resolves while it is being edited', (

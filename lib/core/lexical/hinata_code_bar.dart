@@ -40,12 +40,21 @@ import '../widgets/glass_popup_menu.dart';
 /// leaves with it, which is also why it costs no horizontal room the rest of
 /// the time.
 class HinataCodeBar extends StatelessWidget {
-  const HinataCodeBar({required this.editor, required this.onDone, super.key});
+  const HinataCodeBar({
+    required this.editor,
+    required this.onDone,
+    this.onMenu,
+    super.key,
+  });
 
   final LexicalEditor editor;
 
   /// Called after a language was chosen, so the host can take focus back.
   final VoidCallback onDone;
+
+  /// Called while the language menu is up. Same reason as the toolbar's
+  /// block picker: the selection overlay floats over the same words.
+  final ValueChanged<bool>? onMenu;
 
   void _setLanguage(String? id) {
     editor.update(() {
@@ -90,6 +99,7 @@ class HinataCodeBar extends StatelessWidget {
               child: _LanguageTrigger(
                 current: state.language,
                 onSelected: _setLanguage,
+                onMenu: onMenu,
               ),
             ),
           ],
@@ -106,10 +116,15 @@ class HinataCodeBar extends StatelessWidget {
 /// whole app behind a scrim to answer "which language" is far more ceremony
 /// than the question deserves.
 class _LanguageTrigger extends StatelessWidget {
-  const _LanguageTrigger({required this.current, required this.onSelected});
+  const _LanguageTrigger({
+    required this.current,
+    required this.onSelected,
+    this.onMenu,
+  });
 
   final String? current;
   final ValueChanged<String?> onSelected;
+  final ValueChanged<bool>? onMenu;
 
   /// Every language the highlighter knows, plus "no language" at the top.
   ///
@@ -126,6 +141,7 @@ class _LanguageTrigger extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: GlassPopupMenu<String>(
         width: 220,
+        onOpenChanged: onMenu,
         value: current ?? '',
         onSelected: (id) => onSelected(id.isEmpty ? null : id),
         items: [
