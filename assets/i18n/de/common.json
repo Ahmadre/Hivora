@@ -988,7 +988,19 @@
     "table": "Tabelle",
     "infoPanel": "Infobox",
     "image": "Bild einfügen",
-    "mention": "Erwähnen / verlinken (@)"
+    "mention": "Erwähnen / verlinken (@)",
+    "divider": "Trennlinie",
+    "underline": "Unterstrichen",
+    "calloutInfo": "Infobox",
+    "calloutWarn": "Warnung",
+    "calloutNote": "Notiz",
+    "calloutTip": "Tipp",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "linkUrl": "Adresse",
+    "linkAdd": "Link einfügen",
+    "linkRemove": "Link entfernen",
+    "paragraph": "Fließtext"
   },
   "weeklySummary": {
     "title": "Wochenübersicht",

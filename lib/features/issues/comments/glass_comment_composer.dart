@@ -17,7 +17,7 @@ import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/markdown_toolbar.dart';
-import '../../knowledge/markdown/markdown_renderer.dart';
+import '../../../core/lexical/hinata_markdown_preview.dart';
 import '../../knowledge/markdown/mention_field.dart';
 import '../../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'voice/voice_recorder.dart';
@@ -506,8 +506,9 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     );
   }
 
-  /// Live Markdown preview of the current draft (mentions / smart-links / images
-  /// render as they will in the posted comment).
+  /// Live preview of the current draft, converted exactly as the server will
+  /// convert it — mentions, smart-links and images render as they will in the
+  /// posted comment because it is the same conversion.
   Widget _previewBody(BuildContext context) {
     final text = widget.controller.text.trim();
     if (text.isEmpty) {
@@ -524,9 +525,9 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     }
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: KbMarkdownParser(fontSize: 14).parse(text).nodes,
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: HinataMarkdownPreview(markdown: text),
       ),
     );
   }

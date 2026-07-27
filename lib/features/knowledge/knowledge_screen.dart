@@ -294,7 +294,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         final parentId = _pendingParentId;
         final a = await _repo.createArticle(
           title: title,
-          body: r.body,
+          doc: r.doc,
           spaceId: r.spaceId,
           parentId: parentId,
         );
@@ -310,7 +310,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         await _repo.saveEdit(
           _current!.id,
           title: title,
-          body: r.body,
+          doc: r.doc,
           spaceId: r.spaceId,
         );
         if (!mounted) return;
@@ -652,7 +652,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             child: KnowledgeEditor(
               isNew: isNew,
               initialTitle: isNew ? '' : current?.title ?? '',
-              initialBody: isNew ? '' : current?.body ?? '',
+              initialDoc: isNew ? null : current?.doc,
               spaceId: _spaceId,
               onSave: _save,
               onCancel: () => setState(() {

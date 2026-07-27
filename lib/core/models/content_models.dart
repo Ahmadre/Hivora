@@ -9,6 +9,7 @@ class Article extends Equatable {
     required this.id,
     required this.title,
     this.content,
+    this.contentDoc,
     this.projectId,
     this.teamId,
     this.parentId,
@@ -23,7 +24,13 @@ class Article extends Equatable {
 
   final String id;
   final String title;
+
+  /// Plain text of [contentDoc]. Excerpts, search previews and the tree read
+  /// this; the server derives it on every write.
   final String? content;
+
+  /// The Lexical document — the source of truth, and what the reader renders.
+  final String? contentDoc;
 
   /// Project the article is scoped to (visible only with project access).
   final String? projectId;
@@ -47,6 +54,7 @@ class Article extends Equatable {
         id: json['id'] as String,
         title: json['title'] as String? ?? '',
         content: json['content'] as String?,
+        contentDoc: json['contentDoc'] as String?,
         projectId: json['projectId'] as String?,
         teamId: json['teamId'] as String?,
         parentId: json['parentId'] as String?,

@@ -15,7 +15,7 @@ import '../../../core/models/work_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_widgets.dart';
-import '../../knowledge/markdown/markdown_renderer.dart';
+import '../../../core/lexical/hinata_document.dart';
 import 'voice/voice_player.dart';
 
 part 'comment_thread.bubbles.dart';

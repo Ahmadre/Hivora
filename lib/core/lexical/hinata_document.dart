@@ -6,6 +6,8 @@ import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_colors.dart';
+import '../../features/knowledge/markdown/smart_link_chip.dart';
+import '../../features/knowledge/markdown/smart_link_resolver.dart';
 import 'hinata_lexical.dart';
 import 'hinata_theme.dart';
 
@@ -123,7 +125,28 @@ class _Rule extends StatelessWidget {
   );
 }
 
-/// The default chip: a rounded, tinted label with the kind's glyph.
+/// The app's rich chip: resolves the target's live title and shows a hover
+/// card, falling back to the label stored in the document.
+///
+/// Lives here as the default rather than inside the renderer so a surface with
+/// no resolver in scope — a test, a preview — still gets something readable.
+Widget? defaultSmartLinkChip(
+  BuildContext context,
+  SmartLinkKind kind,
+  String targetId,
+  String? label,
+) {
+  // The rich chip resolves its target through an ambient resolver and asserts
+  // when there is none. Surfaces that have one — the knowledge base, an issue —
+  // get it; anywhere else falls through to the plain chip rather than taking
+  // the page down over a missing scope.
+  final hasResolver =
+      context.dependOnInheritedWidgetOfExactType<SmartLinkScope>() != null;
+  if (!hasResolver) return null;
+  return SmartLinkChip(kind: kind.wire, id: targetId);
+}
+
+/// The plain chip, used when nothing richer is supplied.
 class _SmartLinkChip extends StatelessWidget {
   const _SmartLinkChip({
     required this.kind,
@@ -208,6 +231,9 @@ class HinataDocument extends StatefulWidget {
     required this.doc,
     super.key,
     this.fontSize = 15,
+    this.blockSpacing,
+    this.registry,
+    this.onDocument,
     this.padding = EdgeInsets.zero,
     this.scrollable = false,
     this.onTapSmartLink,
@@ -220,6 +246,19 @@ class HinataDocument extends StatefulWidget {
 
   /// Body size everything else scales from.
   final double fontSize;
+
+  /// Space below each block. Defaults to the body size's rhythm; a comment row
+  /// passes a smaller value so the last block does not leave a gap.
+  final double? blockSpacing;
+
+  /// Receives the mounted blocks, so a surface can scroll to one of them. The
+  /// knowledge base's table of contents is the reason this exists.
+  final BlockRegistry? registry;
+
+  /// Called with the editor once a document has been opened, and again whenever
+  /// a different one is. Node keys are assigned at parse time and are not in the
+  /// stored JSON, so this is the only place a caller can learn them.
+  final void Function(LexicalEditor editor)? onDocument;
 
   /// Padding around the document.
   final EdgeInsetsGeometry padding;
@@ -273,6 +312,15 @@ class _HinataDocumentState extends State<HinataDocument> {
       // Unreadable: show nothing rather than an exception box in the middle of
       // an otherwise fine page.
       _editor = null;
+      return;
+    }
+    final notify = widget.onDocument;
+    if (notify != null) {
+      // After the frame: the caller almost always calls setState from here, and
+      // this runs during initState and didUpdateWidget.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) notify(editor);
+      });
     }
   }
 
@@ -284,14 +332,16 @@ class _HinataDocumentState extends State<HinataDocument> {
       editor: editor,
       theme: hinataLexicalTheme(
         fontSize: widget.fontSize,
+        blockSpacing: widget.blockSpacing,
         extraLayouts: hinataBlockLayouts(),
       ),
       padding: widget.padding,
       scrollable: widget.scrollable,
+      registry: widget.registry,
       decoratorBuilders: hinataDecoratorBuilders(
         editor: editor,
         onTapSmartLink: widget.onTapSmartLink,
-        chipBuilder: widget.chipBuilder,
+        chipBuilder: widget.chipBuilder ?? defaultSmartLinkChip,
       ),
       interaction: widget.onTapLink == null
           ? null

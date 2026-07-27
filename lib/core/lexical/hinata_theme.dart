@@ -74,6 +74,14 @@ LexicalPalette hinataPalette() => LexicalPalette(
   highlight: AppColors.accentSoft.withValues(alpha: 0.5),
 );
 
+/// Default space below each top-level block, derived from the body size.
+///
+/// The renderer pads *below* every block, including the last, so a surface with
+/// little room — a comment row, where that padding reads as a gap before the
+/// reactions — passes a smaller value rather than trying to claw it back with
+/// negative padding, which Flutter refuses outright.
+double hinataBlockSpacing(double fontSize) => fontSize * 0.75;
+
 /// The document theme: hinata's type scale and colours over Lexical's defaults.
 ///
 /// [fontSize] sets the body size everything else scales from — a comment reads
@@ -81,8 +89,10 @@ LexicalPalette hinataPalette() => LexicalPalette(
 /// block and callout follows it rather than being re-specified per surface.
 LexicalTheme hinataLexicalTheme({
   double fontSize = 15,
+  double? blockSpacing,
   Map<String, BlockLayoutBuilder> extraLayouts = const {},
 }) {
+  final spacing = blockSpacing ?? hinataBlockSpacing(fontSize);
   final palette = hinataPalette();
   final base = TextStyle(
     fontFamily: AppTheme.fontUi,
@@ -94,7 +104,7 @@ LexicalTheme hinataLexicalTheme({
   final theme = defaultLexicalTheme(
     baseTextStyle: base,
     palette: palette,
-    blockSpacing: fontSize * 0.75,
+    blockSpacing: spacing,
     monospaceFamily: AppTheme.fontMono,
   );
 
@@ -109,9 +119,9 @@ LexicalTheme hinataLexicalTheme({
       // the metrics they share.
       'callout': BlockStyle(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        spacing: fontSize * 0.9,
+        spacing: spacing * 1.2,
       ),
-      'horizontalrule': BlockStyle(spacing: fontSize * 1.2),
+      'horizontalrule': BlockStyle(spacing: spacing * 1.6),
     },
     blockStyleResolver: theme.blockStyleResolver,
     textStyleResolver: theme.textStyleResolver,

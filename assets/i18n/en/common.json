@@ -988,7 +988,19 @@
     "table": "Table",
     "infoPanel": "Info panel",
     "image": "Insert image",
-    "mention": "Mention / link (@)"
+    "mention": "Mention / link (@)",
+    "divider": "Divider",
+    "underline": "Underline",
+    "calloutInfo": "Info panel",
+    "calloutWarn": "Warning",
+    "calloutNote": "Note",
+    "calloutTip": "Tip",
+    "undo": "Undo",
+    "redo": "Redo",
+    "linkUrl": "Address",
+    "linkAdd": "Add link",
+    "linkRemove": "Remove link",
+    "paragraph": "Body text"
   },
   "weeklySummary": {
     "title": "Weekly Summary",
