@@ -1,0 +1,54 @@
+{
+  "root" : {
+    "children" : [ {
+      "children" : [ {
+        "children" : [ {
+          "detail" : 0,
+          "format" : 0,
+          "mode" : "normal",
+          "style" : "",
+          "text" : "erledigt",
+          "type" : "text",
+          "version" : 1
+        } ],
+        "direction" : null,
+        "format" : "",
+        "indent" : 0,
+        "type" : "listitem",
+        "version" : 1,
+        "value" : 1,
+        "checked" : true
+      }, {
+        "children" : [ {
+          "detail" : 0,
+          "format" : 0,
+          "mode" : "normal",
+          "style" : "",
+          "text" : "offen",
+          "type" : "text",
+          "version" : 1
+        } ],
+        "direction" : null,
+        "format" : "",
+        "indent" : 0,
+        "type" : "listitem",
+        "version" : 1,
+        "value" : 2,
+        "checked" : false
+      } ],
+      "direction" : null,
+      "format" : "",
+      "indent" : 0,
+      "type" : "list",
+      "version" : 1,
+      "listType" : "check",
+      "start" : 1,
+      "tag" : "ul"
+    } ],
+    "direction" : null,
+    "format" : "",
+    "indent" : 0,
+    "type" : "root",
+    "version" : 1
+  }
+}

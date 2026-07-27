@@ -892,6 +892,134 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
+  lexical_code:
+    dependency: transitive
+    description:
+      name: lexical_code
+      sha256: a46c63a600546369798f00bc0ad1d7dd79db0f7322d470bd24410580d2e1d210
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_core:
+    dependency: transitive
+    description:
+      name: lexical_core
+      sha256: "2d6f7bc8ec3c5a483d599288c51390f0b229e77fed567d3f6b2774f6593208ca"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_editor_flutter:
+    dependency: "direct main"
+    description:
+      name: lexical_editor_flutter
+      sha256: fdb5e5edbc552872128f085e109cdab4c8f662b14a893b1939a7e6dc4aa5f03d
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_embed:
+    dependency: transitive
+    description:
+      name: lexical_embed
+      sha256: d83319070f674fd32d3328b050a84495b902c4db962b68808c1935348bfb5292
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_flutter:
+    dependency: transitive
+    description:
+      name: lexical_flutter
+      sha256: "3f3329ad8fd69056a0a2f5a07335262d3ed488f4113803e8a8c3ce6c84ec43ba"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_hashtag:
+    dependency: transitive
+    description:
+      name: lexical_hashtag
+      sha256: "3a41d0fb218f9e78e9b4edaeea09d8f5ef29c870f8829f8e3a239f250fdbefe8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_history:
+    dependency: transitive
+    description:
+      name: lexical_history
+      sha256: "352d999b82c0fe14518427090ff043056312f581f99454e33d29a8529d47e945"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_image:
+    dependency: transitive
+    description:
+      name: lexical_image
+      sha256: "6457641f1f24d32e748490d1a0ba38db48a96492e3ff19763fbb8df4edfd2eb9"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_link:
+    dependency: transitive
+    description:
+      name: lexical_link
+      sha256: ed0e5acc64f30bdc8ee34f9dcb6bfab85cc974ac162647a06a38766729fab8c3
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_list:
+    dependency: transitive
+    description:
+      name: lexical_list
+      sha256: "3572305f0fcbf3d8a25eb17196014443f5eeeaa1b490cc8531853d939ec92502"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_mark:
+    dependency: transitive
+    description:
+      name: lexical_mark
+      sha256: "62e43b4a72c62abd7b05f353d992bbdbb4dcd1b1061be75bcc8e621dc8c61f0c"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_markdown:
+    dependency: "direct main"
+    description:
+      name: lexical_markdown
+      sha256: "2b88312dc1fa98a26fc76e3f1007228f886aee9ff7ebec7ba2b6864f0acc3087"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_mention:
+    dependency: transitive
+    description:
+      name: lexical_mention
+      sha256: "00523be1468b2b8bea4a9f0ef0de67ce11935a021f6169b3fd5f95a9b1f2c66e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_mention_flutter:
+    dependency: transitive
+    description:
+      name: lexical_mention_flutter
+      sha256: "5cd307d0f917d85e075d7301b6cf7e16e63e3e12d93c73f6f76a4500fa189b8a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_rich_text:
+    dependency: transitive
+    description:
+      name: lexical_rich_text
+      sha256: "81ee551b66846c67439e801876599d082f5db25a4c8f7efc25fe568cdd2a9579"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  lexical_table:
+    dependency: transitive
+    description:
+      name: lexical_table
+      sha256: "65a374685cc3c0e0910ca53d6108d5ff085bc4acd458c26276b36cab935d9941"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
   lints:
     dependency: transitive
     description:
