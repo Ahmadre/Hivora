@@ -7,7 +7,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/hinata_editor.dart';
 import 'package:hinata/core/lexical/hinata_editor_controller.dart';
+import 'package:hinata/core/theme/app_colors.dart';
+import 'package:hinata/features/knowledge/markdown/smart_link_chip.dart';
+import 'package:hinata/features/knowledge/markdown/smart_link_resolver.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
+
+/// A resolver that knows about exactly one article.
+///
+/// Enough to prove a chip resolved: the point is whether the editor asks at
+/// all, not what the knowledge base would have answered.
+class _OneDocResolver extends SmartLinkResolver {
+  static const String docId = '507f1f77bcf86cd799439011';
+
+  @override
+  SmartDoc? doc(String id) => id == docId
+      ? const SmartDoc(id: docId, title: 'Handbuch', icon: 'file-text')
+      : null;
+
+  @override
+  SmartIssue? issue(String id) => null;
+
+  @override
+  SmartPerson? person(String id) => null;
+
+  @override
+  void openDoc(String id) {}
+
+  @override
+  void openIssue(String id) {}
+
+  @override
+  void openPerson(String id) {}
+
+  @override
+  List<MentionCandidate> mentions(String query, {required bool commentMode}) =>
+      const [];
+}
 
 void main() {
   String fixture(String name) =>
@@ -196,6 +231,199 @@ void main() {
         isTrue,
       );
       expect(controller.plainText, 'Titel');
+    });
+
+    testWidgets('every authoring action the toolbar advertises is there', (
+      tester,
+    ) async {
+      // The toolbar shipped without a link button, without undo/redo and with
+      // one callout flavour out of four, while the strings for all of them were
+      // in both locales. A key nobody renders is a feature nobody has.
+      //
+      // Wide on purpose: the row scrolls, so a narrow viewport does not build
+      // the buttons past the fold at all. The narrow case is its own test.
+      await pump(tester, size: const Size(1400, 700));
+
+      for (final key in [
+        'md.bold',
+        'md.italic',
+        'md.underline',
+        'md.strikethrough',
+        'md.inlineCode',
+        'md.link',
+        'md.paragraph',
+        'md.heading1',
+        'md.heading2',
+        'md.heading3',
+        'md.bulletList',
+        'md.numberedList',
+        'md.taskList',
+        'md.quote',
+        'md.codeBlock',
+        'md.calloutInfo',
+        'md.calloutWarn',
+        'md.calloutNote',
+        'md.calloutTip',
+        'md.divider',
+        'md.undo',
+        'md.redo',
+      ]) {
+        expect(
+          find.byTooltip(key, skipOffstage: false),
+          findsOneWidget,
+          reason: '$key has no button',
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the fuller toolbar still scrolls rather than overflowing', (
+      tester,
+    ) async {
+      await pump(tester, size: const Size(320, 700));
+
+      expect(tester.takeException(), isNull);
+      // The buttons past the fold are reachable by dragging, which is what
+      // makes a scrolling row an acceptable answer to a narrow screen.
+      expect(find.byTooltip('md.undo'), findsNothing);
+      await tester.drag(find.byType(ListView), const Offset(-700, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('md.undo'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a callout button is pressed only for its own flavour', (
+      tester,
+    ) async {
+      final controller = await pump(tester, size: const Size(900, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode()
+          ..append($createTextNode('Achtung'));
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+        paragraph.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('md.calloutWarn'));
+      await tester.pumpAndSettle();
+
+      Color colourOf(String key) => tester
+          .widget<Icon>(
+            find.descendant(
+              of: find.byTooltip(key),
+              matching: find.byType(Icon),
+            ),
+          )
+          .color!;
+
+      expect(colourOf('md.calloutWarn'), AppColors.accent);
+      expect(colourOf('md.calloutInfo'), isNot(AppColors.accent));
+      expect(controller.plainText, 'Achtung');
+    });
+
+    testWidgets('the link button opens a glass dialog that fits a phone', (
+      tester,
+    ) async {
+      await pump(tester, size: const Size(320, 700));
+
+      await tester.tap(find.byTooltip('md.link'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('md.linkUrl'), findsOneWidget);
+      expect(find.text('md.linkAdd'), findsOneWidget);
+      // A dialog that overflows the phone it opens on is a dialog that cannot
+      // be used on the phone it opens on.
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a swapped controller is the one the toolbar follows', (
+      tester,
+    ) async {
+      // Every host holds its controller in a `late final` today, so nothing
+      // exercises this — which is exactly why it has to be pinned: the next
+      // host to swap one would find the toolbar quietly tracking the old
+      // document and the old controller still holding a live setState closure.
+      tester.view
+        ..physicalSize = const Size(900, 700)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final first = HinataEditorController();
+      final second = HinataEditorController();
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+
+      Future<void> pumpWith(HinataEditorController controller) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: HinataEditor(controller: controller),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await pumpWith(first);
+      await pumpWith(second);
+
+      // Only the *new* controller commits from here on. Without the listener
+      // moving with it, nothing tells the toolbar to rebuild.
+      second.editor.update(() {
+        final heading = $createHeadingNode(HeadingTag.h2)
+          ..append($createTextNode('Titel'));
+        $getRoot()
+          ..clear()
+          ..append(heading);
+        heading.selectEnd();
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final icon = tester.widget<Icon>(
+        find.descendant(
+          of: find.byTooltip('md.heading2'),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(icon.color, AppColors.accent);
+    });
+
+    testWidgets('a smart link resolves while it is being edited', (
+      tester,
+    ) async {
+      // A `doc` link carries no label by design, so without the chip-builder
+      // fallback it renders as a raw ObjectId while you write and as the
+      // article's title the moment you save.
+      final controller = HinataEditorController(doc: fixture('smart-links'));
+      addTearDown(controller.dispose);
+
+      tester.view
+        ..physicalSize = const Size(900, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SmartLinkScope(
+              resolver: _OneDocResolver(),
+              child: SingleChildScrollView(
+                child: HinataEditor(controller: controller),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SmartLinkChip), findsWidgets);
+      expect(find.text('Handbuch'), findsOneWidget);
+      expect(find.text(_OneDocResolver.docId), findsNothing);
     });
   });
 }

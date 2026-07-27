@@ -484,7 +484,12 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
         // Same authoring surface as the issue detail and the knowledge base.
         _sectionLabel(context.t('issues.description')),
         const SizedBox(height: 8),
-        HinataEditor(controller: _descCtrl, fontSize: 14, minHeight: 140),
+        HinataEditor(
+          controller: _descCtrl,
+          fontSize: 14,
+          minHeight: 140,
+          trailing: hinataEditorTools(context, _descCtrl),
+        ),
       ],
     );
   }

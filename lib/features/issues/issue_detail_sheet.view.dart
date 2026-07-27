@@ -1401,7 +1401,10 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   void _beginDescEdit() {
     final issue = _issue;
     if (issue == null) return;
-    _descCtrl.load(issue.descriptionDoc);
+    // Seed from the legacy markdown when the backfill left no document —
+    // otherwise the editor opens blank and the first save writes that blankness
+    // over a description that was still there.
+    _descCtrl.load(documentOrLegacy(issue.descriptionDoc, issue.description));
     setState(() => _editingDesc = true);
   }
 
@@ -1815,6 +1818,10 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                   fontSize: 14,
                   minHeight: 140,
                   autofocus: true,
+                  // Image upload and the mention picker: the two authoring
+                  // actions the toolbar cannot own, because they need this
+                  // host's upload repository and smart-link resolver.
+                  trailing: hinataEditorTools(context, _descCtrl),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -1844,8 +1851,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onDoubleTap: _beginDescEdit,
-              child: (issue.descriptionDoc ?? '').isNotEmpty
-                  ? HinataDocument(doc: issue.descriptionDoc, fontSize: 14)
+              // A description the backfill could not convert still has its
+              // markdown; "no description" would be a lie about a row that has
+              // one.
+              child: _describedDoc(issue) != null
+                  ? HinataDocument(doc: _describedDoc(issue), fontSize: 14)
                   : Text(
                       context.t('issues.noDescription'),
                       style: TextStyle(
@@ -1859,6 +1869,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       ),
     );
   }
+
+  /// The description to render: the stored document, or the legacy markdown
+  /// the backfill left behind on the rows it could not convert.
+  String? _describedDoc(Issue issue) =>
+      documentOrLegacy(issue.descriptionDoc, issue.description);
 
   Widget _sectionLabel(String text) => Text(
     text.toUpperCase(),

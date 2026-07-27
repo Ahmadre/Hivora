@@ -5,11 +5,15 @@
 /// failed layout, at the narrowest width the app ever uses.
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/hinata_document.dart';
+import 'package:hinata/core/lexical/hinata_markdown_preview.dart';
+import 'package:hinata/core/lexical/hinata_theme.dart';
+import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 
 void main() {
   /// A phone in portrait — the width where a table or a long code line
@@ -70,6 +74,54 @@ void main() {
     }
   });
 
+  group('a callout is inset once', () {
+    test('the block style leaves the padding to the tinted box', () {
+      // Both used to declare it: 14/12 from the style, another 12/10 inside the
+      // container, and a callout inset 26 px from a 320 px screen.
+      final style = hinataLexicalTheme().blockStyles['callout']!;
+
+      expect(style.padding, EdgeInsets.zero);
+      expect(style.spacing, greaterThan(0));
+    });
+  });
+
+  group('a callout separates the blocks it holds', () {
+    Future<double> heightAt(WidgetTester tester, double blockSpacing) async {
+      tester.view
+        ..physicalSize = const Size(400, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HinataDocument(
+                doc: markdownToDocument(':::info\nEins\n\nZwei\n:::'),
+                blockSpacing: blockSpacing,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return tester.getSize(find.byType(HinataDocument)).height;
+    }
+
+    testWidgets('two paragraphs inside one do not render flush', (
+      tester,
+    ) async {
+      // The renderer applies a block style's spacing only at the top level, so
+      // a callout that does not space its own children renders them touching.
+      final tight = await heightAt(tester, 0);
+      final loose = await heightAt(tester, 24);
+
+      // 24 below the callout plus 24 between its two paragraphs. Without the
+      // inner gap the difference is only the space below the block.
+      expect(loose - tight, greaterThan(40));
+    });
+  });
+
   group('the surfaces size independently', () {
     testWidgets('a comment renders at its smaller body size', (tester) async {
       await pumpDoc(tester, fixture('paragraph'), fontSize: 13.5);
@@ -104,6 +156,151 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.byType(HinataDocument), findsOneWidget);
+    });
+  });
+
+  group('the block cache survives an unrelated rebuild', () {
+    testWidgets('a parent rebuilding does not rebuild every block', (
+      tester,
+    ) async {
+      // The renderer caches one widget per top-level block and throws the whole
+      // cache away when `theme` or `decoratorBuilders` is not `==` to the
+      // previous one. Neither type has an `operator ==`, so building either in
+      // `build()` switches the cache off entirely — invisibly, because the
+      // output looks identical either way.
+      final stats = LexicalRenderStats();
+      final rebuild = ValueNotifier<int>(0);
+      addTearDown(rebuild.dispose);
+
+      tester.view
+        ..physicalSize = const Size(400, 900)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ValueListenableBuilder<int>(
+              valueListenable: rebuild,
+              builder: (context, value, _) => SingleChildScrollView(
+                // Something unrelated to the document changing above it.
+                child: Padding(
+                  padding: EdgeInsets.only(top: value.toDouble()),
+                  child: HinataDocument(doc: fixture('mixed'), stats: stats),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(stats.blocksBuilt, greaterThan(0));
+      stats.reset();
+
+      rebuild.value = 1;
+      await tester.pumpAndSettle();
+
+      expect(
+        stats.blocksReused,
+        greaterThan(0),
+        reason: 'every block was rebuilt for an unrelated parent rebuild',
+      );
+      expect(stats.blocksBuilt, 0);
+    });
+  });
+
+  group('reporting the document that is on screen', () {
+    Future<List<Object?>> notifications(
+      WidgetTester tester,
+      List<String?> docs,
+    ) async {
+      final seen = <Object?>[];
+      for (final doc in docs) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: HinataDocument(doc: doc, onDocument: seen.add),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+      return seen;
+    }
+
+    testWidgets('an unreadable document reports null, not silence', (
+      tester,
+    ) async {
+      // Silence is what leaves the previous article's table of contents on
+      // screen, pointing at node keys from a document that is gone.
+      final seen = await notifications(tester, [
+        fixture('headings'),
+        '{ broken',
+      ]);
+
+      expect(seen, hasLength(2));
+      expect(seen.first, isA<LexicalEditor>());
+      expect(seen.last, isNull);
+    });
+
+    testWidgets('a null document reports null', (tester) async {
+      final seen = await notifications(tester, [fixture('headings'), null]);
+
+      expect(seen.last, isNull);
+    });
+  });
+
+  group('a reader cannot edit what it is reading', () {
+    testWidgets('an image offers no handles and no caption button', (
+      tester,
+    ) async {
+      // The package's image view offers drag handles and a hardcoded-German
+      // "Beschriftung hinzufügen" when it is editable. In a published article
+      // or someone else's comment there is no save path at all, so a drag
+      // mutates state that silently evaporates.
+      await pumpDoc(tester, fixture('image'));
+
+      final image = tester.widget<LexicalImageView>(
+        find.byType(LexicalImageView),
+      );
+      expect(image.editable, isFalse);
+      expect(image.captionsEnabled, isFalse);
+      expect(find.text('Beschriftung hinzufügen'), findsNothing);
+    });
+  });
+
+  group('untrusted image sources', () {
+    test('an oversized data: payload draws nothing', () {
+      // A document is written by whoever wrote it — a colleague, an inbound
+      // e-mail, an agent — and a base64 blob is decoded into memory on render.
+      final huge = base64Encode(
+        List<int>.filled(hinataMaxInlineImageBytes + 1024, 0x41),
+      );
+
+      expect(hinataImageResolver('data:image/png;base64,$huge'), isNull);
+    });
+
+    test('an ordinary inline image still renders', () {
+      final small = base64Encode(List<int>.filled(64, 0x41));
+
+      expect(
+        hinataImageResolver('data:image/png;base64,$small'),
+        isA<MemoryImage>(),
+      );
+    });
+
+    test('an image on an unknown host still renders', () {
+      // hinata is a shared tracker: documents legitimately link images from
+      // wikis, status pages and CI. Refusing those would blank them.
+      expect(
+        hinataImageResolver('https://wiki.example.org/a.png'),
+        isA<NetworkImage>(),
+      );
+    });
+
+    test('a file: URL is still refused', () {
+      expect(hinataImageResolver('file:///etc/passwd'), isNull);
     });
   });
 

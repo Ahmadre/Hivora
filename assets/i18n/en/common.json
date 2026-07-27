@@ -969,7 +969,8 @@
     "published": "Article published",
     "saved": "Changes saved",
     "deleted": "Article deleted",
-    "articleCount": "{{count}} articles"
+    "articleCount": "{{count}} articles",
+    "saveWouldBlank": "Saving now would replace the article with an empty page. Add some content first."
   },
   "md": {
     "heading1": "Heading 1",
@@ -1000,7 +1001,8 @@
     "linkUrl": "Address",
     "linkAdd": "Add link",
     "linkRemove": "Remove link",
-    "paragraph": "Body text"
+    "paragraph": "Body text",
+    "mentionSearch": "Search issues, articles, people…"
   },
   "weeklySummary": {
     "title": "Weekly Summary",

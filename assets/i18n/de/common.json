@@ -969,7 +969,8 @@
     "published": "Artikel veröffentlicht",
     "saved": "Änderungen gespeichert",
     "deleted": "Artikel gelöscht",
-    "articleCount": "{{count}} Artikel"
+    "articleCount": "{{count}} Artikel",
+    "saveWouldBlank": "Speichern würde den Artikel durch eine leere Seite ersetzen. Bitte zuerst Inhalt einfügen."
   },
   "md": {
     "heading1": "Überschrift 1",
@@ -1000,7 +1001,8 @@
     "linkUrl": "Adresse",
     "linkAdd": "Link einfügen",
     "linkRemove": "Link entfernen",
-    "paragraph": "Fließtext"
+    "paragraph": "Fließtext",
+    "mentionSearch": "Vorgänge, Artikel, Personen suchen…"
   },
   "weeklySummary": {
     "title": "Wochenübersicht",

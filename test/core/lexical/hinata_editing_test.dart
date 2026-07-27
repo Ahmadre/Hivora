@@ -6,6 +6,8 @@
 /// asserts the text survived, not just that the block type changed.
 library;
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/hinata_editing.dart';
 import 'package:hinata/core/lexical/hinata_lexical.dart';
@@ -28,6 +30,51 @@ void main() {
       paragraph.selectEnd();
     }, discrete: true);
   }
+
+  /// Puts the caret in the first piece of text anywhere in the document.
+  ///
+  /// The caret a writer actually has when they reach for a toolbar button: it
+  /// is inside whatever block they are in, however deeply that block nests.
+  void caretInFirstText() {
+    editor.update(() {
+      TextNode? first;
+      void walk(ElementNode element) {
+        for (final child in element.children) {
+          if (first != null) return;
+          if (child is TextNode) {
+            first = child;
+            return;
+          }
+          if (child is ElementNode) walk(child);
+        }
+      }
+
+      walk($getRoot());
+      first?.selectEnd();
+    }, discrete: true);
+  }
+
+  /// Seeds the root with the blocks [build] returns, caret in the first text.
+  void seedBlocks(List<LexicalNode> Function() build) {
+    editor.update(() {
+      $getRoot()
+        ..clear()
+        ..appendAll(build());
+    }, discrete: true);
+    caretInFirstText();
+  }
+
+  /// Seeds a stored fixture — a real document from the server's own converter.
+  void seedFixture(String name) {
+    final json = File('test/fixtures/richtext/$name.json').readAsStringSync();
+    editor.setEditorState(editor.parseEditorStateFromString(json));
+    caretInFirstText();
+  }
+
+  /// The type string of every top-level block.
+  List<String> blockTypes() => editor.editorState.read(
+    () => $getRoot().children.map((node) => node.type).toList(),
+  );
 
   /// Reads something off the root's first block, inside a scope.
   ///
@@ -214,6 +261,136 @@ void main() {
         ..setEditorState(createHinataEditor().parseEditorState(json));
       expect(reopened.editorState.toJson(), equals(json));
       expect(allText(), contains('HIN-7'));
+    });
+  });
+
+  group('shapes the toolbar does not model are left alone', () {
+    test('no block button touches a table', () {
+      // The data-loss case: every cell flattened into one heading, the rows
+      // and the table itself gone, and the result still stores and still
+      // round-trips — so nothing anywhere reports a problem.
+      seedFixture('table');
+      final before = allText();
+
+      for (final kind in BlockKind.values) {
+        apply(kind);
+
+        expect(
+          onFirstBlock((b) => b),
+          isA<TableNode>(),
+          reason: '${kind.name} replaced the table',
+        );
+        expect(allText(), before, reason: '${kind.name} changed the text');
+        expect(blockTypes(), ['table']);
+      }
+    });
+
+    test('a selection of the root itself is not replaced', () {
+      // `root.replace` throws, uncaught, inside the update. Not reachable from
+      // the toolbar today; nothing should make it reachable tomorrow either.
+      seedParagraph('Inhalt');
+      editor.update(() => $getRoot().select(), discrete: true);
+
+      expect(() => apply(BlockKind.heading1), returnsNormally);
+      expect(allText(), 'Inhalt');
+    });
+  });
+
+  group('converting a container keeps its blocks apart', () {
+    test('a three-item list becomes three headings, not one', () {
+      seedBlocks(() {
+        final list = $createListNode(ListType.bullet);
+        for (final text in ['Eins', 'Zwei', 'Drei']) {
+          list.append($createListItemNode()..append($createTextNode(text)));
+        }
+        return [list];
+      });
+
+      apply(BlockKind.heading2);
+
+      expect(blockTypes(), ['heading', 'heading', 'heading']);
+      // The failure this pins: "EinsZweiDrei" in a single heading. Every
+      // character survived that too — only the boundaries did not.
+      expect(allText(), 'Eins\n\nZwei\n\nDrei');
+    });
+
+    test('a callout holding a list unwraps into one block per item', () {
+      seedBlocks(() {
+        final list = $createListNode(ListType.bullet)
+          ..append($createListItemNode()..append($createTextNode('A')))
+          ..append($createListItemNode()..append($createTextNode('B')));
+        return [
+          $createCalloutNode(CalloutKind.info)
+            ..append($createParagraphNode()..append($createTextNode('Kopf')))
+            ..append(list),
+        ];
+      });
+
+      // Toggling the callout off.
+      apply(BlockKind.callout);
+
+      expect(blockTypes(), ['paragraph', 'paragraph', 'paragraph']);
+      expect(allText(), 'Kopf\n\nA\n\nB');
+    });
+
+    test('unwrapping a nested list keeps the levels apart', () {
+      seedBlocks(() {
+        final inner = $createListNode(ListType.bullet)
+          ..append($createListItemNode()..append($createTextNode('Innen')));
+        return [
+          $createListNode(ListType.bullet)
+            ..append($createListItemNode()..append($createTextNode('Aussen')))
+            ..append($createListItemNode()..append(inner)),
+        ];
+      });
+
+      apply(BlockKind.bulletList);
+
+      expect(blockTypes(), ['paragraph', 'paragraph']);
+      expect(allText(), 'Aussen\n\nInnen');
+    });
+
+    test('a list converted to a callout keeps the list a list', () {
+      // `callout > paragraph > [listitem, listitem]` round-trips and renders,
+      // and is a tree no other Lexical client can read.
+      seedBlocks(() {
+        final list = $createListNode(ListType.bullet)
+          ..append($createListItemNode()..append($createTextNode('eins')))
+          ..append($createListItemNode()..append($createTextNode('zwei')));
+        return [list];
+      });
+
+      apply(BlockKind.callout, callout: CalloutKind.warn);
+
+      editor.editorState.read(() {
+        final callout = $getRoot().getFirstChild()! as CalloutNode;
+        expect(callout.kind, CalloutKind.warn);
+        final inner = callout.getFirstChild();
+        expect(inner, isA<ListNode>());
+        // Every list item still has a list for a parent.
+        for (final item in (inner! as ListNode).children) {
+          expect(item, isA<ListItemNode>());
+        }
+      });
+      expect(allText(), 'eins\n\nzwei');
+    });
+
+    test('a callout of two paragraphs becomes two bullets', () {
+      seedBlocks(
+        () => [
+          $createCalloutNode(CalloutKind.note)
+            ..append($createParagraphNode()..append($createTextNode('Eins')))
+            ..append($createParagraphNode()..append($createTextNode('Zwei'))),
+        ],
+      );
+
+      apply(BlockKind.bulletList);
+
+      editor.editorState.read(() {
+        final list = $getRoot().getFirstChild()! as ListNode;
+        expect(list.childrenSize, 2);
+      });
+      expect(allText(), 'Eins\n\nZwei');
     });
   });
 

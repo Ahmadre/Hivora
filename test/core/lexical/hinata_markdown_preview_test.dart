@@ -6,6 +6,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/hinata_lexical.dart';
@@ -86,6 +87,21 @@ void main() {
       expect((children.first! as Map<String, Object?>)['type'], 'list');
     });
 
+    test('a nested fence folds instead of leaving its marker on screen', () {
+      const draft = ':::info\nAussen\n:::warn\nInnen\n:::\n:::';
+      final outer = block(draft);
+
+      expect(outer['type'], 'callout');
+      expect(outer['kind'], 'info');
+      final inner =
+          (outer['children']! as List<Object?>).last! as Map<String, Object?>;
+      expect(inner['type'], 'callout');
+      expect(inner['kind'], 'warn');
+      // The marker itself must not survive as text anywhere.
+      expect(textOf(draft), isNot(contains(':::')));
+      expect(blocks(draft), hasLength(1));
+    });
+
     test('an unterminated fence stays text rather than eating the draft', () {
       // The failure that must not happen: a typo silently hiding everything
       // the writer typed after it.
@@ -123,6 +139,59 @@ void main() {
       final children = paragraph['children']! as List<Object?>;
 
       expect((children.last! as Map<String, Object?>)['type'], 'smartlink');
+    });
+  });
+
+  group('the same document the server would store', () {
+    // Not "a document of roughly the same shape": these fixtures were produced
+    // by the server's own converter from exactly these markdown strings
+    // (hinata-server RichTextCorpusTest). A deep comparison against them is the
+    // only assertion that can tell the preview is honest — and it keeps
+    // catching drift when either converter changes.
+    const corpus = {
+      'image': '![Ringelblumen](https://example.org/f.jpg)',
+      'table':
+          '| View | Groups by |\n|---|---|\n'
+          '| Board | Status |\n| Backlog | Sprint |',
+      'rule': 'davor\n\n---\n\ndanach',
+    };
+
+    for (final entry in corpus.entries) {
+      test('${entry.key} converts to exactly what the server writes', () {
+        final fixture = File(
+          'test/fixtures/richtext/${entry.key}.json',
+        ).readAsStringSync();
+
+        expect(convert(entry.value), jsonDecode(fixture));
+      });
+    }
+
+    test('an image is an image, not a link behind a stray exclamation', () {
+      final paragraph = block('![Ringelblumen](https://example.org/f.jpg)');
+      final children = paragraph['children']! as List<Object?>;
+
+      expect(children, hasLength(1));
+      expect((children.single! as Map<String, Object?>)['type'], 'image');
+    });
+
+    test('a pipe table is a table, not paragraphs of pipes', () {
+      expect(block('| a | b |\n|---|---|\n| 1 | 2 |')['type'], 'table');
+    });
+
+    test('a rule is a divider, not the characters that spell one', () {
+      for (final marker in ['---', '***', '___', '-----']) {
+        expect(
+          block('davor\n\n$marker\n\ndanach', 1)['type'],
+          'horizontalrule',
+          reason: '$marker stayed text',
+        );
+      }
+    });
+
+    test('dashes inside a code block stay content', () {
+      // The pre-pass must not reach into a block that means them literally.
+      expect(block('```\n---\n```')['type'], 'code');
+      expect(textOf('```\n---\n```'), contains('---'));
     });
   });
 

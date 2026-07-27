@@ -6,6 +6,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/lexical/hinata_editor.dart';
 import '../../core/lexical/hinata_editor_controller.dart';
+import '../../core/lexical/hinata_editor_tools.dart';
+import '../../core/lexical/hinata_markdown_preview.dart';
+import '../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'data/knowledge_models.dart';
 import 'data/knowledge_repository.dart';
 import 'knowledge_scope.dart';
@@ -36,12 +39,21 @@ class KnowledgeEditor extends StatefulWidget {
     required this.spaceId,
     required this.onSave,
     required this.onCancel,
+    this.initialBody = '',
   });
 
   final bool isNew;
   final String initialTitle;
+
   /// The stored Lexical document, or null for a new article.
   final String? initialDoc;
+
+  /// The article's markdown. Normally the plain-text projection of
+  /// [initialDoc]; on a row the server's backfill could not convert it is the
+  /// only copy of the content there is, and the editor seeds from it rather
+  /// than opening blank over it.
+  final String initialBody;
+
   final String spaceId;
   final ValueChanged<EditorResult> onSave;
   final VoidCallback onCancel;
@@ -55,7 +67,7 @@ class _KnowledgeEditorState extends State<KnowledgeEditor> {
     text: widget.initialTitle,
   );
   late final HinataEditorController _body = HinataEditorController(
-    doc: widget.initialDoc,
+    doc: documentOrLegacy(widget.initialDoc, widget.initialBody),
   );
   late String _spaceId = widget.spaceId;
 
@@ -66,7 +78,23 @@ class _KnowledgeEditorState extends State<KnowledgeEditor> {
     super.dispose();
   }
 
+  /// Whether saving right now would write an empty document over content that
+  /// is still there.
+  ///
+  /// The seed above makes this all but impossible, and "all but" is not a
+  /// guarantee worth betting an article on: this is the one action in the app
+  /// that can destroy a page of writing with a single click, and it costs two
+  /// lines to make it impossible instead of unlikely.
+  bool get _wouldBlankExistingContent =>
+      _body.isEmpty &&
+      (widget.initialBody.trim().isNotEmpty ||
+          (widget.initialDoc ?? '').trim().isNotEmpty);
+
   void _save() {
+    if (_wouldBlankExistingContent) {
+      showGlassErrorToast(context, context.t('knowledge.saveWouldBlank'));
+      return;
+    }
     widget.onSave(EditorResult(_title.text.trim(), _body.doc, _spaceId));
     _body.markSaved();
   }
@@ -89,7 +117,13 @@ class _KnowledgeEditorState extends State<KnowledgeEditor> {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
-                  child: HinataEditor(controller: _body, minHeight: 320),
+                  child: HinataEditor(
+                    controller: _body,
+                    minHeight: 320,
+                    // Image upload and the mention picker, which need this
+                    // host's repository and resolver rather than the toolbar's.
+                    trailing: hinataEditorTools(context, _body),
+                  ),
                 ),
               ),
             ],
@@ -189,5 +223,4 @@ class _KnowledgeEditorState extends State<KnowledgeEditor> {
       ),
     );
   }
-
 }

@@ -86,8 +86,11 @@ List<String> documentSmartLinks(LexicalEditor editor, SmartLinkKind kind) =>
 List<String> smartLinksIn(String? doc, SmartLinkKind kind) {
   if (doc == null || doc.trim().isEmpty) return const [];
   try {
-    final editor = createHinataEditor()
-      ..setEditorState(createHinataEditor().parseEditorStateFromString(doc));
+    // One editor, not two: parsing is a method on the editor that will hold
+    // the state, so the second was pure waste — and this runs once per comment,
+    // per pinned comment and per loaded reply, on every live update.
+    final editor = createHinataEditor();
+    editor.setEditorState(editor.parseEditorStateFromString(doc));
     return documentSmartLinks(editor, kind);
   } on Object {
     return const [];

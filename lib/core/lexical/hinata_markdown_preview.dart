@@ -17,6 +17,42 @@ final RegExp _calloutOpen = RegExp(r'^:::(info|warn|note|tip)\s*$');
 /// Closes a callout block.
 final RegExp _calloutClose = RegExp(r'^:::\s*$');
 
+/// A thematic break on a line of its own: `---`, `***` or `___`.
+final RegExp _thematicBreak = RegExp(r'^(-{3,}|\*{3,}|_{3,})$');
+
+/// Opens or closes a fenced code block.
+final RegExp _codeFence = RegExp(r'^\s*(```|~~~)');
+
+/// `![alt](src)`, written the way the server writes it.
+///
+/// The package ships an `imageTransformer` and it is *almost* this one: it
+/// stamps the playground's `maxWidth` of 800, while the server writes 500. A
+/// preview that differs from the stored document by a field is precisely what
+/// this module exists to prevent, so the rule is spelled out here rather than
+/// borrowed.
+final TextMatchTransformer _imageTransformer = TextMatchTransformer(
+  // The `!` is part of the match: without it the link rule claims the
+  // `[alt](src)` and the image arrives as a link behind a stray `!`.
+  regExp: RegExp(r'!\[([^\[\]]*)\]\(([^)\s]+)\)'),
+  replace: (match, format) =>
+      $createImageNode(src: match.group(2)!, altText: match.group(1)!),
+  export: (node, exportChildren) =>
+      node is! ImageNode ? null : '![${node.altText}](${node.src})',
+);
+
+/// The rules hinata converts markdown with.
+///
+/// Ordinary markdown plus the two constructs the server converts and the
+/// default set leaves out — images and tables — because neither is part of
+/// upstream's `TRANSFORMERS` either. Without them `![x](url)` previews as a
+/// literal `!` in front of a link and a pipe table as paragraphs of pipes,
+/// while the server stores an image and a table.
+final MarkdownTransformers hinataMarkdownTransformers =
+    defaultMarkdownTransformers.extend(
+      elements: [tableTransformer],
+      textMatches: [_imageTransformer],
+    );
+
 /// Renders a markdown draft as the document it will become.
 ///
 /// The comment composer stays a plain text field on purpose — most comments are
@@ -48,6 +84,43 @@ class HinataMarkdownPreview extends StatelessWidget {
   );
 }
 
+/// The document to show for a row that may predate the format change.
+///
+/// The server backfills markdown into Lexical, but that migration has an
+/// explicit per-row failure branch that logs and leaves the document null — and
+/// those rows still hold their markdown. Reading [doc] alone turns exactly
+/// those rows into a blank article, a "no description", an empty comment. This
+/// converts the legacy text instead, which is the same conversion the backfill
+/// would have done.
+///
+/// Returns null only when there genuinely is nothing to show.
+String? documentOrLegacy(String? doc, String? legacyMarkdown) {
+  if (doc != null && doc.trim().isNotEmpty) return doc;
+  final legacy = legacyMarkdown?.trim();
+  if (legacy == null || legacy.isEmpty) return null;
+  return _cachedConversion(legacy);
+}
+
+/// Conversions of legacy content, kept across rebuilds.
+///
+/// [documentOrLegacy] is called from `build`, and a surface rebuilds on every
+/// keystroke in the composer above it. Re-parsing markdown each time would make
+/// the rare broken row the expensive one. Bounded, because the cache exists to
+/// survive rebuilds of the same few documents, not to grow with the session.
+final Map<String, String?> _legacyConversions = <String, String?>{};
+const int _legacyConversionsMax = 8;
+
+String? _cachedConversion(String markdown) {
+  final hit = _legacyConversions[markdown];
+  if (hit != null || _legacyConversions.containsKey(markdown)) return hit;
+  final converted = markdownToDocument(markdown);
+  if (_legacyConversions.length >= _legacyConversionsMax) {
+    _legacyConversions.remove(_legacyConversions.keys.first);
+  }
+  _legacyConversions[markdown] = converted;
+  return converted;
+}
+
 /// Converts markdown to a stored document, or null when there is nothing in it.
 ///
 /// The `{{kind:id}}` tokens are hinata's own and markdown knows nothing about
@@ -58,8 +131,12 @@ String? markdownToDocument(String markdown) {
   final editor = createHinataEditor();
   try {
     editor.update(() {
-      $convertFromMarkdown(markdown, transformers: defaultMarkdownTransformers);
+      $convertFromMarkdown(
+        _spellBreaksWithDashes(markdown),
+        transformers: hinataMarkdownTransformers,
+      );
       final root = $getRoot();
+      _foldThematicBreaks(root);
       _foldCallouts(root);
       _replaceSmartLinkTokens(root);
       if (root.childrenSize == 0) root.append($createParagraphNode());
@@ -69,6 +146,46 @@ String? markdownToDocument(String markdown) {
     // A draft that cannot be converted is still a draft; the composer shows
     // nothing rather than an exception where the preview should be.
     return null;
+  }
+}
+
+/// Rewrites `***` and `___` break lines as `---`.
+///
+/// A thematic break has three spellings and the emphasis rules eat two of them:
+/// by the time there is a node to fold, `***` has already become a stray `*`.
+/// So the spelling is settled on the source line, where the construct actually
+/// lives, and [_foldThematicBreaks] only ever has to recognise dashes.
+///
+/// Fenced code is skipped: inside a fence those characters are content, and
+/// rewriting them would change what the writer typed.
+String _spellBreaksWithDashes(String markdown) {
+  final lines = markdown.split('\n');
+  var fenced = false;
+  for (var i = 0; i < lines.length; i++) {
+    if (_codeFence.hasMatch(lines[i])) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    if (_thematicBreak.hasMatch(lines[i].trim())) lines[i] = '---';
+  }
+  return lines.join('\n');
+}
+
+/// Turns a paragraph that is nothing but `---` into a divider.
+///
+/// The importer is line-based and has no rule for a thematic break, so it
+/// leaves the marker as a paragraph holding the literal characters. The server
+/// writes a `horizontalrule`, and a preview showing `---` as text where the
+/// stored document has a rule is the same broken promise as the image case.
+///
+/// Only paragraphs, and only at the top level: `---` inside a code block is
+/// content, and inside a table cell it is a column separator.
+void _foldThematicBreaks(ElementNode root) {
+  for (final child in root.children.toList()) {
+    if (child is! ParagraphNode) continue;
+    if (!_thematicBreak.hasMatch(child.getTextContent().trim())) continue;
+    child.replace($createHorizontalRuleNode());
   }
 }
 
@@ -82,17 +199,36 @@ String? markdownToDocument(String markdown) {
 ///
 /// An unterminated opener is left alone, so a typo shows as the text it is
 /// rather than swallowing the rest of the draft.
-void _foldCallouts(ElementNode root) {
-  for (final child in root.children.toList()) {
+///
+/// Fences nest: a `:::` closes the innermost opener, not the outermost, and the
+/// body of a folded callout is folded in turn. Counting depth is what keeps the
+/// first `:::` of `:::info … :::info … ::: …:::` from ending the outer block
+/// and leaving the inner marker on screen as literal text.
+void _foldCallouts(ElementNode container) {
+  for (final child in container.children.toList()) {
+    // A node an earlier fold already consumed is no longer here.
+    if (child.getParent()?.key != container.key) continue;
     final opener = _markerOf(child);
     if (opener == null) continue;
 
-    // Collect until the closing fence; give up if there is none.
+    // Collect until the fence that closes *this* opener; give up if there is
+    // none, which is what leaves a typo showing as the text it is.
     final body = <LexicalNode>[];
-    var closer = child.getNextSibling();
-    while (closer != null && !_isCloseMarker(closer)) {
-      body.add(closer);
-      closer = closer.getNextSibling();
+    var depth = 1;
+    LexicalNode? closer;
+    var scan = child.getNextSibling();
+    while (scan != null) {
+      if (_markerOf(scan) != null) {
+        depth++;
+      } else if (_isCloseMarker(scan)) {
+        depth--;
+        if (depth == 0) {
+          closer = scan;
+          break;
+        }
+      }
+      body.add(scan);
+      scan = scan.getNextSibling();
     }
     if (closer == null) continue;
 
@@ -103,6 +239,7 @@ void _foldCallouts(ElementNode root) {
     if (callout.childrenSize == 0) callout.append($createParagraphNode());
     child.replace(callout);
     closer.remove();
+    _foldCallouts(callout);
   }
 }
 

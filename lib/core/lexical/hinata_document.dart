@@ -34,22 +34,35 @@ typedef SmartLinkChipBuilder =
 /// A callout draws its own tinted container here rather than through a
 /// `BlockStyle`, because the tint depends on the node's `kind` and a block
 /// style is resolved by type string alone.
-Map<String, BlockLayoutBuilder> hinataBlockLayouts() => {
+/// [blockSpacing] is the rhythm between the blocks a callout holds. The
+/// renderer applies a block style's spacing only at the top level, so a callout
+/// with two paragraphs would otherwise render them flush against each other.
+Map<String, BlockLayoutBuilder> hinataBlockLayouts({
+  double blockSpacing = 0,
+}) => {
   'callout': (context, element, buildChild) {
     final callout = element as CalloutNode;
     final style = calloutStyles[callout.kind]!;
-    // Read the children inside this builder — it runs inside the editor's read,
-    // and the widgets it returns are built later without one.
+    // Read the children inside this builder — it runs inside the editor's
+    // read, and the widgets it returns are built later without one.
     final children = callout.children.map(buildChild).toList(growable: false);
-    return _Callout(style: style, children: children);
+    return _Callout(style: style, spacing: blockSpacing, children: children);
   },
 };
 
 /// A tinted block with a flavour icon down its left edge.
 class _Callout extends StatelessWidget {
-  const _Callout({required this.style, required this.children});
+  const _Callout({
+    required this.style,
+    required this.spacing,
+    required this.children,
+  });
 
   final CalloutStyle style;
+
+  /// Space between the blocks inside the callout.
+  final double spacing;
+
   final List<Widget> children;
 
   @override
@@ -60,7 +73,10 @@ class _Callout extends StatelessWidget {
       border: Border(left: BorderSide(color: style.rule, width: 3)),
     ),
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      // The only padding a callout has: the block style carries the spacing
+      // above and below it, and nothing else, so the two do not stack up into
+      // an inset twice as deep as either of them asks for.
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -72,7 +88,16 @@ class _Callout extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: children,
+              children: [
+                for (final (index, child) in children.indexed)
+                  if (index == 0 || spacing <= 0)
+                    child
+                  else
+                    Padding(
+                      padding: EdgeInsets.only(top: spacing),
+                      child: child,
+                    ),
+              ],
             ),
           ),
         ],
@@ -87,12 +112,23 @@ class _Callout extends StatelessWidget {
 /// itself. [onTapSmartLink] and [chipBuilder] are the policies that genuinely
 /// differ per surface — where a chip navigates to, and what it looks like once
 /// its target is resolved.
+///
+/// [editable] is off by default because most surfaces that render a document
+/// are readers: an article, an issue description, someone else's comment. The
+/// bundle's image view offers drag handles and a caption editor when it is on,
+/// and a reader who drags one edits an editor state nothing will ever save.
 Map<String, DecoratorBuilder> hinataDecoratorBuilders({
   required LexicalEditor editor,
   SmartLinkTapped? onTapSmartLink,
   SmartLinkChipBuilder? chipBuilder,
+  bool editable = false,
 }) => {
-  ...lexicalDecoratorBuilders(editor: editor),
+  ...lexicalDecoratorBuilders(
+    editor: editor,
+    editable: editable,
+    captionsEnabled: editable,
+    imageResolver: hinataImageResolver,
+  ),
   'horizontalrule': (context, node) => const _Rule(),
   'smartlink': (context, node) {
     final link = node as SmartLinkNode;
@@ -110,6 +146,38 @@ Map<String, DecoratorBuilder> hinataDecoratorBuilders({
     );
   },
 };
+
+/// The largest `data:` image a stored document may inline, in bytes.
+///
+/// A base64 payload is decoded into memory the moment the block is built, and
+/// a document is written by whoever wrote it — a colleague, an inbound e-mail,
+/// an agent. 512 KB is far more than a screenshot needs and far less than a
+/// phone can be made to choke on.
+const int hinataMaxInlineImageBytes = 512 * 1024;
+
+/// Resolves a stored image address.
+///
+/// The bundle's default accepts any `http(s)` host and decodes any `data:`
+/// payload. Both are reachable from a document someone else wrote, so:
+///
+/// * a `data:` URI larger than [hinataMaxInlineImageBytes] draws the
+///   placeholder rather than being decoded, and
+/// * everything else keeps the bundle's behaviour, deliberately. hinata is a
+///   shared tracker whose documents legitimately link images from wikis,
+///   status pages and CI — refusing unknown hosts would blank those, and the
+///   only thing a request leaks is what fetching any image leaks.
+ImageProvider<Object>? hinataImageResolver(String src) {
+  final trimmed = src.trim();
+  if (trimmed.toLowerCase().startsWith('data:')) {
+    // Measured on the encoded text, not by decoding it: decoding a payload to
+    // discover it is too large is the exact allocation the cap exists to
+    // prevent. Base64 spends four characters per three bytes.
+    final comma = trimmed.indexOf(',');
+    final encoded = comma < 0 ? 0 : trimmed.length - comma - 1;
+    if (encoded * 3 ~/ 4 > hinataMaxInlineImageBytes) return null;
+  }
+  return defaultImageResolver(trimmed);
+}
 
 class _Rule extends StatelessWidget {
   const _Rule();
@@ -239,6 +307,7 @@ class HinataDocument extends StatefulWidget {
     this.onTapSmartLink,
     this.chipBuilder,
     this.onTapLink,
+    this.stats,
   });
 
   /// The stored Lexical JSON. Null or unreadable renders nothing.
@@ -258,7 +327,13 @@ class HinataDocument extends StatefulWidget {
   /// Called with the editor once a document has been opened, and again whenever
   /// a different one is. Node keys are assigned at parse time and are not in the
   /// stored JSON, so this is the only place a caller can learn them.
-  final void Function(LexicalEditor editor)? onDocument;
+  ///
+  /// Called with **null** when there is no document to open — it was null,
+  /// empty, or unreadable. A surface that derives something from the document,
+  /// an outline or a list of linked issues, has to be told the derivation is
+  /// gone; a callback that simply never fires leaves the previous article's
+  /// table of contents on screen as a row of dead buttons.
+  final void Function(LexicalEditor? editor)? onDocument;
 
   /// Padding around the document.
   final EdgeInsetsGeometry padding;
@@ -277,6 +352,18 @@ class HinataDocument extends StatefulWidget {
   /// What tapping an external link does.
   final void Function(String url)? onTapLink;
 
+  /// Rebuild counters, forwarded to the renderer.
+  ///
+  /// The block cache is the whole point of `LexicalDocument`, and whether it
+  /// survives an ancestor rebuild is invisible from the outside — a document
+  /// that rebuilds every block every frame looks exactly like one that reuses
+  /// them. This is how a test can tell the difference.
+  // The counters are the renderer's own test-only hook; forwarding them is the
+  // only way a test above this widget can reach them.
+  @visibleForTesting
+  // ignore: invalid_use_of_visible_for_testing_member
+  final LexicalRenderStats? stats;
+
   @override
   State<HinataDocument> createState() => _HinataDocumentState();
 }
@@ -284,6 +371,27 @@ class HinataDocument extends StatefulWidget {
 class _HinataDocumentState extends State<HinataDocument> {
   LexicalEditor? _editor;
   String? _loaded;
+
+  /// The memoised theme and decorator map, and the inputs they were built for.
+  ///
+  /// `LexicalDocument.didUpdateWidget` throws its whole block cache away when
+  /// `theme` or `decoratorBuilders` is not `==` to the previous one, and
+  /// `LexicalTheme` declares no `operator ==` while a fresh `Map` literal is
+  /// never equal to another. Building either in `build()` therefore switches
+  /// off the one optimisation the renderer is designed around: every block
+  /// re-enters `editor.read()` and rebuilds its spans whenever *any* ancestor
+  /// rebuilds — a comment thread on every SSE tick, an article on every
+  /// keystroke in the composer above it.
+  LexicalTheme? _theme;
+  Map<String, DecoratorBuilder>? _decorators;
+  ({
+    double fontSize,
+    double? blockSpacing,
+    Brightness brightness,
+    LexicalEditor? editor,
+    bool tappable,
+  })?
+  _memoKey;
 
   @override
   void initState() {
@@ -300,49 +408,96 @@ class _HinataDocumentState extends State<HinataDocument> {
   void _load() {
     _loaded = widget.doc;
     final source = widget.doc;
-    if (source == null || source.trim().isEmpty) {
-      _editor = null;
-      return;
+    LexicalEditor? opened;
+    if (source != null && source.trim().isNotEmpty) {
+      final editor = createHinataEditor();
+      try {
+        editor.setEditorState(editor.parseEditorStateFromString(source));
+        opened = editor;
+      } on Object {
+        // Unreadable: show nothing rather than an exception box in the middle
+        // of an otherwise fine page.
+        opened = null;
+      }
     }
-    final editor = createHinataEditor();
-    try {
-      editor.setEditorState(editor.parseEditorStateFromString(source));
-      _editor = editor;
-    } on Object {
-      // Unreadable: show nothing rather than an exception box in the middle of
-      // an otherwise fine page.
-      _editor = null;
-      return;
-    }
+    _editor = opened;
+
     final notify = widget.onDocument;
     if (notify != null) {
       // After the frame: the caller almost always calls setState from here, and
-      // this runs during initState and didUpdateWidget.
+      // this runs during initState and didUpdateWidget. Null is reported the
+      // same way a document is — a surface that heard about the last one has to
+      // hear that this one is not there.
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) notify(editor);
+        if (mounted) notify(opened);
       });
     }
+  }
+
+  /// Forwards to the host's current callback rather than being it.
+  ///
+  /// The decorator map is memoised, so a closure captured into it would
+  /// outlive the widget that supplied it. This indirection is stable, which is
+  /// what lets the map be reused, and always calls the callback the host has
+  /// right now.
+  void _tapSmartLink(SmartLinkKind kind, String targetId) =>
+      widget.onTapSmartLink?.call(kind, targetId);
+
+  Widget? _chipBuilder(
+    BuildContext context,
+    SmartLinkKind kind,
+    String targetId,
+    String? label,
+  ) => (widget.chipBuilder ?? defaultSmartLinkChip)(
+    context,
+    kind,
+    targetId,
+    label,
+  );
+
+  /// Rebuilds the theme and the decorator map only when something they depend
+  /// on actually changed.
+  void _refreshStyling(LexicalEditor editor) {
+    final key = (
+      fontSize: widget.fontSize,
+      blockSpacing: widget.blockSpacing,
+      // Every neutral token is a theme-aware getter, so a cached theme goes
+      // stale the moment the app switches to dark.
+      brightness: AppColors.brightness,
+      editor: editor,
+      tappable: widget.onTapSmartLink != null,
+    );
+    if (_memoKey == key && _theme != null && _decorators != null) return;
+    _memoKey = key;
+    _theme = hinataLexicalTheme(
+      fontSize: widget.fontSize,
+      blockSpacing: widget.blockSpacing,
+      extraLayouts: hinataBlockLayouts(
+        blockSpacing:
+            widget.blockSpacing ?? hinataBlockSpacing(widget.fontSize),
+      ),
+    );
+    _decorators = hinataDecoratorBuilders(
+      editor: editor,
+      onTapSmartLink: widget.onTapSmartLink == null ? null : _tapSmartLink,
+      chipBuilder: _chipBuilder,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final editor = _editor;
     if (editor == null) return const SizedBox.shrink();
+    _refreshStyling(editor);
     return LexicalDocument(
       editor: editor,
-      theme: hinataLexicalTheme(
-        fontSize: widget.fontSize,
-        blockSpacing: widget.blockSpacing,
-        extraLayouts: hinataBlockLayouts(),
-      ),
+      theme: _theme!,
       padding: widget.padding,
       scrollable: widget.scrollable,
       registry: widget.registry,
-      decoratorBuilders: hinataDecoratorBuilders(
-        editor: editor,
-        onTapSmartLink: widget.onTapSmartLink,
-        chipBuilder: widget.chipBuilder ?? defaultSmartLinkChip,
-      ),
+      decoratorBuilders: _decorators!,
+      // ignore: invalid_use_of_visible_for_testing_member
+      stats: widget.stats,
       interaction: widget.onTapLink == null
           ? null
           : LexicalInteraction(

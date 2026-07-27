@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/lexical/hinata_document.dart';
 import '../../core/lexical/hinata_lexical.dart';
+import '../../core/lexical/hinata_markdown_preview.dart';
 import '../../core/lexical/hinata_outline.dart';
 import 'data/knowledge_models.dart';
 import 'data/knowledge_repository.dart';
@@ -57,9 +58,21 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
     super.dispose();
   }
 
-  void _onDocument(LexicalEditor editor) {
-    final outline = documentOutline(editor);
-    final linked = documentSmartLinks(editor, SmartLinkKind.issue);
+  /// Takes the outline and the linked issues from the document that is on
+  /// screen — including when there is none.
+  ///
+  /// The reader has no key, so its State is reused when a different article is
+  /// opened. Leaving the previous article's headings up because the new one
+  /// could not be read is not a smaller failure than showing nothing: the
+  /// entries point at node keys from a document that is gone, so every one of
+  /// them is a button that does nothing.
+  void _onDocument(LexicalEditor? editor) {
+    final outline = editor == null
+        ? const <OutlineEntry>[]
+        : documentOutline(editor);
+    final linked = editor == null
+        ? const <String>[]
+        : documentSmartLinks(editor, SmartLinkKind.issue);
     if (!mounted) return;
     setState(() {
       _outline = outline;
@@ -227,8 +240,9 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
                           ),
                         ),
                         TextSpan(
-                            text:
-                                ' · ${context.t('knowledge.updatedAgo', variables: {'when': a.updated})}'),
+                          text:
+                              ' · ${context.t('knowledge.updatedAgo', variables: {'when': a.updated})}',
+                        ),
                       ],
                     ),
                     maxLines: 1,
@@ -310,7 +324,9 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
         // already scrolls, and the outline reveals blocks through that same
         // position.
         HinataDocument(
-          doc: widget.article.doc,
+          // An article the backfill could not convert still has its markdown;
+          // rendering that beats rendering an empty page.
+          doc: documentOrLegacy(widget.article.doc, widget.article.body),
           registry: _blocks,
           onDocument: _onDocument,
         ),
@@ -337,7 +353,9 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
               Text(
                 context.t('knowledge.linkedIssues'),
                 style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
@@ -484,8 +502,10 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
         const SizedBox(height: 6),
         _detail(context.t('knowledge.created'), a.created),
         _detail(context.t('knowledge.space'), sp?.name ?? '—'),
-        _detail(context.t('knowledge.status'),
-            a.status[0].toUpperCase() + a.status.substring(1)),
+        _detail(
+          context.t('knowledge.status'),
+          a.status[0].toUpperCase() + a.status.substring(1),
+        ),
       ],
     );
   }

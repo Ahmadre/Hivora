@@ -12,19 +12,65 @@ import 'hinata_document.dart';
 import 'hinata_editing.dart';
 import 'hinata_editor_controller.dart';
 import 'hinata_lexical.dart';
+import 'hinata_link_dialog.dart';
 import 'hinata_theme.dart';
 
 /// One toolbar button: what it does, and whether it currently looks pressed.
 class _Action {
-  const _Action(this.icon, this.tooltipKey, this.run, {this.active});
+  const _Action(
+    this.icon,
+    this.tooltipKey,
+    this.run, {
+    this.active,
+    this.enabled = true,
+  });
 
   final IconData icon;
   final String tooltipKey;
-  final void Function(LexicalEditor editor) run;
+  final VoidCallback run;
 
-  /// Reads the pressed state inside an editor read, or null for an action that
-  /// has no state (undo, insert a divider).
-  final bool Function()? active;
+  /// Whether the button looks pressed, or null for an action that has no state
+  /// (undo, insert a divider).
+  final bool? active;
+
+  /// Whether the button does anything right now. Undo with nothing to undo is
+  /// the only case, and a button that looks live and does nothing is worse
+  /// than one that looks spent.
+  final bool enabled;
+}
+
+/// Everything the toolbar needs to draw itself, read in one go.
+///
+/// The toolbar rebuilds on every editor commit — every keystroke — and each
+/// button used to open its own `editorState.read()` to answer "am I pressed".
+/// Thirteen round trips a frame for one question the editor can answer once.
+class _ToolbarState {
+  const _ToolbarState({
+    required this.formats,
+    required this.block,
+    required this.callout,
+    required this.linked,
+  });
+
+  const _ToolbarState.empty()
+    : formats = 0,
+      block = null,
+      callout = null,
+      linked = false;
+
+  /// Bitmask of the formats every selected text node carries.
+  final int formats;
+
+  /// The block kind under the caret, or null when it is mixed or unmodelled.
+  final BlockKind? block;
+
+  /// The callout flavour under the caret, or null.
+  final CalloutKind? callout;
+
+  /// Whether the selection sits inside a link.
+  final bool linked;
+
+  bool has(TextFormat format) => (formats & format.bit) != 0;
 }
 
 /// A rich-text editor over a stored Lexical document.
@@ -97,6 +143,19 @@ class HinataEditorState extends State<HinataEditor> {
   }
 
   @override
+  void didUpdateWidget(HinataEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Every host holds its controller in a `late final` today, so this never
+    // fires. The day one of them swaps it, the toolbar would silently stop
+    // following the caret and the discarded controller would keep a live
+    // `setState` closure — a trap, not a bug, and cheaper to close than to find.
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onChanged);
+      widget.controller.addListener(_onChanged);
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.removeListener(_onChanged);
     _focus.dispose();
@@ -133,19 +192,32 @@ class HinataEditorState extends State<HinataEditor> {
     _focus.requestFocus();
   }
 
-  /// Whether the button should look pressed.
+  /// Everything the toolbar draws itself from, in a single read.
   ///
-  /// Two cases, and they are genuinely different: over a range, the format is
-  /// "on" only when *every* selected text node has it — the same rule
-  /// `formatText` uses to decide whether a press turns it on or off. At a bare
-  /// caret there are no nodes yet, so the answer is the selection's pending
-  /// format, which is what the next typed character will carry.
-  bool _hasFormat(TextFormat format) => _editor.editorState.read(() {
+  /// The format rule has two cases and they are genuinely different: over a
+  /// range, a format is "on" only when *every* selected text node has it — the
+  /// same rule `formatText` uses to decide whether a press turns it on or off.
+  /// At a bare caret there are no nodes yet, so the answer is the selection's
+  /// pending format, which is what the next typed character will carry.
+  _ToolbarState _readToolbar() => _editor.editorState.read(() {
     final selection = $getSelection();
-    if (selection is! RangeSelection) return false;
+    if (selection is! RangeSelection) return const _ToolbarState.empty();
+
     final nodes = selection.getNodes().whereType<TextNode>().toList();
-    if (nodes.isEmpty) return (selection.format & format.bit) != 0;
-    return nodes.every((node) => node.hasFormat(format));
+    var formats = 0;
+    for (final format in _formatButtons) {
+      final on = nodes.isEmpty
+          ? (selection.format & format.bit) != 0
+          : nodes.every((node) => node.hasFormat(format));
+      if (on) formats |= format.bit;
+    }
+
+    return _ToolbarState(
+      formats: formats,
+      block: $selectedBlockKind(),
+      callout: $selectedCalloutKind(),
+      linked: $getLinkAtSelection() != null,
+    );
   });
 
   void _block(BlockKind kind, {CalloutKind callout = CalloutKind.info}) {
@@ -153,156 +225,258 @@ class HinataEditorState extends State<HinataEditor> {
     _focus.requestFocus();
   }
 
-  bool _isBlock(BlockKind kind) =>
-      _editor.editorState.read(() => $blockKindIs(kind));
+  void _undo() {
+    _editor.dispatchCommand(undoCommand, null);
+    _focus.requestFocus();
+  }
 
-  List<List<_Action>> get _groups => [
+  void _redo() {
+    _editor.dispatchCommand(redoCommand, null);
+    _focus.requestFocus();
+  }
+
+  /// Adds, edits or removes the link over the selection.
+  ///
+  /// Opens a glass dialog rather than an inline field: the address is a whole
+  /// second thing to type, and a toolbar that grows a text input mid-row is
+  /// the shape this app explicitly does not use.
+  Future<void> _editLink() async {
+    final current = _editor.editorState.read(() => $getLinkAtSelection()?.url);
+    final url = await showGlassLinkDialog(context, initialUrl: current);
+    if (url == null) return;
+    _editor.dispatchCommand(toggleLinkCommand, url.isEmpty ? null : url);
+    if (mounted) _focus.requestFocus();
+  }
+
+  /// The inline formats the toolbar offers, and the only ones it has to read.
+  static const List<TextFormat> _formatButtons = [
+    TextFormat.bold,
+    TextFormat.italic,
+    TextFormat.underline,
+    TextFormat.strikethrough,
+    TextFormat.code,
+  ];
+
+  static const Map<TextFormat, (IconData, String)> _formatButtonLook = {
+    TextFormat.bold: (LucideIcons.bold, 'md.bold'),
+    TextFormat.italic: (LucideIcons.italic, 'md.italic'),
+    TextFormat.underline: (LucideIcons.underline, 'md.underline'),
+    TextFormat.strikethrough: (LucideIcons.strikethrough, 'md.strikethrough'),
+    TextFormat.code: (LucideIcons.code, 'md.inlineCode'),
+  };
+
+  /// The callout flavours, in the order they read as a scale: neutral, then
+  /// louder, then quieter.
+  static const Map<CalloutKind, (IconData, String)> _calloutButtons = {
+    CalloutKind.info: (LucideIcons.info, 'md.calloutInfo'),
+    CalloutKind.warn: (LucideIcons.triangleAlert, 'md.calloutWarn'),
+    CalloutKind.note: (LucideIcons.notebookPen, 'md.calloutNote'),
+    CalloutKind.tip: (LucideIcons.lightbulb, 'md.calloutTip'),
+  };
+
+  /// The toolbar, left to right.
+  ///
+  /// Ordered by how often a writer reaches for it, because the row scrolls on a
+  /// phone and everything past the fold costs a swipe: formatting, then block
+  /// shape, then the occasional ones. Undo and redo sit at the far end on
+  /// purpose — every platform already has a keyboard shortcut and a gesture for
+  /// them, and putting them first would push bold off a narrow screen.
+  List<List<_Action>> _groups(_ToolbarState state) => [
     [
+      for (final format in _formatButtons)
+        _Action(
+          _formatButtonLook[format]!.$1,
+          _formatButtonLook[format]!.$2,
+          () => _format(format),
+          active: state.has(format),
+        ),
       _Action(
-        LucideIcons.bold,
-        'md.bold',
-        (_) => _format(TextFormat.bold),
-        active: () => _hasFormat(TextFormat.bold),
-      ),
-      _Action(
-        LucideIcons.italic,
-        'md.italic',
-        (_) => _format(TextFormat.italic),
-        active: () => _hasFormat(TextFormat.italic),
-      ),
-      _Action(
-        LucideIcons.strikethrough,
-        'md.strikethrough',
-        (_) => _format(TextFormat.strikethrough),
-        active: () => _hasFormat(TextFormat.strikethrough),
-      ),
-      _Action(
-        LucideIcons.code,
-        'md.inlineCode',
-        (_) => _format(TextFormat.code),
-        active: () => _hasFormat(TextFormat.code),
+        LucideIcons.link,
+        state.linked ? 'md.linkRemove' : 'md.link',
+        _editLink,
+        active: state.linked,
       ),
     ],
     [
       _Action(
+        LucideIcons.pilcrow,
+        'md.paragraph',
+        () => _block(BlockKind.paragraph),
+        active: state.block == BlockKind.paragraph,
+      ),
+      _Action(
         LucideIcons.heading1,
         'md.heading1',
-        (_) => _block(BlockKind.heading1),
-        active: () => _isBlock(BlockKind.heading1),
+        () => _block(BlockKind.heading1),
+        active: state.block == BlockKind.heading1,
       ),
       _Action(
         LucideIcons.heading2,
         'md.heading2',
-        (_) => _block(BlockKind.heading2),
-        active: () => _isBlock(BlockKind.heading2),
+        () => _block(BlockKind.heading2),
+        active: state.block == BlockKind.heading2,
       ),
       _Action(
         LucideIcons.heading3,
         'md.heading3',
-        (_) => _block(BlockKind.heading3),
-        active: () => _isBlock(BlockKind.heading3),
+        () => _block(BlockKind.heading3),
+        active: state.block == BlockKind.heading3,
       ),
     ],
     [
       _Action(
         LucideIcons.list,
         'md.bulletList',
-        (_) => _block(BlockKind.bulletList),
-        active: () => _isBlock(BlockKind.bulletList),
+        () => _block(BlockKind.bulletList),
+        active: state.block == BlockKind.bulletList,
       ),
       _Action(
         LucideIcons.listOrdered,
         'md.numberedList',
-        (_) => _block(BlockKind.numberList),
-        active: () => _isBlock(BlockKind.numberList),
+        () => _block(BlockKind.numberList),
+        active: state.block == BlockKind.numberList,
       ),
       _Action(
         LucideIcons.listChecks,
         'md.taskList',
-        (_) => _block(BlockKind.checkList),
-        active: () => _isBlock(BlockKind.checkList),
+        () => _block(BlockKind.checkList),
+        active: state.block == BlockKind.checkList,
       ),
     ],
     [
       _Action(
         LucideIcons.quote,
         'md.quote',
-        (_) => _block(BlockKind.quote),
-        active: () => _isBlock(BlockKind.quote),
+        () => _block(BlockKind.quote),
+        active: state.block == BlockKind.quote,
       ),
       _Action(
         LucideIcons.squareCode,
         'md.codeBlock',
-        (_) => _block(BlockKind.code),
-        active: () => _isBlock(BlockKind.code),
+        () => _block(BlockKind.code),
+        active: state.block == BlockKind.code,
       ),
-      _Action(
-        LucideIcons.info,
-        'md.calloutInfo',
-        (_) => _block(BlockKind.callout),
-        active: () => _isBlock(BlockKind.callout),
-      ),
-      _Action(LucideIcons.minus, 'md.divider', (editor) {
-        editor.update($insertDivider);
+      for (final entry in _calloutButtons.entries)
+        _Action(
+          entry.value.$1,
+          entry.value.$2,
+          () => _block(BlockKind.callout, callout: entry.key),
+          // Pressed only for the flavour that is actually there: four buttons
+          // for one block kind, and a writer needs to see which one they are in.
+          active:
+              state.block == BlockKind.callout && state.callout == entry.key,
+        ),
+      _Action(LucideIcons.minus, 'md.divider', () {
+        _editor.update($insertDivider);
         _focus.requestFocus();
       }),
+    ],
+    [
+      _Action(LucideIcons.undo2, 'md.undo', _undo, enabled: _history.canUndo),
+      _Action(LucideIcons.redo2, 'md.redo', _redo, enabled: _history.canRedo),
     ],
   ];
 
   // --- build ----------------------------------------------------------------
 
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (widget.showToolbar) _toolbar(context),
-      ConstrainedBox(
-        constraints: BoxConstraints(minHeight: widget.minHeight),
-        child: LexicalEditorField(
-          editor: _editor,
-          baseTextStyle: TextStyle(fontSize: widget.fontSize),
-          theme: hinataLexicalTheme(
-            fontSize: widget.fontSize,
-            extraLayouts: hinataBlockLayouts(),
+  /// The theme and the decorator map, rebuilt only when their inputs change.
+  ///
+  /// Same reason as the reader: the renderer drops its whole block cache when
+  /// either is not `==` to the previous one, and neither type has an
+  /// `operator ==`. The editable surface rebuilds on every keystroke, so this
+  /// is where it costs the most.
+  LexicalTheme? _themeCache;
+  Map<String, DecoratorBuilder>? _decoratorCache;
+  ({double fontSize, Brightness brightness})? _styleKey;
+
+  void _refreshStyling() {
+    final key = (
+      fontSize: widget.fontSize,
+      // The neutral tokens are theme-aware getters; a cached theme keeps the
+      // light colours after a switch to dark.
+      brightness: AppColors.brightness,
+    );
+    if (_styleKey == key && _themeCache != null && _decoratorCache != null) {
+      return;
+    }
+    _styleKey = key;
+    _themeCache = hinataLexicalTheme(
+      fontSize: widget.fontSize,
+      extraLayouts: hinataBlockLayouts(
+        blockSpacing: hinataBlockSpacing(widget.fontSize),
+      ),
+    );
+    _decoratorCache = hinataDecoratorBuilders(
+      editor: _editor,
+      // This *is* the editable surface: handles and the caption editor belong
+      // here, and only here.
+      editable: true,
+      onTapSmartLink: (kind, targetId) =>
+          widget.onTapSmartLink?.call(kind, targetId),
+      // The same fallback the reader uses. Without it a `@`-mention shows the
+      // raw ObjectId while you write and the person's name once you save.
+      chipBuilder: (context, kind, targetId, label) =>
+          (widget.chipBuilder ?? defaultSmartLinkChip)(
+            context,
+            kind,
+            targetId,
+            label,
           ),
-          focusNode: _focus,
-          autofocus: widget.autofocus,
-          padding: widget.padding,
-          // The host is a form or a sheet that scrolls; a second scroll view
-          // here would trap the gesture and strand the save bar off-screen.
-          scrollable: false,
-          history: _history,
-          decoratorBuilders: hinataDecoratorBuilders(
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _refreshStyling();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.showToolbar) _toolbar(context),
+        ConstrainedBox(
+          constraints: BoxConstraints(minHeight: widget.minHeight),
+          child: LexicalEditorField(
             editor: _editor,
-            onTapSmartLink: widget.onTapSmartLink,
-            chipBuilder: widget.chipBuilder,
+            baseTextStyle: TextStyle(fontSize: widget.fontSize),
+            theme: _themeCache!,
+            focusNode: _focus,
+            autofocus: widget.autofocus,
+            padding: widget.padding,
+            // The host is a form or a sheet that scrolls; a second scroll view
+            // here would trap the gesture and strand the save bar off-screen.
+            scrollable: false,
+            history: _history,
+            decoratorBuilders: _decoratorCache!,
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 
-  Widget _toolbar(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: SizedBox(
-      height: 34,
-      // The toolbar scrolls rather than wrapping: on a phone the full set does
-      // not fit, and a wrapped second row pushes the writing area off-screen
-      // exactly when the keyboard is already taking half of it.
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        physics: const ClampingScrollPhysics(),
-        children: [
-          for (final (index, group) in _groups.indexed) ...[
-            if (index > 0) _separator(),
-            for (final action in group) _button(context, action),
+  Widget _toolbar(BuildContext context) {
+    // One read for the whole row, rather than one per button.
+    final state = _readToolbar();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SizedBox(
+        height: 34,
+        // The toolbar scrolls rather than wrapping: on a phone the full set
+        // does not fit, and a wrapped second row pushes the writing area
+        // off-screen exactly when the keyboard is already taking half of it.
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(),
+          children: [
+            for (final (index, group) in _groups(state).indexed) ...[
+              if (index > 0) _separator(),
+              for (final action in group) _button(context, action),
+            ],
+            if (widget.trailing != null) ...[_separator(), ...widget.trailing!],
           ],
-          if (widget.trailing != null) ...[_separator(), ...widget.trailing!],
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _separator() => Container(
     width: 1,
@@ -312,15 +486,17 @@ class HinataEditorState extends State<HinataEditor> {
   );
 
   Widget _button(BuildContext context, _Action action) {
-    final active = action.active?.call() ?? false;
+    final active = action.active ?? false;
+    final label = context.t(action.tooltipKey);
     return Tooltip(
-      message: context.t(action.tooltipKey),
+      message: label,
       child: Semantics(
         button: true,
-        selected: action.active == null ? null : active,
-        label: context.t(action.tooltipKey),
+        selected: action.active,
+        enabled: action.enabled,
+        label: label,
         child: InkWell(
-          onTap: () => action.run(_editor),
+          onTap: action.enabled ? action.run : null,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             width: 34,
@@ -335,7 +511,11 @@ class HinataEditorState extends State<HinataEditor> {
             child: Icon(
               action.icon,
               size: 16,
-              color: active ? AppColors.accent : AppColors.inkSoft,
+              color: !action.enabled
+                  ? AppColors.inkFaint
+                  : active
+                  ? AppColors.accent
+                  : AppColors.inkSoft,
             ),
           ),
         ),

@@ -13,21 +13,21 @@ import 'callout_node.dart';
 /// tokens are theme-aware getters, so a cached answer goes stale on a switch.
 bool get _dark => AppColors.brightness == Brightness.dark;
 
-/// Accent, icon and label for one callout flavour.
+/// Accent and icon for one callout flavour.
 ///
 /// The kinds are content, not decoration — a warning and a tip mean different
-/// things — so each gets its own hue rather than a shared "aside" box.
+/// things — so each gets its own hue rather than a shared "aside" box. The
+/// flavour is carried by the hue and the glyph and nothing else: a printed
+/// label is a design decision nobody has asked for, and the key one used to
+/// name did not exist in either locale.
 class CalloutStyle {
-  const CalloutStyle(this.hue, this.icon, this.labelKey);
+  const CalloutStyle(this.hue, this.icon);
 
   /// Hue driving the tint, border and icon, so the four stay a family.
   final double hue;
 
   /// Lucide glyph. The app uses Lucide exclusively.
   final IconData icon;
-
-  /// i18n key for the flavour's name.
-  final String labelKey;
 
   /// The flavour's accent at full strength.
   Color get accent => HSLColor.fromAHSL(
@@ -46,18 +46,10 @@ class CalloutStyle {
 
 /// The four callout flavours, styled.
 const Map<CalloutKind, CalloutStyle> calloutStyles = {
-  CalloutKind.info: CalloutStyle(211, LucideIcons.info, 'kb.callout.info'),
-  CalloutKind.warn: CalloutStyle(
-    28,
-    LucideIcons.triangleAlert,
-    'kb.callout.warn',
-  ),
-  CalloutKind.note: CalloutStyle(
-    268,
-    LucideIcons.notebookPen,
-    'kb.callout.note',
-  ),
-  CalloutKind.tip: CalloutStyle(152, LucideIcons.lightbulb, 'kb.callout.tip'),
+  CalloutKind.info: CalloutStyle(211, LucideIcons.info),
+  CalloutKind.warn: CalloutStyle(28, LucideIcons.triangleAlert),
+  CalloutKind.note: CalloutStyle(268, LucideIcons.notebookPen),
+  CalloutKind.tip: CalloutStyle(152, LucideIcons.lightbulb),
 };
 
 /// The palette Lexical draws with, taken from the app's theme tokens.
@@ -115,12 +107,10 @@ LexicalTheme hinataLexicalTheme({
       ...theme.blockStyles,
       // Callouts are hinata's own block, so the bundle has no style for them.
       // The flavour tint is drawn by the block layout (the style is resolved by
-      // node type, and there are four kinds of one type), so this carries only
-      // the metrics they share.
-      'callout': BlockStyle(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        spacing: spacing * 1.2,
-      ),
+      // node type, and there are four kinds of one type), and so is the inset —
+      // the padding belongs *inside* the tinted box, and declaring it here too
+      // stacked the two into an inset twice as deep as either asked for.
+      'callout': BlockStyle(spacing: spacing * 1.2),
       'horizontalrule': BlockStyle(spacing: spacing * 1.6),
     },
     blockStyleResolver: theme.blockStyleResolver,
