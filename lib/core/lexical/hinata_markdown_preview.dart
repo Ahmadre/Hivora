@@ -17,28 +17,13 @@ final RegExp _calloutOpen = RegExp(r'^:::(info|warn|note|tip)\s*$');
 /// Closes a callout block.
 final RegExp _calloutClose = RegExp(r'^:::\s*$');
 
-/// A thematic break on a line of its own: `---`, `***` or `___`.
-final RegExp _thematicBreak = RegExp(r'^(-{3,}|\*{3,}|_{3,})$');
-
-/// Opens or closes a fenced code block.
-final RegExp _codeFence = RegExp(r'^\s*(```|~~~)');
-
-/// `![alt](src)`, written the way the server writes it.
+/// The `maxWidth` the server stamps on an image it converts from markdown.
 ///
-/// The package ships an `imageTransformer` and it is *almost* this one: it
-/// stamps the playground's `maxWidth` of 800, while the server writes 500. A
-/// preview that differs from the stored document by a field is precisely what
-/// this module exists to prevent, so the rule is spelled out here rather than
-/// borrowed.
-final TextMatchTransformer _imageTransformer = TextMatchTransformer(
-  // The `!` is part of the match: without it the link rule claims the
-  // `[alt](src)` and the image arrives as a link behind a stray `!`.
-  regExp: RegExp(r'!\[([^\[\]]*)\]\(([^)\s]+)\)'),
-  replace: (match, format) =>
-      $createImageNode(src: match.group(2)!, altText: match.group(1)!),
-  export: (node, exportChildren) =>
-      node is! ImageNode ? null : '![${node.altText}](${node.src})',
-);
+/// Upstream — and therefore the package default — writes 800, the number
+/// Lexical's own playground uses. hinata writes the node's own default instead,
+/// and the two halves of the stack have to agree on it, so it is named here and
+/// handed to the package rule rather than baked into a copy of it.
+const double _serverImageMaxWidth = 500;
 
 /// The rules hinata converts markdown with.
 ///
@@ -50,7 +35,7 @@ final TextMatchTransformer _imageTransformer = TextMatchTransformer(
 final MarkdownTransformers hinataMarkdownTransformers =
     defaultMarkdownTransformers.extend(
       elements: [tableTransformer],
-      textMatches: [_imageTransformer],
+      textMatches: [imageMarkdownTransformer(maxWidth: _serverImageMaxWidth)],
     );
 
 /// Renders a markdown draft as the document it will become.
@@ -131,14 +116,8 @@ String? markdownToDocument(String markdown) {
   final editor = createHinataEditor();
   try {
     editor.update(() {
-      $convertFromMarkdown(
-        _spellBreaksWithDashes(markdown),
-        transformers: hinataMarkdownTransformers,
-      );
+      $convertFromMarkdown(markdown, transformers: hinataMarkdownTransformers);
       final root = $getRoot();
-      _canonicaliseLists(root);
-      _parseLinkLabels(root);
-      _foldThematicBreaks(root);
       _foldCallouts(root);
       _replaceSmartLinkTokens(root);
       if (root.childrenSize == 0) root.append($createParagraphNode());
@@ -148,178 +127,6 @@ String? markdownToDocument(String markdown) {
     // A draft that cannot be converted is still a draft; the composer shows
     // nothing rather than an exception where the preview should be.
     return null;
-  }
-}
-
-/// Rewrites nested lists into the shape the server stores.
-///
-/// The importer appends a nested list into the very item that holds its
-/// parent's text, and leaves every item at `indent: 0`. Lexical's own shape —
-/// and the server's — gives the nested list an item of its own, next to the
-/// one it belongs under, and carries the nesting depth on the inner items.
-///
-/// Both shapes hold the same words, which is why this survived: the preview
-/// looked fine and the stored document was a different tree. Anything reading
-/// structure rather than text — the outline, an export, Lexical web — sees two
-/// different documents for one draft.
-void _canonicaliseLists(ElementNode container) {
-  for (final child in container.children.toList()) {
-    if (child is ListNode) {
-      _canonicaliseList(child, 0);
-    } else if (child is ElementNode) {
-      // Lists live inside callouts, quotes and table cells too.
-      _canonicaliseLists(child);
-    }
-  }
-}
-
-/// Canonicalises one list whose own nesting depth is [depth].
-void _canonicaliseList(ListNode list, int depth) {
-  // The depth is carried by the items, never by the list element itself.
-  list.setIndent(0);
-  for (final item in list.children.toList()) {
-    if (item is ListItemNode) _splitOutNestedLists(item);
-  }
-  for (final item in list.children.toList()) {
-    if (item is! ListItemNode) continue;
-    item.setIndent(depth);
-    for (final child in item.children.toList()) {
-      if (child is ListNode) _canonicaliseList(child, depth + 1);
-    }
-  }
-  // The split inserts items, and an item's number is its position — including
-  // the ones that hold nothing but a nested list, which is how the server
-  // numbers them.
-  renumberItems(list);
-}
-
-/// Moves each nested list out of [item] and into an item of its own.
-///
-/// Content and lists are kept in the order they were typed, so an item holding
-/// text, a nested list and then more text becomes three items rather than a
-/// reshuffle of one.
-void _splitOutNestedLists(ListItemNode item) {
-  final children = item.children.toList();
-  if (!children.any((child) => child is ListNode)) return;
-
-  final runs = <List<LexicalNode>>[];
-  var run = <LexicalNode>[];
-  for (final child in children) {
-    if (child is ListNode) {
-      if (run.isNotEmpty) {
-        runs.add(run);
-        run = <LexicalNode>[];
-      }
-      runs.add([child]);
-    } else {
-      run.add(child);
-    }
-  }
-  if (run.isNotEmpty) runs.add(run);
-  // A single run is an item that already holds nothing but its nested list.
-  if (runs.length <= 1) return;
-
-  // The first run stays put; appending the rest to fresh siblings moves them
-  // out of this item, which is what leaves it holding just that first run.
-  LexicalNode anchor = item;
-  for (final sibling in runs.skip(1)) {
-    final next = $createListItemNode()..appendAll(sibling);
-    anchor.insertAfter(next);
-    anchor = next;
-  }
-}
-
-/// Any character that can open an inline format run.
-final RegExp _inlineMarker = RegExp(r'[*_~`]');
-
-/// Parses a link's label as inline markdown.
-///
-/// The importer's link rule takes the label verbatim, so `[ein *kursiver*
-/// Link](url)` keeps its asterisks as characters. CommonMark resolves emphasis
-/// inside a label and so does the server — which means the preview shows the
-/// syntax that the stored document will already have turned into formatting.
-void _parseLinkLabels(ElementNode container) {
-  for (final child in container.children.toList()) {
-    if (child is LinkNode) {
-      _reparseLabel(child);
-      continue;
-    }
-    if (child is ElementNode) _parseLinkLabels(child);
-  }
-}
-
-void _reparseLabel(LinkNode link) {
-  final children = link.children.toList();
-  if (children.length != 1) return;
-  final label = children.first;
-  if (label is! TextNode) return;
-
-  final text = label.getTextContent();
-  // Checked before parsing rather than after: a label with nothing to resolve
-  // is the common case, and parsing it would build nodes only to drop them.
-  if (!_inlineMarker.hasMatch(text)) return;
-
-  final parsed = $parseMarkdownInline(
-    text,
-    transformers: hinataMarkdownTransformers,
-  );
-  if (parsed.isEmpty) return;
-
-  // The label may sit inside emphasis of its own — `**[a *b* c](url)**` — and
-  // the importer put that format on the node being replaced. Carrying it onto
-  // every run keeps the outer emphasis instead of trading it for the inner.
-  final outer = label.getFormat();
-  if (outer != 0) {
-    for (final node in parsed) {
-      if (node is TextNode) node.setFormat(node.getFormat() | outer);
-    }
-  }
-
-  LexicalNode anchor = label;
-  for (final node in parsed) {
-    anchor.insertAfter(node);
-    anchor = node;
-  }
-  label.remove();
-}
-
-/// Rewrites `***` and `___` break lines as `---`.
-///
-/// A thematic break has three spellings and the emphasis rules eat two of them:
-/// by the time there is a node to fold, `***` has already become a stray `*`.
-/// So the spelling is settled on the source line, where the construct actually
-/// lives, and [_foldThematicBreaks] only ever has to recognise dashes.
-///
-/// Fenced code is skipped: inside a fence those characters are content, and
-/// rewriting them would change what the writer typed.
-String _spellBreaksWithDashes(String markdown) {
-  final lines = markdown.split('\n');
-  var fenced = false;
-  for (var i = 0; i < lines.length; i++) {
-    if (_codeFence.hasMatch(lines[i])) {
-      fenced = !fenced;
-      continue;
-    }
-    if (fenced) continue;
-    if (_thematicBreak.hasMatch(lines[i].trim())) lines[i] = '---';
-  }
-  return lines.join('\n');
-}
-
-/// Turns a paragraph that is nothing but `---` into a divider.
-///
-/// The importer is line-based and has no rule for a thematic break, so it
-/// leaves the marker as a paragraph holding the literal characters. The server
-/// writes a `horizontalrule`, and a preview showing `---` as text where the
-/// stored document has a rule is the same broken promise as the image case.
-///
-/// Only paragraphs, and only at the top level: `---` inside a code block is
-/// content, and inside a table cell it is a column separator.
-void _foldThematicBreaks(ElementNode root) {
-  for (final child in root.children.toList()) {
-    if (child is! ParagraphNode) continue;
-    if (!_thematicBreak.hasMatch(child.getTextContent().trim())) continue;
-    child.replace($createHorizontalRuleNode());
   }
 }
 

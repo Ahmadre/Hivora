@@ -1,16 +1,16 @@
 /// The editing operations the toolbar performs.
 ///
-/// Inline formatting and links are commands the packages already ship. Turning
-/// a paragraph into a heading, a quote, a list or a callout is not: Lexical web
-/// does it with `$setBlocksType`, which the Dart port has not exposed, so the
-/// same operation lives here — replace each selected top-level block with a new
-/// element and move its children across.
+/// Turning a paragraph into a heading, a quote or a code block is the package's
+/// `$setBlocksType`, and it is used for exactly that. What stays here is the
+/// part that is hinata's: the toggle a pressed-looking button implies, and the
+/// two shapes that are containers rather than lines — a list, and hinata's own
+/// callout. Converting one of those means unwrapping it, which is a decision
+/// about hinata's document, not an operation Lexical can make on its own.
 library;
 
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 
 import 'callout_node.dart';
-import 'horizontal_rule_node.dart';
 import 'smart_link_node.dart';
 
 /// The block shapes the toolbar can produce.
@@ -40,21 +40,70 @@ void $setBlockKind(BlockKind kind, {CalloutKind callout = CalloutKind.info}) {
   final selection = $getSelection();
   if (selection == null) return;
 
-  for (final block in _selectedBlocks(selection)) {
-    if (block is! ElementNode) continue;
-    // The root is not a block and cannot be replaced — `root.replace` throws,
-    // uncaught, inside the update. Unreachable from the toolbar, cheap to rule
-    // out here rather than relying on that staying true.
-    if (block is RootNode) continue;
-    final current = _kindOf(block);
-    // A shape the toolbar does not model — a table, an image. Rewriting it
-    // would flatten it into the pressed kind and lose its structure, so a
-    // block button does nothing to it rather than destroying it.
-    if (current == null) continue;
-    final target = current == kind ? BlockKind.paragraph : kind;
-    _replace(block, target, callout);
+  final subjects = _selectedSubjects(selection);
+  if (subjects.isEmpty) return;
+
+  final target = $selectedBlockKind() == kind ? BlockKind.paragraph : kind;
+  final containers = subjects.any(_isContainer);
+
+  // No container on either side: this is the package's operation exactly — one
+  // new element per block, children carried across, and anything that holds
+  // blocks rather than a line left alone. A caret in a table cell converts the
+  // paragraph in that cell, which is what the writer pointed at.
+  if (!containers && !target.isList && target != BlockKind.callout) {
+    $setBlocksType(selection, () => _createBlock(target));
+    return;
+  }
+
+  for (final subject in subjects) {
+    _replace(subject, target, callout);
   }
 }
+
+/// Whether hinata treats [node] as a container it unwraps rather than replaces.
+bool _isContainer(ElementNode node) => node is ListNode || node is CalloutNode;
+
+/// The element a block button acts on, for one selected node.
+///
+/// The outermost list or callout on the path when there is one — pressing the
+/// list button with the caret in a nested item is about the list, not the item.
+/// Otherwise the nearest block that holds a line, which is what [$isBlock]
+/// means: a table, a row and a cell are containers, so a caret inside one
+/// resolves to the paragraph in the cell and the table is never a subject.
+ElementNode? _subjectOf(LexicalNode node) {
+  ElementNode? leaf;
+  ElementNode? container;
+  for (LexicalNode? current = node; current != null; ) {
+    if (current is ElementNode) {
+      if (leaf == null && $isBlock(current)) leaf = current;
+      if (_isContainer(current)) container = current;
+    }
+    current = current.getParent();
+  }
+  return container ?? leaf;
+}
+
+/// The distinct elements the selection's blocks resolve to, in document order.
+List<ElementNode> _selectedSubjects(BaseSelection selection) {
+  final seen = <NodeKey>{};
+  final subjects = <ElementNode>[];
+  for (final node in selection.getNodes()) {
+    final subject = _subjectOf(node);
+    if (subject != null && seen.add(subject.key)) subjects.add(subject);
+  }
+  return subjects;
+}
+
+/// A fresh element of [kind], for the kinds that are a line rather than a
+/// container.
+ElementNode _createBlock(BlockKind kind) => switch (kind) {
+  BlockKind.heading1 => $createHeadingNode(HeadingTag.h1),
+  BlockKind.heading2 => $createHeadingNode(HeadingTag.h2),
+  BlockKind.heading3 => $createHeadingNode(HeadingTag.h3),
+  BlockKind.quote => $createQuoteNode(),
+  BlockKind.code => $createCodeNode(),
+  _ => $createParagraphNode(),
+};
 
 /// Whether every selected block already has [kind] — drives the pressed state.
 bool $blockKindIs(BlockKind kind) => $selectedBlockKind() == kind;
@@ -68,11 +117,11 @@ bool $blockKindIs(BlockKind kind) => $selectedBlockKind() == kind;
 BlockKind? $selectedBlockKind() {
   final selection = $getSelection();
   if (selection == null) return null;
-  final blocks = _selectedBlocks(selection).whereType<ElementNode>().toList();
-  if (blocks.isEmpty) return null;
-  final first = _kindOf(blocks.first);
+  final subjects = _selectedSubjects(selection);
+  if (subjects.isEmpty) return null;
+  final first = _kindOf(subjects.first);
   if (first == null) return null;
-  return blocks.every((block) => _kindOf(block) == first) ? first : null;
+  return subjects.every((subject) => _kindOf(subject) == first) ? first : null;
 }
 
 /// The flavour every selected block is a callout of, or null.
@@ -82,36 +131,22 @@ BlockKind? $selectedBlockKind() {
 CalloutKind? $selectedCalloutKind() {
   final selection = $getSelection();
   if (selection == null) return null;
-  final blocks = _selectedBlocks(selection);
-  if (blocks.isEmpty) return null;
+  final subjects = _selectedSubjects(selection);
+  if (subjects.isEmpty) return null;
   CalloutKind? kind;
-  for (final block in blocks) {
-    // `_selectedBlocks` already resolves to the top-level block, so a caret
-    // inside a callout's paragraph arrives here as the callout.
-    if (block is! CalloutNode) return null;
-    kind ??= block.kind;
-    if (block.kind != kind) return null;
+  for (final subject in subjects) {
+    // `_selectedSubjects` resolves to the enclosing callout, so a caret inside
+    // a callout's paragraph arrives here as the callout.
+    if (subject is! CalloutNode) return null;
+    kind ??= subject.kind;
+    if (subject.kind != kind) return null;
   }
   return kind;
 }
 
-/// The distinct top-level blocks the selection touches, in document order.
-List<LexicalNode> _selectedBlocks(BaseSelection selection) {
-  final seen = <NodeKey>{};
-  final blocks = <LexicalNode>[];
-  for (final node in selection.getNodes()) {
-    final block = node.getTopLevelElement() ?? node;
-    if (seen.add(block.key)) blocks.add(block);
-  }
-  return blocks;
-}
-
-/// The kind a block currently is, or null for something the toolbar does not
-/// model (a table, an image).
-BlockKind? _kindOf(ElementNode block) {
-  // A list item's shape is its parent list's, which is what the caret is
-  // "inside" from the writer's point of view.
-  final subject = block is ListItemNode ? block.getParent() : block;
+/// The kind a subject currently is, or null for a shape the toolbar does not
+/// model — a table, an image.
+BlockKind? _kindOf(ElementNode subject) {
   return switch (subject) {
     ParagraphNode() => BlockKind.paragraph,
     QuoteNode() => BlockKind.quote,
@@ -132,10 +167,9 @@ BlockKind? _kindOf(ElementNode block) {
   };
 }
 
-void _replace(ElementNode block, BlockKind kind, CalloutKind callout) {
-  // Inside a list, the block to convert is the list itself, not the item.
-  final subject = block is ListItemNode ? (block.getParent() ?? block) : block;
-
+/// Converts one subject, for the cases the package's operation cannot cover:
+/// a container on either side of the conversion.
+void _replace(ElementNode subject, BlockKind kind, CalloutKind callout) {
   if (kind.isList) {
     _toList(subject, kind);
     return;
@@ -146,21 +180,13 @@ void _replace(ElementNode block, BlockKind kind, CalloutKind callout) {
     return;
   }
 
-  ElementNode make() => switch (kind) {
-    BlockKind.heading1 => $createHeadingNode(HeadingTag.h1),
-    BlockKind.heading2 => $createHeadingNode(HeadingTag.h2),
-    BlockKind.heading3 => $createHeadingNode(HeadingTag.h3),
-    BlockKind.quote => $createQuoteNode(),
-    BlockKind.code => $createCodeNode(),
-    _ => $createParagraphNode(),
-  };
-
-  // One replacement per source block, which is what Lexical's own
-  // `$setBlocksType` does. Merging a three-item list into a single heading
-  // keeps every character and loses every boundary between them — "EinsZwei
-  // Drei" — and no undo-less writer gets that back.
+  // Unwrapping a container: one replacement per block it holds, the same rule
+  // `$setBlocksType` follows. Merging a three-item list into a single heading
+  // keeps every character and loses every boundary between them —
+  // "EinsZweiDrei" — and no undo-less writer gets that back.
   final replacements = [
-    for (final run in _inlineRunsOf(subject)) make()..appendAll(run),
+    for (final run in _inlineRunsOf(subject))
+      _createBlock(kind)..appendAll(run),
   ];
   subject.replace(replacements.first);
   LexicalNode anchor = replacements.first;
@@ -284,9 +310,11 @@ void _toList(ElementNode subject, BlockKind kind) {
 void $insertDivider() {
   final selection = $getSelection();
   if (selection == null) return;
-  final blocks = _selectedBlocks(selection);
-  if (blocks.isEmpty) return;
-  final anchor = blocks.last.getTopLevelElement() ?? blocks.last;
+  final subjects = _selectedSubjects(selection);
+  if (subjects.isEmpty) return;
+  // The top-level element, not the subject: a rule belongs after the table,
+  // not inside the cell the caret happens to be in.
+  final anchor = subjects.last.getTopLevelElement() ?? subjects.last;
   final rule = $createHorizontalRuleNode();
   anchor.insertAfter(rule);
   // A divider is atomic, so leave a paragraph behind it — otherwise a rule at

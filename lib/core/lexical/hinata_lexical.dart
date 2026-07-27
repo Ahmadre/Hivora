@@ -14,28 +14,22 @@ library;
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 
 import 'callout_node.dart';
-import 'horizontal_rule_node.dart';
 import 'smart_link_node.dart';
 
 export 'callout_node.dart';
-export 'horizontal_rule_node.dart';
 export 'smart_link_node.dart';
 
 /// Every node type a stored hinata document may contain.
 ///
-/// The bundle's own types plus the two hinata has always written: the
+/// The bundle's own types plus the two that are genuinely hinata's: the
 /// `{{issue:…}}` chip and the `:::info` callout, which used to be markdown
-/// syntax found by a regex and are node types now.
+/// syntax found by a regex and are node types now. The horizontal rule was
+/// declared here too until the port grew one of its own; `lexicalNodes`
+/// registers it now.
 List<NodeSpec<LexicalNode>> get hinataNodes => <NodeSpec<LexicalNode>>[
   ...lexicalNodes,
   const NodeSpec<SmartLinkNode>(type: 'smartlink', create: SmartLinkNode.new),
   const NodeSpec<CalloutNode>(type: 'callout', create: CalloutNode.new),
-  // Standard Lexical, not hinata's own — the Dart port has not implemented
-  // it yet and `---` has always been valid input.
-  const NodeSpec<HorizontalRuleNode>(
-    type: 'horizontalrule',
-    create: HorizontalRuleNode.new,
-  ),
 ];
 
 /// Creates an editor that understands every stored hinata document.
