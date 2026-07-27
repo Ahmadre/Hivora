@@ -612,32 +612,47 @@ class HinataEditorState extends State<HinataEditor> {
           shrinkWrap: true,
           children: [
             for (final (index, group) in groups.indexed) ...[
-              if (index > 0) _separator(),
+              if (index > 0) _slot(_separator()),
               // Straight after undo/redo: it is the widest control in the row
               // and the one a writer aims at first, so it does not belong
               // anywhere a swipe could put it off-screen.
               if (index == 1) ...[
-                _BlockPicker(
-                  // Findable whatever it currently says it is.
-                  key: const ValueKey<String>('md.blockType'),
-                  kinds: _blockKinds,
-                  current: state.block,
-                  onPicked: (kind) => _block(kind, toggle: false),
-                  onMenu: _suppressQuickActions,
+                _slot(
+                  _BlockPicker(
+                    // Findable whatever it currently says it is.
+                    key: const ValueKey<String>('md.blockType'),
+                    kinds: _blockKinds,
+                    current: state.block,
+                    onPicked: (kind) => _block(kind, toggle: false),
+                    onMenu: _suppressQuickActions,
+                  ),
                 ),
-                _separator(),
+                _slot(_separator()),
               ],
-              for (final action in group) _button(context, action),
+              for (final action in group) _slot(_button(context, action)),
             ],
             // The host's own buttons — inserting an image, picking a mention.
             // Last, because they are the least frequent of the lot; undo and
             // redo used to sit behind them and now lead the row instead.
-            if (widget.trailing != null) ...[_separator(), ...widget.trailing!],
+            if (widget.trailing != null) ...[
+              _slot(_separator()),
+              for (final button in widget.trailing!) _slot(button),
+            ],
           ],
         ),
       ),
     );
   }
+
+  /// One item in the row, at its own height rather than the row's.
+  ///
+  /// A horizontal `ListView` hands its children a **tight** cross-axis
+  /// constraint, so every `height:` in here was being overruled by the 42 the
+  /// row is: a button's own 34 became 42, and the fill behind the pressed one
+  /// — or behind the block picker — grew until it met the card's rim above and
+  /// the hairline below and cut through both. `widthFactor` keeps the item as
+  /// wide as it wants to be, which is the axis the row does *not* constrain.
+  Widget _slot(Widget child) => Center(widthFactor: 1, child: child);
 
   Widget _separator() => Container(
     width: 1,

@@ -363,6 +363,23 @@ void main() {
       );
     });
 
+    testWidgets('a toolbar control does not fill the row it sits in', (
+      tester,
+    ) async {
+      // A horizontal ListView hands its children a tight cross-axis
+      // constraint, so every `height:` in the row was being overruled by the
+      // row's own 42 — and the fill behind the picker grew until it met the
+      // card's rim above and the hairline below, cutting through both.
+      await pump(tester, size: const Size(1400, 700));
+
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey<String>('md.blockType')))
+            .height,
+        34,
+      );
+    });
+
     testWidgets('an alignment button aligns the block, and undoes itself', (
       tester,
     ) async {
