@@ -92,6 +92,23 @@ LexicalPalette hinataPalette() => LexicalPalette(
 /// negative padding, which Flutter refuses outright.
 double hinataBlockSpacing(double fontSize) => fontSize * 0.75;
 
+/// The mark drawn in front of a link, in the link's own colour.
+///
+/// Sized from the run it belongs to rather than fixed, so it stays in
+/// proportion in a comment, an article and a heading alike — and so it follows
+/// the platform's text scale, which a hard-coded size would ignore.
+Widget? _linkMark(BuildContext context, ElementNode node, TextStyle style) {
+  final size = (style.fontSize ?? 15) * 0.82;
+  return Padding(
+    padding: EdgeInsets.only(right: size * 0.22),
+    child: Icon(
+      LucideIcons.link,
+      size: size,
+      color: style.color ?? AppColors.accentStrong,
+    ),
+  );
+}
+
 /// The document theme: hinata's type scale and colours over Lexical's defaults.
 ///
 /// [fontSize] sets the body size everything else scales from — a comment reads
@@ -136,6 +153,11 @@ LexicalTheme hinataLexicalTheme({
     markerBuilders: theme.markerBuilders,
     blockLayouts: {...theme.blockLayouts, ...extraLayouts},
     tokenBuilders: theme.tokenBuilders,
+    // A colour and an underline are the whole vocabulary text styling has for
+    // "this goes somewhere" — and in a document where headings, mentions and
+    // callouts are also coloured, a reader has to know the convention before
+    // the link reads as one. The mark says it outright.
+    inlinePrefixes: const {'link': _linkMark, 'autolink': _linkMark},
     styleResolver: theme.styleResolver,
     defaultBlockStyle: theme.defaultBlockStyle,
     linkStyle: theme.linkStyle,

@@ -307,12 +307,18 @@ class HinataEditorState extends State<HinataEditor> {
 
   /// The toolbar, left to right.
   ///
-  /// Ordered by how often a writer reaches for it, because the row scrolls on a
-  /// phone and everything past the fold costs a swipe: formatting, then block
-  /// shape, then the occasional ones. Undo and redo sit at the far end on
-  /// purpose — every platform already has a keyboard shortcut and a gesture for
-  /// them, and putting them first would push bold off a narrow screen.
+  /// Undo and redo come first: they are the two buttons a writer reaches for
+  /// without looking, they are the ones needed *fastest* — the longer a
+  /// mistake stands the more of it there is to undo — and on a phone there is
+  /// no keyboard shortcut for them at all. Everything after them is ordered by
+  /// how often it is used, because the row scrolls and each button past the
+  /// fold costs a swipe: formatting, then block shape, then the occasional
+  /// ones.
   List<List<_Action>> _groups(_ToolbarState state) => [
+    [
+      _Action(LucideIcons.undo2, 'md.undo', _undo, enabled: _history.canUndo),
+      _Action(LucideIcons.redo2, 'md.redo', _redo, enabled: _history.canRedo),
+    ],
     [
       for (final format in _formatButtons)
         _Action(
@@ -401,10 +407,6 @@ class HinataEditorState extends State<HinataEditor> {
         _editor.update($insertDivider);
         _focus.requestFocus();
       }),
-    ],
-    [
-      _Action(LucideIcons.undo2, 'md.undo', _undo, enabled: _history.canUndo),
-      _Action(LucideIcons.redo2, 'md.redo', _redo, enabled: _history.canRedo),
     ],
   ];
 
@@ -599,17 +601,12 @@ class HinataEditorState extends State<HinataEditor> {
           children: [
             for (final (index, group) in groups.indexed) ...[
               if (index > 0) _separator(),
-              // The host's own buttons — inserting an image, picking a mention
-              // — go in front of undo/redo rather than after them. They are
-              // authoring actions with no keyboard shortcut and no gesture,
-              // and behind twenty-two buttons on a scrolling row they sat past
-              // the fold on every screen narrower than a desktop.
-              if (index == groups.length - 1 && widget.trailing != null) ...[
-                ...widget.trailing!,
-                _separator(),
-              ],
               for (final action in group) _button(context, action),
             ],
+            // The host's own buttons — inserting an image, picking a mention.
+            // Last, because they are the least frequent of the lot; undo and
+            // redo used to sit behind them and now lead the row instead.
+            if (widget.trailing != null) ...[_separator(), ...widget.trailing!],
           ],
         ),
       ),

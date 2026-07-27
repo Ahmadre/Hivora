@@ -222,7 +222,13 @@ void main() {
       }, discrete: true);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('md.heading2'));
+      // Scrolled to first: the row scrolls, so which buttons are on screen
+      // depends on the order and the width, and a test that taps blind breaks
+      // the next time either changes.
+      final heading = find.byTooltip('md.heading2', skipOffstage: false);
+      await tester.ensureVisible(heading);
+      await tester.pumpAndSettle();
+      await tester.tap(heading);
       await tester.pumpAndSettle();
 
       expect(
@@ -284,13 +290,18 @@ void main() {
       await pump(tester, size: const Size(320, 700));
 
       expect(tester.takeException(), isNull);
-      // The buttons past the fold are reachable by dragging, which is what
-      // makes a scrolling row an acceptable answer to a narrow screen.
-      expect(find.byTooltip('md.undo'), findsNothing);
+      // Undo and redo lead the row, so they are the two buttons that are
+      // *never* past the fold — which is the point of putting them there.
+      expect(find.byTooltip('md.undo'), findsOneWidget);
+      expect(find.byTooltip('md.redo'), findsOneWidget);
+
+      // The rest is reachable by dragging, which is what makes a scrolling
+      // row an acceptable answer to a narrow screen.
+      expect(find.byTooltip('md.divider'), findsNothing);
       await tester.drag(find.byType(ListView), const Offset(-700, 0));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('md.undo'), findsOneWidget);
+      expect(find.byTooltip('md.divider'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

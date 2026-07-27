@@ -18,6 +18,7 @@ import 'package:hinata/core/lexical/hinata_markdown_preview.dart';
 import 'package:hinata/core/lexical/hinata_theme.dart';
 import 'package:hinata/core/storage/app_storage.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -416,6 +417,32 @@ void main() {
 
       expect(document.interaction, isNotNull);
       expect(document.interaction!.types, contains('link'));
+    });
+
+    testWidgets('a link is marked as one, not only coloured', (tester) async {
+      // Colour and an underline are the whole vocabulary text styling has for
+      // "this goes somewhere" — and headings, mentions and callouts are
+      // coloured too, so a reader has to know the convention before a link
+      // reads as one.
+      await pumpDoc(tester, fixture('links'));
+
+      expect(find.byIcon(LucideIcons.link), findsNWidgets(2));
+    });
+
+    testWidgets('the mark is drawn beside the link, not written into it', (
+      tester,
+    ) async {
+      // It occupies a position in the laid-out text; it must not occupy one
+      // in the document. A mark that reached the model would be saved, sent
+      // to the web client, and exported into the markdown.
+      final before = jsonDecode(fixture('links'));
+      await pumpDoc(tester, fixture('links'));
+
+      final document = tester.widget<LexicalDocument>(
+        find.byType(LexicalDocument),
+      );
+
+      expect(document.editor.editorState.toJson(), before);
     });
   });
 
