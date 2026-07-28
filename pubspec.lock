@@ -944,10 +944,10 @@ packages:
     dependency: transitive
     description:
       name: lexical_history
-      sha256: "24a2a3a4deeb346d3b113be6e7ed5aa78c7b00d75d3c1e02c4a7048a3dcbb9b9"
+      sha256: f6563063523533879bd1aca420ed42fc55ee9d884510b84f79803d0d4b90959a
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.4"
+    version: "1.7.5"
   lexical_image:
     dependency: transitive
     description:
