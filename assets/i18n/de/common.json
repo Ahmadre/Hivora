@@ -19,7 +19,8 @@
     "of": "von",
     "add": "Hinzufügen",
     "ok": "OK",
-    "next": "Weiter"
+    "next": "Weiter",
+    "paste": "Einfügen"
   },
   "delete": {
     "cta": "Löschen",
@@ -969,7 +970,8 @@
     "published": "Artikel veröffentlicht",
     "saved": "Änderungen gespeichert",
     "deleted": "Artikel gelöscht",
-    "articleCount": "{{count}} Artikel"
+    "articleCount": "{{count}} Artikel",
+    "saveWouldBlank": "Speichern würde den Artikel durch eine leere Seite ersetzen. Bitte zuerst Inhalt einfügen."
   },
   "md": {
     "heading1": "Überschrift 1",
@@ -988,7 +990,35 @@
     "table": "Tabelle",
     "infoPanel": "Infobox",
     "image": "Bild einfügen",
-    "mention": "Erwähnen / verlinken (@)"
+    "mention": "Erwähnen / verlinken (@)",
+    "divider": "Trennlinie",
+    "underline": "Unterstrichen",
+    "calloutInfo": "Infobox",
+    "calloutWarn": "Warnung",
+    "calloutNote": "Notiz",
+    "calloutTip": "Tipp",
+    "undo": "Rückgängig",
+    "redo": "Wiederholen",
+    "linkUrl": "Adresse",
+    "linkAdd": "Link einfügen",
+    "linkRemove": "Link entfernen",
+    "paragraph": "Fließtext",
+    "blockType": "Textstil",
+    "blockMixed": "Gemischt",
+    "alignLeft": "Linksbündig",
+    "alignCenter": "Zentriert",
+    "alignRight": "Rechtsbündig",
+    "alignJustify": "Blocksatz",
+    "mentionSearch": "Vorgänge, Artikel, Personen suchen…",
+    "placeholder": "Schreib etwas …",
+    "codeLanguage": "Sprache",
+    "codeLanguagePlain": "Nur Text",
+    "linkUnsafe": "Diese Art von Adresse ist nicht erlaubt.",
+    "linkTo": "Verknüpfen mit …",
+    "kindIssue": "Issue",
+    "kindDoc": "Artikel",
+    "kindUser": "Person",
+    "imageFailed": "Dieses Bild konnte nicht geladen werden."
   },
   "weeklySummary": {
     "title": "Wochenübersicht",

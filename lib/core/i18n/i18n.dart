@@ -6,26 +6,28 @@ import 'package:i18next/i18next.dart';
 abstract final class I18n {
   static const supportedLocales = [Locale('en'), Locale('de')];
 
-  static const localeNames = {'en': 'English (UK)', 'de': 'Deutsch (Deutschland)'};
+  static const localeNames = {
+    'en': 'English (UK)',
+    'de': 'Deutsch (Deutschland)',
+  };
 
   static List<LocalizationsDelegate<dynamic>> delegates() => [
-        I18NextLocalizationDelegate(
-          locales: supportedLocales,
-          dataSource:
-              AssetBundleLocalizationDataSource(bundlePath: 'assets/i18n'),
-          // escapeValue defaults to true, which HTML-escapes interpolated
-          // values (e.g. a repo slug's "/" becomes "&#x2F;"). That's meant for
-          // HTML output; Flutter Text widgets render plain text, so it only
-          // corrupts our strings. Disable it so interpolated values stay literal.
-          options: const I18NextOptions(
-            fallbackNamespaces: ['common'],
-            escapeValue: false,
-          ),
-        ),
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ];
+    I18NextLocalizationDelegate(
+      locales: supportedLocales,
+      dataSource: AssetBundleLocalizationDataSource(bundlePath: 'assets/i18n'),
+      // escapeValue defaults to true, which HTML-escapes interpolated
+      // values (e.g. a repo slug's "/" becomes "&#x2F;"). That's meant for
+      // HTML output; Flutter Text widgets render plain text, so it only
+      // corrupts our strings. Disable it so interpolated values stay literal.
+      options: const I18NextOptions(
+        fallbackNamespaces: ['common'],
+        escapeValue: false,
+      ),
+    ),
+    GlobalMaterialLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+  ];
 }
 
 extension I18nContext on BuildContext {
@@ -39,8 +41,7 @@ extension I18nContext on BuildContext {
   String t(String key, {Map<String, dynamic>? variables, int? count}) {
     final i18next = I18Next.of(this);
     if (i18next == null) return key;
-    final result =
-        i18next.t('common:$key', variables: variables, count: count);
+    final result = i18next.t('common:$key', variables: variables, count: count);
     if (result == 'common:$key' || result == key) return key;
     return result;
   }

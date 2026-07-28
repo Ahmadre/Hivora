@@ -53,17 +53,17 @@ class HiveEmptyState extends StatelessWidget {
               style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
             ),
           ],
-          if (action != null) ...[
-            const SizedBox(height: 16),
-            action!,
-          ],
+          if (action != null) ...[const SizedBox(height: 16), action!],
         ],
       ),
     );
     if (!card) return Center(child: content);
     return SoftCard(
       padding: EdgeInsets.zero,
-      child: SizedBox(width: double.infinity, child: Center(child: content)),
+      child: SizedBox(
+        width: double.infinity,
+        child: Center(child: content),
+      ),
     );
   }
 }

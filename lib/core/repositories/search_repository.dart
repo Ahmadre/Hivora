@@ -16,16 +16,15 @@ class SearchRepository {
     String query = '',
     String? scope,
     bool archived = false,
-  }) async =>
-      SearchApiResponse.fromJson(
-        await _api.get(
-              '/api/v1/search',
-              query: {
-                'q': ?(query.trim().isEmpty ? null : query.trim()),
-                'scope': ?scope,
-                if (archived) 'archived': true,
-              },
-            )
-            as Map<String, dynamic>,
-      );
+  }) async => SearchApiResponse.fromJson(
+    await _api.get(
+          '/api/v1/search',
+          query: {
+            'q': ?(query.trim().isEmpty ? null : query.trim()),
+            'scope': ?scope,
+            if (archived) 'archived': true,
+          },
+        )
+        as Map<String, dynamic>,
+  );
 }

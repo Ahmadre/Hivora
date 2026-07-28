@@ -35,6 +35,7 @@ class Issue extends Equatable {
     required this.title,
     required this.state,
     this.description,
+    this.descriptionDoc,
     this.type = 'TASK',
     this.priority = 'NORMAL',
     this.assigneeId,
@@ -76,7 +77,15 @@ class Issue extends Equatable {
   List<String> get allReadableIds => [readableId, ...formerReadableIds];
   final String title;
   final String state;
+
+  /// Plain text of [descriptionDoc]. What list rows, board cards and search
+  /// previews read — rendering a document just to show one line of it would be
+  /// work for nothing, and the server derives this on every write.
   final String? description;
+
+  /// The Lexical document — the source of truth, and what the editor opens.
+  final String? descriptionDoc;
+
   final String type;
   final String priority;
 
@@ -154,6 +163,7 @@ class Issue extends Equatable {
     title: json['title'] as String? ?? '',
     state: json['state'] as String? ?? '',
     description: json['description'] as String?,
+    descriptionDoc: json['descriptionDoc'] as String?,
     type: json['type'] as String? ?? 'TASK',
     priority: json['priority'] as String? ?? 'NORMAL',
     assigneeId: json['assigneeId'] as String?,
@@ -200,6 +210,7 @@ class Issue extends Equatable {
     title: title,
     state: state ?? this.state,
     description: description,
+    descriptionDoc: descriptionDoc,
     type: type,
     priority: priority,
     assigneeId: assigneeId ?? this.assigneeId,
@@ -449,6 +460,7 @@ class IssueComment extends Equatable {
     required this.id,
     required this.authorId,
     required this.text,
+    this.textDoc,
     this.type = CommentType.text,
     this.voice,
     this.reactions = const [],
@@ -465,7 +477,14 @@ class IssueComment extends Equatable {
 
   final String id;
   final String authorId;
+
+  /// Plain text of [textDoc]. Drives reply previews, copy and search.
   final String text;
+
+  /// The Lexical document — what the bubble renders. Null for a voice message,
+  /// which has no text at all.
+  final String? textDoc;
+
   final CommentType type;
   final CommentVoice? voice;
 
@@ -530,12 +549,14 @@ class IssueComment extends Equatable {
     DateTime? pinnedAt,
     bool clearPinnedAt = false,
     String? text,
+    String? textDoc,
     DateTime? editedAt,
     int? replyCount,
   }) => IssueComment(
     id: id,
     authorId: authorId,
     text: text ?? this.text,
+    textDoc: textDoc ?? this.textDoc,
     type: type,
     voice: voice,
     reactions: reactions ?? this.reactions,
@@ -554,6 +575,7 @@ class IssueComment extends Equatable {
     id: json['id'] as String,
     authorId: json['authorId'] as String? ?? '',
     text: json['text'] as String? ?? '',
+    textDoc: json['textDoc'] as String?,
     // Legacy documents predate `type`; a missing value is plain text.
     type: (json['type'] as String?)?.toUpperCase() == 'VOICE'
         ? CommentType.voice
@@ -581,6 +603,7 @@ class IssueComment extends Equatable {
     id,
     authorId,
     text,
+    textDoc,
     type,
     voice,
     reactions,

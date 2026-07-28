@@ -23,8 +23,8 @@ class FcmService {
   FcmService({
     required ApiClient apiClient,
     required void Function(String link) onDeepLink,
-  })  : _api = apiClient,
-        _onDeepLink = onDeepLink;
+  }) : _api = apiClient,
+       _onDeepLink = onDeepLink;
 
   final ApiClient _api;
   final void Function(String link) _onDeepLink;
@@ -122,8 +122,10 @@ class FcmService {
     _currentToken = token;
     if (kDebugMode) debugPrint('FCM token: $token');
     try {
-      await _api.post('/api/v1/me/devices',
-          body: {'token': token, 'platform': _platform()});
+      await _api.post(
+        '/api/v1/me/devices',
+        body: {'token': token, 'platform': _platform()},
+      );
     } catch (e) {
       debugPrint('FCM token register failed: $e');
     }

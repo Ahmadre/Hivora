@@ -14,8 +14,7 @@ import '../theme/app_colors.dart';
       'ASSIGNMENT' => (LucideIcons.userCheck, AppColors.stTodo),
       'ISSUE_COMMENTED' ||
       'COMMENT' => (LucideIcons.messageSquare, AppColors.stProgress),
-      'COMMENT_REPLY' ||
-      'REPLY' => (LucideIcons.reply, AppColors.stReview),
+      'COMMENT_REPLY' || 'REPLY' => (LucideIcons.reply, AppColors.stReview),
       'ISSUE_UPDATED' => (LucideIcons.refreshCw, AppColors.accentBlue),
       'ISSUE_INGESTED' => (LucideIcons.inbox, AppColors.accentTeal),
       'SPRINT_STARTED' ||

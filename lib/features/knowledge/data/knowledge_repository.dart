@@ -135,6 +135,7 @@ class KnowledgeRepository {
       labels: a.tags,
       status: 'published',
       body: a.content ?? '',
+      doc: a.contentDoc,
     );
   }
 
@@ -210,35 +211,6 @@ class KnowledgeRepository {
 
   // ── derived bidirectional links ───────────────────────────────────────────
 
-  static final _issueTokenRe = RegExp(r'\{\{issue:([A-Z]+-\d+)\}\}');
-
-  /// Readable issue ids referenced by [body] (`{{issue:KEY-N}}`), first-seen
-  /// order. The issues themselves are resolved against the real backend.
-  List<String> issueIdsIn(String body) {
-    final seen = <String>{};
-    final out = <String>[];
-    for (final m in _issueTokenRe.allMatches(body)) {
-      final id = m.group(1)!;
-      if (seen.add(id)) out.add(id);
-    }
-    return out;
-  }
-
-  /// All articles that mention [issueReadableId] — the issue's "Documented in".
-  /// In-memory variant kept for the KB screen, which already holds the corpus.
-  List<KbArticle> articlesForIssue(String issueReadableId) {
-    final out = <KbArticle>[];
-    for (final a in articles) {
-      for (final m in _issueTokenRe.allMatches(a.body)) {
-        if (m.group(1) == issueReadableId) {
-          out.add(a);
-          break;
-        }
-      }
-    }
-    return out;
-  }
-
   /// Server-resolved backlinks: fetches the articles referencing
   /// [issueReadableId] via the dedicated endpoint, so the issue-detail
   /// "Documented in" panel never has to drain and regex-scan the whole KB corpus
@@ -270,14 +242,14 @@ class KnowledgeRepository {
   Future<KbArticle> saveEdit(
     String id, {
     required String title,
-    required String body,
+    required String doc,
     required String spaceId,
   }) async {
     final existing = _articles[id];
     final saved = await _articleApi.saveArticle(
       id: id,
       title: title,
-      content: body,
+      contentDoc: doc,
       space: spaceId,
       icon: existing?.icon,
       tags: existing?.labels,
@@ -290,13 +262,13 @@ class KnowledgeRepository {
 
   Future<KbArticle> createArticle({
     required String title,
-    required String body,
+    required String doc,
     required String spaceId,
     String? parentId,
   }) async {
     final saved = await _articleApi.saveArticle(
       title: title,
-      content: body,
+      contentDoc: doc,
       space: spaceId,
       parentId: parentId,
       icon: 'file-text',

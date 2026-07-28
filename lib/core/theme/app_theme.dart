@@ -16,8 +16,8 @@ abstract final class AppTheme {
   static const radiusControl = 10.0;
   static const radiusPill = 999.0;
 
-  static const fontBrand = 'Sora';       // headings, wordmark
-  static const fontUi = 'IBMPlexSans';   // body / dense UI
+  static const fontBrand = 'Sora'; // headings, wordmark
+  static const fontUi = 'IBMPlexSans'; // body / dense UI
   static const fontMono = 'IBMPlexMono'; // ids, metrics
 
   static ThemeData light() => _build(Brightness.light);
@@ -32,15 +32,17 @@ abstract final class AppTheme {
 
     final canvas = dark ? AppColors.canvasDark : AppColors.canvasLight;
     final surface = dark ? AppColors.surfaceDark : AppColors.surfaceLight;
-    final surfaceMuted =
-        dark ? AppColors.surfaceMutedDark : AppColors.surfaceMutedLight;
+    final surfaceMuted = dark
+        ? AppColors.surfaceMutedDark
+        : AppColors.surfaceMutedLight;
     final ink = dark ? AppColors.inkDark : AppColors.inkLight;
     final inkSoft = dark ? AppColors.inkSoftDark : AppColors.inkSoftLight;
     final inkFaint = dark ? AppColors.inkFaintDark : AppColors.inkFaintLight;
     final hairline = dark ? AppColors.hairlineDark : AppColors.hairlineLight;
     final hairline2 = dark ? AppColors.hairline2Dark : AppColors.hairline2Light;
-    final accentSoft =
-        dark ? AppColors.accentSoftDark : AppColors.accentSoftLight;
+    final accentSoft = dark
+        ? AppColors.accentSoftDark
+        : AppColors.accentSoftLight;
 
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.navy,
@@ -72,9 +74,9 @@ abstract final class AppTheme {
         );
 
     OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusControl),
-          borderSide: BorderSide(color: c, width: w),
-        );
+      borderRadius: BorderRadius.circular(radiusControl),
+      borderSide: BorderSide(color: c, width: w),
+    );
 
     return base.copyWith(
       scaffoldBackgroundColor: canvas,
@@ -121,12 +123,16 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-            foregroundColor: dark ? AppColors.accent : AppColors.navy),
+          foregroundColor: dark ? AppColors.accent : AppColors.navy,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         border: border(hairline),
         enabledBorder: border(hairline),
         focusedBorder: border(AppColors.accent, 1.5),
@@ -138,11 +144,7 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         labelStyle: TextStyle(color: inkSoft, fontSize: 11),
       ),
-      dividerTheme: DividerThemeData(
-        color: hairline,
-        thickness: 1,
-        space: 1,
-      ),
+      dividerTheme: DividerThemeData(color: hairline, thickness: 1, space: 1),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
         indicatorColor: accentSoft,

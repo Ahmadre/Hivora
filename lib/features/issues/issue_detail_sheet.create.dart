@@ -70,7 +70,7 @@ class IssueCreateBody extends StatefulWidget {
 
 class IssueCreateBodyState extends State<IssueCreateBody> {
   final _titleCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
+  final _descCtrl = HinataEditorController();
 
   List<Project> _projects = const [];
   List<DirectoryUser> _users = const [];
@@ -140,7 +140,7 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
     if (widget.forcedType != null) _type = widget.forcedType!;
     widget.controller.submit = _save;
     widget.controller.hasDraft = () =>
-        _titleCtrl.text.trim().isNotEmpty || _descCtrl.text.trim().isNotEmpty;
+        _titleCtrl.text.trim().isNotEmpty || _descCtrl.hasContent;
     _descCtrl.addListener(_onDescriptionChanged);
     _load();
   }
@@ -224,16 +224,15 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
     unawaited(_resolveDescriptionRefs());
   }
 
-  static final _issueTokenRe = RegExp(r'\{\{issue:([A-Za-z]+-\d+)\}\}');
-
-  /// Resolves the full issues referenced by `{{issue:KEY}}` tokens in the draft
-  /// description that aren't already loaded, so their preview chips render —
-  /// fetching only the referenced keys, never the whole project.
+  /// Resolves the full issues the draft description links to that aren't
+  /// already loaded, so their preview chips render — fetching only the
+  /// referenced keys, never the whole project. Read from the document's smart
+  /// links, which is where a reference lives now that it is a node.
   Future<void> _resolveDescriptionRefs() async {
-    final keys = <String>{};
-    for (final m in _issueTokenRe.allMatches(_descCtrl.text)) {
-      keys.add(m.group(1)!);
-    }
+    final keys = documentSmartLinks(
+      _descCtrl.editor,
+      SmartLinkKind.issue,
+    ).toSet();
     final missing = keys.where((k) => !_projectIssues.containsKey(k)).toList();
     if (missing.isEmpty) return;
     try {
@@ -294,7 +293,7 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
       final created = await _issueApi.createIssue({
         'projectId': _projectId,
         'title': title,
-        'description': _descCtrl.text,
+        'descriptionDoc': _descCtrl.doc,
         'type': _type,
         'priority': _priority,
         if (_state != null) 'state': _state,
@@ -482,11 +481,14 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
               : null,
         ),
         const SizedBox(height: 18),
-        // Same authoring power as the issue detail + KB: shared MarkdownToolbar,
-        // `@`-smart-links (issues · articles · people), Editor/Preview tabs.
-        IssueDescriptionEditor(
+        // Same authoring surface as the issue detail and the knowledge base.
+        _sectionLabel(context.t('issues.description')),
+        const SizedBox(height: 8),
+        HinataEditor(
           controller: _descCtrl,
-          label: _sectionLabel(context.t('issues.description')),
+          fontSize: 14,
+          minHeight: 140,
+          trailing: hinataEditorTools(context, _descCtrl),
         ),
       ],
     );

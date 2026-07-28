@@ -115,7 +115,8 @@ class AuditEntry {
     targetLabel: json['targetLabel'] as String?,
     ip: json['ip'] as String?,
     userAgent: json['userAgent'] as String?,
-    metadata: (json['metadata'] as Map<String, dynamic>?)?.map(
+    metadata:
+        (json['metadata'] as Map<String, dynamic>?)?.map(
           (k, v) => MapEntry(k, '$v'),
         ) ??
         const {},

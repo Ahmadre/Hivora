@@ -60,7 +60,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   /// posting a new comment.
   IssueComment? _editingComment;
   final _titleCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
+  final _descCtrl = HinataEditorController();
   // Lets the composer's "+" → Anhang drive the attachments section's own
   // (optimistic, live-updating) upload flow instead of a blind background POST.
   final _attachmentsKey = GlobalKey<AttachmentsSectionState>();
@@ -1401,7 +1401,10 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   void _beginDescEdit() {
     final issue = _issue;
     if (issue == null) return;
-    _descCtrl.text = issue.description ?? '';
+    // Seed from the legacy markdown when the backfill left no document —
+    // otherwise the editor opens blank and the first save writes that blankness
+    // over a description that was still there.
+    _descCtrl.load(documentOrLegacy(issue.descriptionDoc, issue.description));
     setState(() => _editingDesc = true);
   }
 
@@ -1413,10 +1416,13 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   }
 
   Future<void> _saveDesc() async {
-    final value = _descCtrl.text;
+    final value = _descCtrl.doc;
     setState(() => _editingDesc = false);
-    if (value == (_issue!.description ?? '')) return;
-    await _patch({'description': value});
+    // Nothing changed: comparing documents rather than a dirty flag means an
+    // edit that was typed and undone does not write.
+    if (!_descCtrl.isDirty) return;
+    _descCtrl.markSaved();
+    await _patch({'descriptionDoc': value});
     // The edited description may reference new issues — resolve their chips.
     await _syncReferencedIssues();
   }
@@ -1645,32 +1651,32 @@ class IssueDetailBodyState extends State<IssueDetailBody>
 
   // ── smart-link wiring ────────────────────────────────────────────────────
 
-  static final _issueTokenRe = RegExp(r'\{\{issue:([A-Za-z]+-\d+)\}\}');
-
-  /// Resolves the full issues referenced by `{{issue:KEY}}` tokens in the current
-  /// description + comments that aren't already loaded, so their chips + hover
-  /// cards render richly — fetching only the referenced keys, never the whole
-  /// project. Pass [commit] false during the initial load (the caller's own
-  /// `setState` will render the result).
+  /// Resolves the full issues the current description and comments link to that
+  /// aren't already loaded, so their chips + hover cards render richly —
+  /// fetching only the referenced keys, never the whole project. Pass [commit]
+  /// false during the initial load (the caller's own `setState` will render the
+  /// result).
+  ///
+  /// The references are read out of each stored document rather than pattern
+  /// matched out of text: a link is a node now, and the plain text beside it
+  /// deliberately no longer contains the token.
   Future<void> _syncReferencedIssues({bool commit = true}) async {
     final keys = <String>{};
-    void scan(String? t) {
-      if (t == null || t.isEmpty) return;
-      for (final m in _issueTokenRe.allMatches(t)) {
-        keys.add(m.group(1)!);
-      }
+    void scan(String? doc) {
+      if (doc == null || doc.isEmpty) return;
+      keys.addAll(smartLinksIn(doc, SmartLinkKind.issue));
     }
 
-    scan(_issue?.description);
+    scan(_issue?.descriptionDoc);
     for (final c in _comments) {
-      scan(c.text);
+      scan(c.textDoc);
     }
     for (final c in _pinned) {
-      scan(c.text);
+      scan(c.textDoc);
     }
     for (final t in _replyThreads.values) {
       for (final r in t.replies) {
-        scan(r.text);
+        scan(r.textDoc);
       }
     }
     keys.remove(_issue?.readableId);
@@ -1805,9 +1811,17 @@ class IssueDetailBodyState extends State<IssueDetailBody>
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                IssueDescriptionEditor(
+                _sectionLabel(context.t('issues.description')),
+                const SizedBox(height: 8),
+                HinataEditor(
                   controller: _descCtrl,
-                  label: _sectionLabel(context.t('issues.description')),
+                  fontSize: 14,
+                  minHeight: 140,
+                  autofocus: true,
+                  // Image upload and the mention picker: the two authoring
+                  // actions the toolbar cannot own, because they need this
+                  // host's upload repository and smart-link resolver.
+                  trailing: hinataEditorTools(context, _descCtrl),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -1837,15 +1851,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onDoubleTap: _beginDescEdit,
-              child: (issue.description ?? '').isNotEmpty
-                  // KB parser so `{{issue}}`/`{{doc}}`/`{{user}}` smart-links
-                  // render as chips alongside the markdown.
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: KbMarkdownParser(
-                        fontSize: 14,
-                      ).parse(issue.description!).nodes,
-                    )
+              // A description the backfill could not convert still has its
+              // markdown; "no description" would be a lie about a row that has
+              // one.
+              child: _describedDoc(issue) != null
+                  ? HinataDocument(doc: _describedDoc(issue), fontSize: 14)
                   : Text(
                       context.t('issues.noDescription'),
                       style: TextStyle(
@@ -1859,6 +1869,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       ),
     );
   }
+
+  /// The description to render: the stored document, or the legacy markdown
+  /// the backfill left behind on the rows it could not convert.
+  String? _describedDoc(Issue issue) =>
+      documentOrLegacy(issue.descriptionDoc, issue.description);
 
   Widget _sectionLabel(String text) => Text(
     text.toUpperCase(),

@@ -16,10 +16,7 @@ Future<DownloadOutcome> downloadBytes(
   Rect? sharePositionOrigin,
 }) async {
   final type = mimeType.isEmpty ? 'application/octet-stream' : mimeType;
-  final blob = web.Blob(
-    [bytes.toJS].toJS,
-    web.BlobPropertyBag(type: type),
-  );
+  final blob = web.Blob([bytes.toJS].toJS, web.BlobPropertyBag(type: type));
   final url = web.URL.createObjectURL(blob);
   final anchor = web.HTMLAnchorElement()
     ..href = url

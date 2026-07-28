@@ -26,8 +26,9 @@ class AdminRepository {
   /// `settings['general']['logoUrl']`. The server serves it same-origin via
   /// `/api/v1/meta/logo`, so it works on web without CORS.
   Future<String> uploadOrganizationLogo(MultipartFile file) async {
-    final result = await _api.upload('/api/v1/admin/settings/logo', file)
-        as Map<String, dynamic>;
+    final result =
+        await _api.upload('/api/v1/admin/settings/logo', file)
+            as Map<String, dynamic>;
     return result['logoUrl'] as String;
   }
 
@@ -105,9 +106,11 @@ class AdminRepository {
     String id, {
     bool createMissing = false,
   }) async {
-    final result = await _api.post(
-      '/api/v1/admin/ingest-connections/$id/reprocess?createMissing=$createMissing',
-    ) as Map<String, dynamic>;
+    final result =
+        await _api.post(
+              '/api/v1/admin/ingest-connections/$id/reprocess?createMissing=$createMissing',
+            )
+            as Map<String, dynamic>;
     return (
       scanned: (result['scanned'] as num?)?.toInt() ?? 0,
       updated: (result['updated'] as num?)?.toInt() ?? 0,
@@ -126,17 +129,21 @@ class AdminRepository {
     required String username,
     String? password,
   }) async {
-    final result = await _api.post(
-      '/api/v1/admin/ingest-connections/probe-folders',
-      body: {
-        'connectionId': ?connectionId,
-        'host': host,
-        'port': port,
-        'ssl': ssl,
-        'username': username,
-        'password': ?(password == null || password.isEmpty ? null : password),
-      },
-    ) as Map<String, dynamic>;
+    final result =
+        await _api.post(
+              '/api/v1/admin/ingest-connections/probe-folders',
+              body: {
+                'connectionId': ?connectionId,
+                'host': host,
+                'port': port,
+                'ssl': ssl,
+                'username': username,
+                'password': ?(password == null || password.isEmpty
+                    ? null
+                    : password),
+              },
+            )
+            as Map<String, dynamic>;
     return ((result['folders'] as List<dynamic>?) ?? const [])
         .map((e) => e.toString())
         .toList();
@@ -148,14 +155,16 @@ class AdminRepository {
     int page = 0,
     int size = 25,
   }) async {
-    final result = await _api.get(
-      '/api/v1/admin/ingest-connections/projects',
-      query: {
-        'q': ?(query.trim().isEmpty ? null : query.trim()),
-        'page': '$page',
-        'size': '$size',
-      },
-    ) as Map<String, dynamic>;
+    final result =
+        await _api.get(
+              '/api/v1/admin/ingest-connections/projects',
+              query: {
+                'q': ?(query.trim().isEmpty ? null : query.trim()),
+                'page': '$page',
+                'size': '$size',
+              },
+            )
+            as Map<String, dynamic>;
     return (
       items: ((result['items'] as List<dynamic>?) ?? const [])
           .map((e) => IngestProjectOption.fromJson(e as Map<String, dynamic>))

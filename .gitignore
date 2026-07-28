@@ -73,3 +73,6 @@ docs/screenshots/ios/raw/**
 
 # Flutter Version Management (FVM) artifacts
 .fvm/
+
+# Local dependency overrides (e.g. pointing at an unreleased package)
+pubspec_overrides.yaml

@@ -1,16 +1,19 @@
-import 'package:flutter/gestures.dart' show TapGestureRecognizer;
 import 'package:flutter/material.dart';
+import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
 
 import '../../core/i18n/i18n.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_avatar.dart';
+import '../../core/lexical/hinata_document.dart';
+import '../../core/lexical/hinata_lexical.dart';
+import '../../core/lexical/hinata_markdown_preview.dart';
+import '../../core/lexical/hinata_outline.dart';
 import 'data/knowledge_models.dart';
 import 'data/knowledge_repository.dart';
 import 'knowledge_scope.dart';
 import 'knowledge_tokens.dart';
-import 'markdown/markdown_renderer.dart';
 import 'markdown/smart_link_resolver.dart';
 
 enum AsideMode { side, below, none }
@@ -37,42 +40,62 @@ class KnowledgeReader extends StatefulWidget {
 }
 
 class _KnowledgeReaderState extends State<KnowledgeReader> {
-  final List<TapGestureRecognizer> _sink = [];
-  String? _activeToc;
+  /// Publishes the mounted blocks so the outline can scroll to one.
+  final BlockRegistry _blocks = BlockRegistry();
+
+  /// The document's headings. Empty until the document has been opened, which
+  /// is a frame later — node keys are assigned at parse time, not stored.
+  List<OutlineEntry> _outline = const [];
+
+  /// Issues the article links to — read from the document's smart links, which
+  /// is where a reference lives now that it is a node.
+  List<String> _linkedIssueIds = const [];
+  NodeKey? _activeToc;
 
   @override
   void dispose() {
-    for (final r in _sink) {
-      r.dispose();
-    }
+    _blocks.dispose();
     super.dispose();
   }
 
-  void _jump(TocEntry entry) {
-    final ctx = entry.key.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        alignment: 0.02,
-      );
-      setState(() => _activeToc = entry.id);
+  /// Takes the outline and the linked issues from the document that is on
+  /// screen — including when there is none.
+  ///
+  /// The reader has no key, so its State is reused when a different article is
+  /// opened. Leaving the previous article's headings up because the new one
+  /// could not be read is not a smaller failure than showing nothing: the
+  /// entries point at node keys from a document that is gone, so every one of
+  /// them is a button that does nothing.
+  void _onDocument(LexicalEditor? editor) {
+    final outline = editor == null
+        ? const <OutlineEntry>[]
+        : documentOutline(editor);
+    final linked = editor == null
+        ? const <String>[]
+        : documentSmartLinks(editor, SmartLinkKind.issue);
+    if (!mounted) return;
+    setState(() {
+      _outline = outline;
+      _linkedIssueIds = linked;
+      _activeToc = null;
+    });
+  }
+
+  void _jump(OutlineEntry entry) {
+    final position = Scrollable.maybeOf(context)?.position;
+    // A heading the renderer has culled has no render object yet; marking it
+    // active without moving would be a button that lies.
+    if (position != null &&
+        revealBlock(_blocks, position, entry.nodeKey, alignment: 0.02)) {
+      setState(() => _activeToc = entry.nodeKey);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final repo = KnowledgeScope.of(context).repo;
-    // Reparse — dispose previous link recognizers first.
-    for (final r in _sink) {
-      r.dispose();
-    }
-    _sink.clear();
-    final parsed = KbMarkdownParser(sink: _sink).parse(widget.article.body);
-
-    final article = _article(repo, parsed);
-    final aside = _aside(repo, parsed.toc);
+    final article = _article(repo);
+    final aside = _aside(repo, _outline);
 
     switch (widget.asideMode) {
       case AsideMode.side:
@@ -114,12 +137,12 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
   }
 
   // ── article column ──
-  Widget _article(KnowledgeRepository repo, ParsedMarkdown parsed) {
+  Widget _article(KnowledgeRepository repo) {
     final a = widget.article;
     final sp = repo.spaceById(a.spaceId);
     final author = repo.userById(a.authorId);
     final parent = a.parentId == null ? null : repo.articleById(a.parentId!);
-    final linkedIds = repo.issueIdsIn(a.body);
+    final linkedIds = _linkedIssueIds;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,8 +240,9 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
                           ),
                         ),
                         TextSpan(
-                            text:
-                                ' · ${context.t('knowledge.updatedAgo', variables: {'when': a.updated})}'),
+                          text:
+                              ' · ${context.t('knowledge.updatedAgo', variables: {'when': a.updated})}',
+                        ),
                       ],
                     ),
                     maxLines: 1,
@@ -296,7 +320,16 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
         Divider(height: 1, color: AppColors.hairline),
         const SizedBox(height: 8),
         // body
-        ...parsed.nodes,
+        // The stored document, rendered. Not scrollable: the page around it
+        // already scrolls, and the outline reveals blocks through that same
+        // position.
+        HinataDocument(
+          // An article the backfill could not convert still has its markdown;
+          // rendering that beats rendering an empty page.
+          doc: documentOrLegacy(widget.article.doc, widget.article.body),
+          registry: _blocks,
+          onDocument: _onDocument,
+        ),
         // linked issues
         if (linkedIds.isNotEmpty) _linkedIssues(linkedIds),
       ],
@@ -320,7 +353,9 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
               Text(
                 context.t('knowledge.linkedIssues'),
                 style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w700),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
@@ -386,7 +421,7 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
   );
 
   // ── aside ──
-  Widget _aside(KnowledgeRepository repo, List<TocEntry> toc) {
+  Widget _aside(KnowledgeRepository repo, List<OutlineEntry> toc) {
     final a = widget.article;
     final sp = repo.spaceById(a.spaceId);
     final related = repo.relatedArticles(a.body);
@@ -467,8 +502,10 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
         const SizedBox(height: 6),
         _detail(context.t('knowledge.created'), a.created),
         _detail(context.t('knowledge.space'), sp?.name ?? '—'),
-        _detail(context.t('knowledge.status'),
-            a.status[0].toUpperCase() + a.status.substring(1)),
+        _detail(
+          context.t('knowledge.status'),
+          a.status[0].toUpperCase() + a.status.substring(1),
+        ),
       ],
     );
   }
@@ -483,15 +520,15 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
     ),
   );
 
-  Widget _tocRow(TocEntry t) {
-    final on = _activeToc == t.id;
+  Widget _tocRow(OutlineEntry t) {
+    final on = _activeToc == t.nodeKey;
     return InkWell(
       onTap: () => _jump(t),
       child: Transform.translate(
         offset: const Offset(-2, 0),
         child: Container(
           padding: EdgeInsets.fromLTRB(
-            t.lvl == 1 ? 12.0 : (t.lvl == 2 ? 22.0 : 32.0),
+            t.level == 1 ? 12.0 : (t.level == 2 ? 22.0 : 32.0),
             5,
             8,
             5,
@@ -505,9 +542,9 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
             ),
           ),
           child: Text(
-            t.txt,
+            t.text,
             style: TextStyle(
-              fontSize: t.lvl == 3 ? 12 : 12.5,
+              fontSize: t.level == 3 ? 12 : 12.5,
               height: 1.35,
               fontWeight: on ? FontWeight.w600 : FontWeight.w400,
               color: on ? KbTokens.accent : AppColors.inkSoft,

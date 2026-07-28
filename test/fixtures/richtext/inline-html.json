@@ -1,0 +1,61 @@
+{
+  "root" : {
+    "children" : [ {
+      "children" : [ {
+        "detail" : 0,
+        "format" : 0,
+        "mode" : "normal",
+        "style" : "",
+        "text" : "Wir brauchen List<String> statt List<Object>.",
+        "type" : "text",
+        "version" : 1
+      } ],
+      "direction" : null,
+      "format" : "",
+      "indent" : 0,
+      "type" : "paragraph",
+      "version" : 1,
+      "textFormat" : 0,
+      "textStyle" : ""
+    }, {
+      "children" : [ {
+        "detail" : 0,
+        "format" : 0,
+        "mode" : "normal",
+        "style" : "",
+        "text" : "Das <Widget> rendert nicht, und der <br> fehlt.",
+        "type" : "text",
+        "version" : 1
+      } ],
+      "direction" : null,
+      "format" : "",
+      "indent" : 0,
+      "type" : "paragraph",
+      "version" : 1,
+      "textFormat" : 0,
+      "textStyle" : ""
+    }, {
+      "children" : [ {
+        "detail" : 0,
+        "format" : 0,
+        "mode" : "normal",
+        "style" : "",
+        "text" : "XML: <note>Hallo</note> im Body.",
+        "type" : "text",
+        "version" : 1
+      } ],
+      "direction" : null,
+      "format" : "",
+      "indent" : 0,
+      "type" : "paragraph",
+      "version" : 1,
+      "textFormat" : 0,
+      "textStyle" : ""
+    } ],
+    "direction" : null,
+    "format" : "",
+    "indent" : 0,
+    "type" : "root",
+    "version" : 1
+  }
+}

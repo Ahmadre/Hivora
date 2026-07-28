@@ -39,7 +39,8 @@ enum UserStatus {
   invited,
   pendingApproval;
 
-  String get wire => this == UserStatus.pendingApproval ? 'PENDING' : name.toUpperCase();
+  String get wire =>
+      this == UserStatus.pendingApproval ? 'PENDING' : name.toUpperCase();
 
   static UserStatus fromWire(String? value) => switch (value) {
     'DISABLED' => UserStatus.disabled,

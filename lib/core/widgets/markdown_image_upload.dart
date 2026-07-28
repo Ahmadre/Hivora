@@ -7,8 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api/api_client.dart';
 import '../repositories/media_repository.dart';
 import '../i18n/i18n.dart';
-import '../../features/sprint/modals/glass_modal.dart'
-    show showGlassErrorToast;
+import '../../features/sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'markdown_toolbar.dart';
 
 /// Picks an image, uploads it as inline Markdown media and swaps the caret

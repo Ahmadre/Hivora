@@ -54,6 +54,12 @@ dependencies:
       url: https://github.com/hinata-platform/liquid_glass_widgets.git
       ref: main
 
+  # Rich text. Documents are stored as Lexical JSON, so this is both the editor
+  # and the renderer; there is no second markdown path any more. The bundle
+  # brings every node type the server can emit.
+  lexical_editor_flutter: ^1.7.4
+  lexical_markdown: ^1.7.4
+
   # Reporting / export
   pdf: ^3.11.0
   # >=5.15.0 loads pdf.js as an ES module (dynamic import of pdf.min.mjs); the

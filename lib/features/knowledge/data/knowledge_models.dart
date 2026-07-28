@@ -63,6 +63,7 @@ class KbArticle {
     required this.labels,
     required this.status,
     required this.body,
+    this.doc,
   });
 
   final String id;
@@ -77,12 +78,17 @@ class KbArticle {
   final int reads;
   final List<String> labels;
   final String status; // published | draft
+  /// Plain text of [doc]. Excerpts and the search preview read this.
   final String body;
+
+  /// The Lexical document — what the reader renders and the editor opens.
+  final String? doc;
 
   KbArticle copyWith({
     String? spaceId,
     String? title,
     String? body,
+    String? doc,
     String? updated,
   }) => KbArticle(
     id: id,
@@ -98,6 +104,7 @@ class KbArticle {
     labels: labels,
     status: status,
     body: body ?? this.body,
+    doc: doc ?? this.doc,
   );
 
   Map<String, dynamic> toJson() => {
@@ -114,6 +121,7 @@ class KbArticle {
     'labels': labels,
     'status': status,
     'body': body,
+    'doc': doc,
   };
 
   factory KbArticle.fromJson(Map<String, dynamic> json) => KbArticle(
@@ -131,6 +139,7 @@ class KbArticle {
     labels: ((json['labels'] as List?) ?? const []).cast<String>(),
     status: json['status'] as String? ?? 'published',
     body: json['body'] as String? ?? '',
+    doc: json['doc'] as String?,
   );
 }
 

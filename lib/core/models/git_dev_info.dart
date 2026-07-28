@@ -31,7 +31,8 @@ enum GitProvider {
   };
 
   /// "Pull request" for GitHub/Bitbucket, "Merge request" for GitLab.
-  String get prTerm => this == GitProvider.gitlab ? 'Merge request' : 'Pull request';
+  String get prTerm =>
+      this == GitProvider.gitlab ? 'Merge request' : 'Pull request';
 
   String get prTermPlural =>
       this == GitProvider.gitlab ? 'Merge requests' : 'Pull requests';
@@ -175,7 +176,10 @@ class DevInfo {
   final List<GitBuild> builds;
 
   bool get hasAny =>
-      branches.isNotEmpty || commits.isNotEmpty || prs.isNotEmpty || builds.isNotEmpty;
+      branches.isNotEmpty ||
+      commits.isNotEmpty ||
+      prs.isNotEmpty ||
+      builds.isNotEmpty;
 
   factory DevInfo.fromJson(Map<String, dynamic> json) => DevInfo(
     connected: json['connected'] as bool? ?? false,
@@ -310,7 +314,8 @@ class GitPullRequest {
     title: json['title'] as String? ?? '',
     state: PrState.fromJson(json['state'] as String?),
     authorId: json['authorId'] as String?,
-    reviewerIds: ((json['reviewerIds'] as List<dynamic>?) ?? const []).cast<String>(),
+    reviewerIds: ((json['reviewerIds'] as List<dynamic>?) ?? const [])
+        .cast<String>(),
     approvals: json['approvals'] as int? ?? 0,
     changesRequested: json['changesRequested'] as int? ?? 0,
     comments: json['comments'] as int? ?? 0,
@@ -375,7 +380,12 @@ class GitBuild {
 
 /// An org / group / workspace surfaced during the connect wizard.
 class GitOwner {
-  const GitOwner({required this.id, required this.name, required this.kind, this.repos = 0});
+  const GitOwner({
+    required this.id,
+    required this.name,
+    required this.kind,
+    this.repos = 0,
+  });
 
   final String id;
   final String name;
@@ -438,7 +448,11 @@ class GitOAuthStart {
 
 /// Status of an in-flight OAuth session, polled after opening the consent page.
 class GitOAuthSessionStatus {
-  const GitOAuthSessionStatus({required this.status, this.provider, this.error});
+  const GitOAuthSessionStatus({
+    required this.status,
+    this.provider,
+    this.error,
+  });
 
   final String status; // PENDING · AUTHORIZED · ERROR
   final String? provider;

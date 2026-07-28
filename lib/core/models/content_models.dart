@@ -9,6 +9,7 @@ class Article extends Equatable {
     required this.id,
     required this.title,
     this.content,
+    this.contentDoc,
     this.projectId,
     this.teamId,
     this.parentId,
@@ -23,7 +24,13 @@ class Article extends Equatable {
 
   final String id;
   final String title;
+
+  /// Plain text of [contentDoc]. Excerpts, search previews and the tree read
+  /// this; the server derives it on every write.
   final String? content;
+
+  /// The Lexical document — the source of truth, and what the reader renders.
+  final String? contentDoc;
 
   /// Project the article is scoped to (visible only with project access).
   final String? projectId;
@@ -44,20 +51,21 @@ class Article extends Equatable {
   final DateTime? updatedAt;
 
   factory Article.fromJson(Map<String, dynamic> json) => Article(
-        id: json['id'] as String,
-        title: json['title'] as String? ?? '',
-        content: json['content'] as String?,
-        projectId: json['projectId'] as String?,
-        teamId: json['teamId'] as String?,
-        parentId: json['parentId'] as String?,
-        space: json['space'] as String?,
-        icon: json['icon'] as String?,
-        authorId: json['authorId'] as String?,
-        tags: ((json['tags'] as List<dynamic>?) ?? const []).cast<String>(),
-        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
-        createdAt: parseInstant(json['createdAt']),
-        updatedAt: parseInstant(json['updatedAt']),
-      );
+    id: json['id'] as String,
+    title: json['title'] as String? ?? '',
+    content: json['content'] as String?,
+    contentDoc: json['contentDoc'] as String?,
+    projectId: json['projectId'] as String?,
+    teamId: json['teamId'] as String?,
+    parentId: json['parentId'] as String?,
+    space: json['space'] as String?,
+    icon: json['icon'] as String?,
+    authorId: json['authorId'] as String?,
+    tags: ((json['tags'] as List<dynamic>?) ?? const []).cast<String>(),
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+    createdAt: parseInstant(json['createdAt']),
+    updatedAt: parseInstant(json['updatedAt']),
+  );
 
   @override
   List<Object?> get props => [id, title, parentId, space, updatedAt];
@@ -87,15 +95,15 @@ class Space extends Equatable {
   final DateTime? updatedAt;
 
   factory Space.fromJson(Map<String, dynamic> json) => Space(
-        id: json['id'] as String,
-        name: json['name'] as String? ?? '',
-        icon: json['icon'] as String?,
-        hue: (json['hue'] as num?)?.toInt() ?? 250,
-        description: json['description'] as String? ?? '',
-        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
-        createdAt: parseInstant(json['createdAt']),
-        updatedAt: parseInstant(json['updatedAt']),
-      );
+    id: json['id'] as String,
+    name: json['name'] as String? ?? '',
+    icon: json['icon'] as String?,
+    hue: (json['hue'] as num?)?.toInt() ?? 250,
+    description: json['description'] as String? ?? '',
+    sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+    createdAt: parseInstant(json['createdAt']),
+    updatedAt: parseInstant(json['updatedAt']),
+  );
 
   @override
   List<Object?> get props => [id, name, icon, hue, description, sortOrder];
@@ -120,7 +128,8 @@ class AppNotification extends Equatable {
   final String? link;
   final DateTime? createdAt;
 
-  factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
+  factory AppNotification.fromJson(Map<String, dynamic> json) =>
+      AppNotification(
         id: json['id'] as String,
         type: json['type'] as String? ?? 'SYSTEM',
         title: json['title'] as String? ?? '',
@@ -151,7 +160,8 @@ class ProjectCompletion extends Equatable {
   double get inProgressPercent => total == 0 ? 0 : inProgress / total;
   double get backlogPercent => total == 0 ? 0 : backlog / total;
 
-  factory ProjectCompletion.fromJson(Map<String, dynamic> json) => ProjectCompletion(
+  factory ProjectCompletion.fromJson(Map<String, dynamic> json) =>
+      ProjectCompletion(
         done: json['done'] as int? ?? 0,
         inProgress: json['inProgress'] as int? ?? 0,
         backlog: json['backlog'] as int? ?? 0,
@@ -178,12 +188,12 @@ class RankEntry extends Equatable {
   final String? avatarUrl;
 
   factory RankEntry.fromJson(Map<String, dynamic> json) => RankEntry(
-        userId: json['userId'] as String? ?? '',
-        displayName: json['displayName'] as String? ?? '',
-        points: json['points'] as int? ?? 0,
-        title: json['title'] as String?,
-        avatarUrl: json['avatarUrl'] as String?,
-      );
+    userId: json['userId'] as String? ?? '',
+    displayName: json['displayName'] as String? ?? '',
+    points: json['points'] as int? ?? 0,
+    title: json['title'] as String?,
+    avatarUrl: json['avatarUrl'] as String?,
+  );
 
   @override
   List<Object?> get props => [userId, points];
@@ -196,9 +206,9 @@ class TrackerDay extends Equatable {
   final int focusMinutes;
 
   factory TrackerDay.fromJson(Map<String, dynamic> json) => TrackerDay(
-        date: parseDate(json['date'])!,
-        focusMinutes: json['focusMinutes'] as int? ?? 0,
-      );
+    date: parseDate(json['date'])!,
+    focusMinutes: json['focusMinutes'] as int? ?? 0,
+  );
 
   @override
   List<Object?> get props => [date, focusMinutes];
@@ -217,10 +227,10 @@ class TrendPoint extends Equatable {
   final int resolved;
 
   factory TrendPoint.fromJson(Map<String, dynamic> json) => TrendPoint(
-        date: parseDate(json['date'])!,
-        created: (json['created'] as num?)?.toInt() ?? 0,
-        resolved: (json['resolved'] as num?)?.toInt() ?? 0,
-      );
+    date: parseDate(json['date'])!,
+    created: (json['created'] as num?)?.toInt() ?? 0,
+    resolved: (json['resolved'] as num?)?.toInt() ?? 0,
+  );
 
   @override
   List<Object?> get props => [date, created, resolved];
@@ -234,9 +244,9 @@ class TrackerWeek extends Equatable {
   final int focusMinutes;
 
   factory TrackerWeek.fromJson(Map<String, dynamic> json) => TrackerWeek(
-        week: (json['week'] as num?)?.toInt() ?? 0,
-        focusMinutes: (json['focusMinutes'] as num?)?.toInt() ?? 0,
-      );
+    week: (json['week'] as num?)?.toInt() ?? 0,
+    focusMinutes: (json['focusMinutes'] as num?)?.toInt() ?? 0,
+  );
 
   @override
   List<Object?> get props => [week, focusMinutes];
@@ -244,17 +254,21 @@ class TrackerWeek extends Equatable {
 
 /// A member of the active sprint, resolved for avatar display.
 class SprintMember extends Equatable {
-  const SprintMember({required this.userId, required this.displayName, this.avatarUrl});
+  const SprintMember({
+    required this.userId,
+    required this.displayName,
+    this.avatarUrl,
+  });
 
   final String userId;
   final String displayName;
   final String? avatarUrl;
 
   factory SprintMember.fromJson(Map<String, dynamic> json) => SprintMember(
-        userId: json['userId'] as String? ?? '',
-        displayName: json['displayName'] as String? ?? '',
-        avatarUrl: json['avatarUrl'] as String?,
-      );
+    userId: json['userId'] as String? ?? '',
+    displayName: json['displayName'] as String? ?? '',
+    avatarUrl: json['avatarUrl'] as String?,
+  );
 
   @override
   List<Object?> get props => [userId, displayName, avatarUrl];
@@ -302,24 +316,31 @@ class DashboardBoard extends Equatable {
   }
 
   factory DashboardBoard.fromJson(Map<String, dynamic> json) => DashboardBoard(
-        kind: json['kind'] as String? ?? 'SPRINT',
-        boardId: json['boardId'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        goal: json['goal'] as String?,
-        day: (json['day'] as num?)?.toInt() ?? 0,
-        days: (json['days'] as num?)?.toInt() ?? 0,
-        points: (json['points'] as num?)?.toInt() ?? 0,
-        pointsTotal: (json['pointsTotal'] as num?)?.toInt() ?? 0,
-        issuesDone: (json['issuesDone'] as num?)?.toInt() ?? 0,
-        issuesTotal: (json['issuesTotal'] as num?)?.toInt() ?? 0,
-        members: ((json['members'] as List<dynamic>?) ?? const [])
-            .map((m) => SprintMember.fromJson(m as Map<String, dynamic>))
-            .toList(),
-      );
+    kind: json['kind'] as String? ?? 'SPRINT',
+    boardId: json['boardId'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    goal: json['goal'] as String?,
+    day: (json['day'] as num?)?.toInt() ?? 0,
+    days: (json['days'] as num?)?.toInt() ?? 0,
+    points: (json['points'] as num?)?.toInt() ?? 0,
+    pointsTotal: (json['pointsTotal'] as num?)?.toInt() ?? 0,
+    issuesDone: (json['issuesDone'] as num?)?.toInt() ?? 0,
+    issuesTotal: (json['issuesTotal'] as num?)?.toInt() ?? 0,
+    members: ((json['members'] as List<dynamic>?) ?? const [])
+        .map((m) => SprintMember.fromJson(m as Map<String, dynamic>))
+        .toList(),
+  );
 
   @override
-  List<Object?> get props =>
-      [kind, boardId, day, points, pointsTotal, issuesDone, issuesTotal];
+  List<Object?> get props => [
+    kind,
+    boardId,
+    day,
+    points,
+    pointsTotal,
+    issuesDone,
+    issuesTotal,
+  ];
 }
 
 /// A recent development event (commit / PR / deploy / merge) for the git feed.
@@ -344,14 +365,14 @@ class GitEvent extends Equatable {
   final String? issueKey;
 
   factory GitEvent.fromJson(Map<String, dynamic> json) => GitEvent(
-        kind: json['kind'] as String? ?? 'commit',
-        ref: json['ref'] as String? ?? '',
-        text: json['text'] as String? ?? '',
-        repo: json['repo'] as String?,
-        authorName: json['authorName'] as String?,
-        at: parseInstant(json['at']),
-        issueKey: json['issueKey'] as String?,
-      );
+    kind: json['kind'] as String? ?? 'commit',
+    ref: json['ref'] as String? ?? '',
+    text: json['text'] as String? ?? '',
+    repo: json['repo'] as String?,
+    authorName: json['authorName'] as String?,
+    at: parseInstant(json['at']),
+    issueKey: json['issueKey'] as String?,
+  );
 
   @override
   List<Object?> get props => [kind, ref, text, at, issueKey];
@@ -409,13 +430,12 @@ class DashboardPrefs extends Equatable {
     List<String>? projectIds,
     List<String>? teamIds,
     List<String>? hiddenCards,
-  }) =>
-      DashboardPrefs(
-        boardId: clearBoard ? null : (boardId ?? this.boardId),
-        projectIds: projectIds ?? this.projectIds,
-        teamIds: teamIds ?? this.teamIds,
-        hiddenCards: hiddenCards ?? this.hiddenCards,
-      );
+  }) => DashboardPrefs(
+    boardId: clearBoard ? null : (boardId ?? this.boardId),
+    projectIds: projectIds ?? this.projectIds,
+    teamIds: teamIds ?? this.teamIds,
+    hiddenCards: hiddenCards ?? this.hiddenCards,
+  );
 
   DashboardPrefs toggleCard(String card, {required bool hidden}) {
     final next = List<String>.from(hiddenCards)..remove(card);
@@ -424,22 +444,22 @@ class DashboardPrefs extends Equatable {
   }
 
   factory DashboardPrefs.fromJson(Map<String, dynamic> json) => DashboardPrefs(
-        boardId: (json['boardId'] as String?)?.isEmpty ?? true
-            ? null
-            : json['boardId'] as String?,
-        projectIds:
-            ((json['projectIds'] as List<dynamic>?) ?? const []).cast<String>(),
-        teamIds: ((json['teamIds'] as List<dynamic>?) ?? const []).cast<String>(),
-        hiddenCards:
-            ((json['hiddenCards'] as List<dynamic>?) ?? const []).cast<String>(),
-      );
+    boardId: (json['boardId'] as String?)?.isEmpty ?? true
+        ? null
+        : json['boardId'] as String?,
+    projectIds: ((json['projectIds'] as List<dynamic>?) ?? const [])
+        .cast<String>(),
+    teamIds: ((json['teamIds'] as List<dynamic>?) ?? const []).cast<String>(),
+    hiddenCards: ((json['hiddenCards'] as List<dynamic>?) ?? const [])
+        .cast<String>(),
+  );
 
   Map<String, dynamic> toJson() => {
-        'boardId': boardId,
-        'projectIds': projectIds,
-        'teamIds': teamIds,
-        'hiddenCards': hiddenCards,
-      };
+    'boardId': boardId,
+    'projectIds': projectIds,
+    'teamIds': teamIds,
+    'hiddenCards': hiddenCards,
+  };
 
   @override
   List<Object?> get props => [boardId, projectIds, teamIds, hiddenCards];
@@ -474,47 +494,49 @@ class DashboardData extends Equatable {
   final DashboardPrefs prefs;
 
   factory DashboardData.fromJson(Map<String, dynamic> json) => DashboardData(
-        todayTasks: ((json['todayTasks'] as List<dynamic>?) ?? [])
-            .map((i) => Issue.fromJson(i as Map<String, dynamic>))
-            .toList(),
-        todayCount: (json['todayCount'] as num?)?.toInt() ??
-            ((json['todayTasks'] as List<dynamic>?) ?? const []).length,
-        completion: ProjectCompletion.fromJson(
-            (json['completion'] as Map<String, dynamic>?) ?? const {}),
-        ranking: ((json['ranking'] as List<dynamic>?) ?? [])
-            .map((r) => RankEntry.fromJson(r as Map<String, dynamic>))
-            .toList(),
-        tracker: ((json['tracker'] as List<dynamic>?) ?? [])
-            .map((t) => TrackerDay.fromJson(t as Map<String, dynamic>))
-            .toList(),
-        trackerMonth: ((json['trackerMonth'] as List<dynamic>?) ?? [])
-            .map((t) => TrackerWeek.fromJson(t as Map<String, dynamic>))
-            .toList(),
-        activeBoard: json['activeBoard'] is Map<String, dynamic>
-            ? DashboardBoard.fromJson(json['activeBoard'] as Map<String, dynamic>)
-            : null,
-        gitActivity: ((json['gitActivity'] as List<dynamic>?) ?? [])
-            .map((g) => GitEvent.fromJson(g as Map<String, dynamic>))
-            .toList(),
-        boards: ((json['boards'] as List<dynamic>?) ?? [])
-            .map((b) => DashboardBoardOption.fromJson(b as Map<String, dynamic>))
-            .toList(),
-        prefs: json['prefs'] is Map<String, dynamic>
-            ? DashboardPrefs.fromJson(json['prefs'] as Map<String, dynamic>)
-            : DashboardPrefs.empty,
-      );
+    todayTasks: ((json['todayTasks'] as List<dynamic>?) ?? [])
+        .map((i) => Issue.fromJson(i as Map<String, dynamic>))
+        .toList(),
+    todayCount:
+        (json['todayCount'] as num?)?.toInt() ??
+        ((json['todayTasks'] as List<dynamic>?) ?? const []).length,
+    completion: ProjectCompletion.fromJson(
+      (json['completion'] as Map<String, dynamic>?) ?? const {},
+    ),
+    ranking: ((json['ranking'] as List<dynamic>?) ?? [])
+        .map((r) => RankEntry.fromJson(r as Map<String, dynamic>))
+        .toList(),
+    tracker: ((json['tracker'] as List<dynamic>?) ?? [])
+        .map((t) => TrackerDay.fromJson(t as Map<String, dynamic>))
+        .toList(),
+    trackerMonth: ((json['trackerMonth'] as List<dynamic>?) ?? [])
+        .map((t) => TrackerWeek.fromJson(t as Map<String, dynamic>))
+        .toList(),
+    activeBoard: json['activeBoard'] is Map<String, dynamic>
+        ? DashboardBoard.fromJson(json['activeBoard'] as Map<String, dynamic>)
+        : null,
+    gitActivity: ((json['gitActivity'] as List<dynamic>?) ?? [])
+        .map((g) => GitEvent.fromJson(g as Map<String, dynamic>))
+        .toList(),
+    boards: ((json['boards'] as List<dynamic>?) ?? [])
+        .map((b) => DashboardBoardOption.fromJson(b as Map<String, dynamic>))
+        .toList(),
+    prefs: json['prefs'] is Map<String, dynamic>
+        ? DashboardPrefs.fromJson(json['prefs'] as Map<String, dynamic>)
+        : DashboardPrefs.empty,
+  );
 
   @override
   List<Object?> get props => [
-        todayTasks,
-        todayCount,
-        completion,
-        ranking,
-        tracker,
-        trackerMonth,
-        activeBoard,
-        gitActivity,
-        boards,
-        prefs,
-      ];
+    todayTasks,
+    todayCount,
+    completion,
+    ranking,
+    tracker,
+    trackerMonth,
+    activeBoard,
+    gitActivity,
+    boards,
+    prefs,
+  ];
 }

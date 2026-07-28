@@ -150,7 +150,10 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   /// real issue sheet; toasts if there is no matching issue.
   Future<void> _openRealIssue(String readableId) async {
     try {
-      final res = await context.read<IssueRepository>().issues(query: readableId, size: 20);
+      final res = await context.read<IssueRepository>().issues(
+        query: readableId,
+        size: 20,
+      );
       final match = res.issues
           .where((i) => i.readableId == readableId)
           .firstOrNull;
@@ -294,7 +297,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         final parentId = _pendingParentId;
         final a = await _repo.createArticle(
           title: title,
-          body: r.body,
+          doc: r.doc,
           spaceId: r.spaceId,
           parentId: parentId,
         );
@@ -310,7 +313,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         await _repo.saveEdit(
           _current!.id,
           title: title,
-          body: r.body,
+          doc: r.doc,
           spaceId: r.spaceId,
         );
         if (!mounted) return;
@@ -468,6 +471,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             _Bp.narrow => AsideMode.none,
           };
     final reader = KnowledgeReader(
+      // Keyed by article: without it Flutter reuses the same State across a
+      // navigation, and everything the reader derived from the *previous*
+      // document — outline, linked issues, the active heading — starts out
+      // pointing at a document that is no longer on screen.
+      key: ValueKey(_current!.id),
       article: _current!,
       asideMode: asideMode,
       onEdit: () => setState(() => _mode = _Mode.edit),
@@ -652,6 +660,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             child: KnowledgeEditor(
               isNew: isNew,
               initialTitle: isNew ? '' : current?.title ?? '',
+              initialDoc: isNew ? null : current?.doc,
+              // The legacy markdown, so a row the backfill skipped opens with
+              // its content rather than blank over it.
               initialBody: isNew ? '' : current?.body ?? '',
               spaceId: _spaceId,
               onSave: _save,

@@ -64,6 +64,7 @@ class GlassPopupMenu<T> extends StatefulWidget {
     required this.child,
     this.width = 240,
     this.offset = 8,
+    this.onOpenChanged,
   });
 
   /// The rows to show.
@@ -83,6 +84,14 @@ class GlassPopupMenu<T> extends StatefulWidget {
 
   /// Vertical gap between the anchor and the popover.
   final double offset;
+
+  /// Called with `true` when the menu opens and `false` when it closes.
+  ///
+  /// For anchors that share the screen with something floating of their own —
+  /// the editor's selection overlay is the case this exists for. That overlay
+  /// points at the words the menu now covers, so it has to step aside while
+  /// the menu is up; nothing else can know when that is.
+  final ValueChanged<bool>? onOpenChanged;
 
   @override
   State<GlassPopupMenu<T>> createState() => _GlassPopupMenuState<T>();
@@ -105,22 +114,34 @@ class _GlassPopupMenuState<T> extends State<GlassPopupMenu<T>> {
     // async work, so we must invoke it regardless of *our* mounted state; an
     // earlier `&& mounted` check here silently dropped the selection.
     final onSelected = widget.onSelected;
+    // Captured for the same reason, and called in a `finally` for one more:
+    // whatever was told to step aside has to be told to come back, including
+    // when the menu is dismissed by the barrier rather than by a choice.
+    final onOpenChanged = widget.onOpenChanged;
+    onOpenChanged?.call(true);
 
-    final selected = await showGeneralDialog<_MenuResult<T>>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (_, _, _) => _GlassPopupMenuDialog<T>(
-        anchorRect: anchorRect,
-        items: widget.items,
-        value: widget.value,
-        width: widget.width,
-        gap: widget.offset,
-      ),
-      transitionBuilder: (_, _, _, child) => child,
-    );
+    final _MenuResult<T>? selected;
+    try {
+      selected = await showGeneralDialog<_MenuResult<T>>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: MaterialLocalizations.of(
+          context,
+        ).modalBarrierDismissLabel,
+        barrierColor: Colors.transparent,
+        transitionDuration: const Duration(milliseconds: 200),
+        pageBuilder: (_, _, _) => _GlassPopupMenuDialog<T>(
+          anchorRect: anchorRect,
+          items: widget.items,
+          value: widget.value,
+          width: widget.width,
+          gap: widget.offset,
+        ),
+        transitionBuilder: (_, _, _, child) => child,
+      );
+    } finally {
+      onOpenChanged?.call(false);
+    }
 
     if (selected != null) onSelected(selected.value);
   }
@@ -390,7 +411,11 @@ class _MenuRowState<T> extends State<_MenuRow<T>> {
             ),
             if (widget.selected) ...[
               const SizedBox(width: 8),
-              const Icon(LucideIcons.check, size: 17, color: AppColors.accentStrong),
+              const Icon(
+                LucideIcons.check,
+                size: 17,
+                color: AppColors.accentStrong,
+              ),
             ],
           ],
         ),

@@ -19,7 +19,8 @@
     "of": "of",
     "add": "Add",
     "ok": "OK",
-    "next": "Next"
+    "next": "Next",
+    "paste": "Paste"
   },
   "delete": {
     "cta": "Delete",
@@ -969,7 +970,8 @@
     "published": "Article published",
     "saved": "Changes saved",
     "deleted": "Article deleted",
-    "articleCount": "{{count}} articles"
+    "articleCount": "{{count}} articles",
+    "saveWouldBlank": "Saving now would replace the article with an empty page. Add some content first."
   },
   "md": {
     "heading1": "Heading 1",
@@ -988,7 +990,35 @@
     "table": "Table",
     "infoPanel": "Info panel",
     "image": "Insert image",
-    "mention": "Mention / link (@)"
+    "mention": "Mention / link (@)",
+    "divider": "Divider",
+    "underline": "Underline",
+    "calloutInfo": "Info panel",
+    "calloutWarn": "Warning",
+    "calloutNote": "Note",
+    "calloutTip": "Tip",
+    "undo": "Undo",
+    "redo": "Redo",
+    "linkUrl": "Address",
+    "linkAdd": "Add link",
+    "linkRemove": "Remove link",
+    "paragraph": "Body text",
+    "blockType": "Text style",
+    "blockMixed": "Mixed",
+    "alignLeft": "Align left",
+    "alignCenter": "Align centre",
+    "alignRight": "Align right",
+    "alignJustify": "Justify",
+    "mentionSearch": "Search issues, articles, people…",
+    "placeholder": "Write something…",
+    "codeLanguage": "Language",
+    "codeLanguagePlain": "Plain text",
+    "linkUnsafe": "This kind of address is not allowed.",
+    "linkTo": "Link to…",
+    "kindIssue": "Issue",
+    "kindDoc": "Article",
+    "kindUser": "Person",
+    "imageFailed": "This image could not be loaded."
   },
   "weeklySummary": {
     "title": "Weekly Summary",

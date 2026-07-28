@@ -27,10 +27,10 @@ class SseConnection {
     required void Function(SseEvent event) onEvent,
     void Function()? onReconnect,
     Duration idleTimeout = const Duration(seconds: 45),
-  })  : _open = open,
-        _onEvent = onEvent,
-        _onReconnect = onReconnect,
-        _idleTimeout = idleTimeout;
+  }) : _open = open,
+       _onEvent = onEvent,
+       _onReconnect = onReconnect,
+       _idleTimeout = idleTimeout;
 
   final Future<Stream<List<int>>> Function(CancelToken) _open;
   final void Function(SseEvent) _onEvent;

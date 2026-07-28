@@ -257,7 +257,8 @@ class AppStorage {
   /// Tooling-only: the screenshot harness sets this for tablet captures so the
   /// app pins landscape (a simulator/emulator can't be rotated reliably). No
   /// effect in normal use, where the key is absent.
-  bool get screenshotLandscape => _prefs.getBool('screenshot_landscape') ?? false;
+  bool get screenshotLandscape =>
+      _prefs.getBool('screenshot_landscape') ?? false;
 
   /// Recent global-search queries, most-recent first (max [recentSearchMax]).
   List<String> get recentSearches =>

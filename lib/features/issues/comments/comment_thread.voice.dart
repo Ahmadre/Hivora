@@ -1,57 +1,42 @@
 part of 'comment_thread.dart';
 
-/// Text comment body — rendered through the shared Markdown parser so mentions,
-/// smart-links and inline images keep working. Flat, on a transparent
-/// background (no bubble); the timestamp lives in the row header.
+/// Text comment body — the stored document, rendered.
+///
+/// Flat, on a transparent background (no bubble); the timestamp lives in the
+/// row header, and the block rhythm is tightened because the renderer pads
+/// below the last block too.
 class _TextBody extends StatelessWidget {
   const _TextBody({required this.comment});
 
   final IssueComment comment;
 
-  /// Matches any line that opens a block-level markdown construct.
-  static final _blockLine = RegExp(
-    r'^(#{1,6}\s|```|>\s?|\s*\|.*\||:::|(-{3,}|\*{3,}|_{3,})\s*$|(\s*([-*+]|\d+\.)\s+))',
-  );
-  static final _image = RegExp(r'!\[[^\]]*\]\([^)]+\)');
-
-  /// True when the body is a single paragraph with no block-level markdown —
-  /// rendered as one inline run instead of the heavier block layout.
-  bool get _inlineOnly {
-    if (_image.hasMatch(comment.text)) return false;
-    final lines = comment.text.replaceAll('\r\n', '\n').split('\n');
-    var sawText = false;
-    var sawBlank = false;
-    for (final l in lines) {
-      if (l.trim().isEmpty) {
-        if (sawText) sawBlank = true;
-        continue;
-      }
-      if (sawBlank) return false; // a second paragraph → treat as block
-      if (_blockLine.hasMatch(l)) return false;
-      sawText = true;
-    }
-    return true;
-  }
+  /// Comments read at a smaller size than an article does.
+  static const double _fontSize = 14;
 
   @override
   Widget build(BuildContext context) {
-    if (_inlineOnly) {
-      final parser = KbMarkdownParser(fontSize: 14);
-      final base = parser.baseStyle.copyWith(height: 1.35);
-      final body = comment.text
-          .replaceAll('\r\n', '\n')
-          .split('\n')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .join(' ');
-      return Text.rich(TextSpan(children: [parser.inlineFor(body, base)]));
+    // A comment written before the format change, or one whose document failed
+    // to convert, still has its plain text — showing that beats showing nothing.
+    if ((comment.textDoc ?? '').isEmpty) {
+      if (comment.text.trim().isEmpty) return const SizedBox.shrink();
+      return Text(
+        comment.text,
+        style: TextStyle(
+          fontFamily: AppTheme.fontUi,
+          fontSize: _fontSize,
+          height: 1.35,
+          color: AppColors.ink,
+        ),
+      );
     }
 
-    final nodes = KbMarkdownParser(fontSize: 14).parse(comment.text).nodes;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: nodes,
+    return HinataDocument(
+      doc: comment.textDoc,
+      fontSize: _fontSize,
+      // Tight: a comment row is close quarters, and the renderer pads below the
+      // last block too — the default rhythm would read as a gap before the
+      // reactions.
+      blockSpacing: 4,
     );
   }
 }

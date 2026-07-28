@@ -60,7 +60,9 @@ class GitConnection extends Equatable {
       lastSyncAt: _ts(json['lastSyncAt']),
       method: json['method'] as String? ?? 'oauth',
       branchTemplate: json['branchTemplate'] as String? ?? '{key}-{summary}',
-      automation: GitAutomation.fromJson(json['automation'] as Map<String, dynamic>?),
+      automation: GitAutomation.fromJson(
+        json['automation'] as Map<String, dynamic>?,
+      ),
     );
   }
 
@@ -149,8 +151,13 @@ class GitAutomation extends Equatable {
   );
 
   @override
-  List<Object?> get props =>
-      [branchCreated, commitPushed, prOpened, prMerged, smartCommits];
+  List<Object?> get props => [
+    branchCreated,
+    commitPushed,
+    prOpened,
+    prMerged,
+    smartCommits,
+  ];
 }
 
 /// A single automation rule: whether it is enabled and, if so, the target
