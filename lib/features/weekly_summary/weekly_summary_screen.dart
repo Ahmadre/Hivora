@@ -19,6 +19,7 @@ import '../../core/widgets/hex_mark.dart' show HexMark;
 import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/status_widgets.dart';
+import '../issues/issue_detail_sheet.dart';
 import '../shell/page_chrome.dart';
 
 // Exact stat hues, harmonised with the dashboard "Liquid Glass" palette.
@@ -857,7 +858,11 @@ class _IssueRow extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.go('/issues/${issue.linkId}'),
+        // The modal sheet, not `context.go('/issues/…')`: `go` replaces this
+        // location instead of stacking on it, so the issue page would have
+        // nothing to pop back to and its close button falls through to the
+        // `/dashboard` fallback. The sheet leaves the summary mounted underneath.
+        onTap: () => showIssueDetailSheet(context, issueId: issue.id),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),

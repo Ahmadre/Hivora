@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/api/api_client.dart';
@@ -18,6 +17,7 @@ import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
+import '../issues/issue_detail_sheet.dart';
 import '../search/search_tokens.dart';
 import 'gantt_view_options.dart';
 
@@ -107,20 +107,27 @@ class _GanttScreenState extends State<GanttScreen> {
     if ((follower.offset - target).abs() > 0.5) follower.jumpTo(target);
   }
 
-  Future<void> _load() async {
+  /// Fetches projects + the selected project's timeline. [preserveView] refreshes
+  /// in place — no loader, no reset of the focus pin or the scroll position: the
+  /// chart stays mounted so its scroll controllers keep their offsets (swapping in
+  /// the loader detaches them and the offsets are gone). That's what an edit made
+  /// in the issue sheet needs; a project switch or first load wants the reset.
+  Future<void> _load({bool preserveView = false}) async {
     setState(() {
-      _loading = true;
+      if (!preserveView) _loading = true;
       _error = null;
     });
     final repository = context.read<ProjectRepository>();
     try {
       _projects = await repository.projects();
+      if (!mounted) return;
       if (_projects.isEmpty) {
         setState(() => _loading = false);
         return;
       }
       _projectId ??= _projects.first.id;
       final view = await repository.gantt(_projectId!);
+      if (!mounted) return;
       // Chronological order keeps most connectors running downwards, the way a
       // Gantt chart is read; the server returns insertion order.
       _tasks = [...view.tasks]
@@ -131,16 +138,40 @@ class _GanttScreenState extends State<GanttScreen> {
           return byEnd != 0 ? byEnd : a.readableId.compareTo(b.readableId);
         });
       _links = view.links;
-      _focusedId = null;
-      _didInitialScroll = false;
+      if (preserveView) {
+        // The pinned issue can be gone now (deleted or archived in the sheet) —
+        // a focus id with no bar left would dim every remaining row.
+        if (!_tasks.any((task) => task.id == _focusedId)) _focusedId = null;
+      } else {
+        _focusedId = null;
+        _didInitialScroll = false;
+      }
       setState(() => _loading = false);
     } on ApiFailure catch (failure) {
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _error = failure.message;
       });
     }
   }
+
+  /// Opens an issue as the app-wide modal sheet — the same entry point the board
+  /// and the issue list use. It must NOT be a `context.go('/issues/:id')`: that
+  /// *replaces* this location instead of stacking on top of it, so the issue page
+  /// has nothing to pop back to and its close button falls through to the
+  /// `/dashboard` fallback. The sheet leaves the timeline mounted underneath, so
+  /// closing it lands back on exactly this project, zoom and scroll offset — and
+  /// the sheet's own "full screen" action pushes, which stays poppable.
+  ///
+  /// Bars are derived from issue dates, so an edit in the sheet reloads the view.
+  void _openIssue(String issueId) => showIssueDetailSheet(
+    context,
+    issueId: issueId,
+    onChanged: () {
+      if (mounted) _load(preserveView: true);
+    },
+  );
 
   double get _pxPerDay => switch (_zoom) {
     GanttZoom.week => 32,
@@ -378,8 +409,7 @@ class _GanttScreenState extends State<GanttScreen> {
                                           conflict: graph.conflictIds.contains(
                                             task.id,
                                           ),
-                                          onTap: () =>
-                                              context.go('/issues/${task.id}'),
+                                          onTap: () => _openIssue(task.id),
                                         ),
                                     ],
                                   ),
@@ -536,7 +566,7 @@ class _GanttScreenState extends State<GanttScreen> {
           onTap: () => setState(
             () => _focusedId = _focusedId == task.id ? null : task.id,
           ),
-          onOpen: () => context.go('/issues/${task.id}'),
+          onOpen: () => _openIssue(task.id),
           child: child,
         ),
       ),
