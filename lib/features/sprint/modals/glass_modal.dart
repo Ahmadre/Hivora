@@ -8,6 +8,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show GlassContainer, GlassQuality, LiquidRoundedSuperellipse;
 
 import '../../../core/i18n/i18n.dart';
+import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_panel.dart';
@@ -1202,11 +1203,16 @@ class GlassToastController {
   void close() => _state?._close();
 }
 
-/// Shows a transient Liquid-Glass toast pill bottom-centre — the app-wide
-/// replacement for Material's [SnackBar]. Inserted into the ROOT overlay, so
-/// it renders above every open glass modal/sheet and its blurred scrim (a
-/// Scaffold [SnackBar] would be buried underneath) and rides above the
-/// on-screen keyboard.
+/// Shows a transient Liquid-Glass toast pill — the app-wide replacement for
+/// Material's [SnackBar]. Inserted into the ROOT overlay, so it renders above
+/// every open glass modal/sheet and its blurred scrim (a Scaffold [SnackBar]
+/// would be buried underneath) and rides above the on-screen keyboard.
+///
+/// It anchors bottom-centre on compact layouts (thumb's reach, the phone
+/// convention) and top-centre on every wider one: on a desktop-sized window the
+/// bottom edge is far outside where the user is looking and the toast goes
+/// unnoticed there. Either way it clears the chrome the mounted shell published
+/// to [ShellInsets] — the floating nav, the top bar — and the keyboard.
 ///
 /// [kind] picks the semantic glyph + tint ([GlassToastKind.info] by default);
 /// [icon] overrides the glyph only. [actionLabel]/[onAction] add a tappable
@@ -1341,12 +1347,36 @@ class _GlassToastState extends State<_GlassToast>
   Widget build(BuildContext context) {
     final tokens = SearchTokens.of(Theme.of(context).brightness);
     final dark = Theme.of(context).brightness == Brightness.dark;
-    // Ride above the keyboard so field-validation notices stay visible.
-    final bottom = 32.0 + MediaQuery.viewInsetsOf(context).bottom;
-    return Positioned(
-      left: 16,
-      right: 16,
-      bottom: bottom,
+    // On anything wider than a phone the bottom edge of the window is nowhere
+    // near where the user is looking, so the toast drops in from the top
+    // instead of surfacing in a corner nobody watches. Compact keeps the phone
+    // convention: bottom, in thumb's reach, riding above the keyboard so
+    // field-validation notices stay visible.
+    final atTop = !context.isCompact;
+    return ValueListenableBuilder<double>(
+      // Clears whatever chrome the mounted shell put on that edge — the wide
+      // top bar, the floating nav — and hugs the edge itself where there is
+      // none: an immersive page, or the screens with no shell at all (auth,
+      // server picker), where this stays 0.
+      valueListenable: atTop ? ShellInsets.top : ShellInsets.bottom,
+      builder: (context, shellInset, child) {
+        // Both system insets come from the overlay's own MediaQuery: the
+        // status bar up top, and below either the safe area or — with the
+        // keyboard up, which lifts the nav with it — the keyboard.
+        final padding = MediaQuery.paddingOf(context);
+        return Positioned(
+          left: 16,
+          right: 16,
+          top: atTop ? padding.top + shellInset + 16 : null,
+          bottom: atTop
+              ? null
+              : padding.bottom +
+                    MediaQuery.viewInsetsOf(context).bottom +
+                    shellInset +
+                    16,
+          child: child!,
+        );
+      },
       child: IgnorePointer(
         // Without an action the toast is purely informational and must never
         // swallow taps meant for the UI underneath it.
@@ -1357,9 +1387,10 @@ class _GlassToastState extends State<_GlassToast>
             curve: Curves.easeOutCubic,
           ),
           child: SlideTransition(
+            // Slide in from whichever edge it is anchored to.
             position:
                 Tween<Offset>(
-                  begin: const Offset(0, 0.25),
+                  begin: Offset(0, atTop ? -0.25 : 0.25),
                   end: Offset.zero,
                 ).animate(
                   CurvedAnimation(

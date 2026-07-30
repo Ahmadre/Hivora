@@ -2,6 +2,13 @@ part of 'app_shell.dart';
 
 // ─────────────────────────── Wide Shell (Navy Rail) ───────────────────────
 
+/// Floating top bar geometry: the gap above it, its content height, and the gap
+/// between it and the page below. [ShellInsets] publishes the first two so
+/// root-overlay widgets can clear the bar.
+const double _kTopBarGapAbove = 12;
+const double _kTopBarHeight = 60;
+const double _kTopBarGapBelow = 10;
+
 class _WideShell extends StatefulWidget {
   const _WideShell({required this.location, required this.child});
 
@@ -18,7 +25,16 @@ class _WideShellState extends State<_WideShell> {
   bool _collapsed = false;
 
   @override
+  void dispose() {
+    ShellInsets.withdraw(this);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Widgets in the root overlay float above this shell and cannot measure it
+    // — tell them how far the floating top bar reaches so they can clear it.
+    ShellInsets.publishTop(this, _kTopBarGapAbove + _kTopBarHeight);
     final isMedium = context.layoutSize == LayoutSize.medium;
     final collapsed = isMedium || _collapsed;
     final railWidth = collapsed ? 76.0 : 244.0;
@@ -40,7 +56,12 @@ class _WideShellState extends State<_WideShell> {
               child: Column(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      _kTopBarGapAbove,
+                      16,
+                      _kTopBarGapBelow,
+                    ),
                     child: _GlassFloatingTopBar(location: widget.location),
                   ),
                   Expanded(
@@ -632,7 +653,7 @@ class _GlassFloatingTopBar extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final user = context.select((AuthBloc bloc) => bloc.state.user);
     return Container(
-      height: 60,
+      height: _kTopBarHeight,
       padding: const EdgeInsets.symmetric(horizontal: 18),
       decoration: BoxDecoration(
         color: AppColors.surface,

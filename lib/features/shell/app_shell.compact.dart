@@ -46,6 +46,12 @@ class _CompactShellState extends State<_CompactShell> {
     }
   }
 
+  @override
+  void dispose() {
+    ShellInsets.withdraw(this);
+    super.dispose();
+  }
+
   void _showMoreSheet() {
     final user = context.read<AuthBloc>().state.user;
     showModalBottomSheet<void>(
@@ -97,12 +103,23 @@ class _CompactShellState extends State<_CompactShell> {
                 final topFootprint = widget.immersive
                     ? mq.viewPadding.top
                     : _kCompactBarHeight + bottomH + mq.viewPadding.top;
+                // Same footprint, minus the status-bar inset, for widgets in
+                // the root overlay: they float above this shell and get no
+                // MediaQuery of ours to read it from.
+                ShellInsets.publishTop(this, topFootprint - mq.viewPadding.top);
                 // Floating nav: GlassBottomBar barHeight(64) + verticalPadding
                 // (8 top + 8 bottom) + device safe-area. Immersive routes hide
                 // the nav, so only the device safe-area remains.
                 final navFootprint = widget.immersive
                     ? mq.viewPadding.bottom
                     : 80 + mq.viewPadding.bottom;
+                // Likewise for the root overlay — so a toast rides above the
+                // nav where there is one, and drops to the bottom edge on the
+                // routes that hide it.
+                ShellInsets.publishBottom(
+                  this,
+                  navFootprint - mq.viewPadding.bottom,
+                );
                 return MediaQuery(
                   data: mq.copyWith(
                     padding: mq.padding.copyWith(

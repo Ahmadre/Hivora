@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 /// Golden-ratio driven responsive system. Instead of hard-coded device
@@ -18,6 +19,81 @@ abstract final class Breakpoints {
   /// The wide shell centres every page inside this; pages whose content is a
   /// spatial layout rather than something to read may opt out of it.
   static const double readingWidth = 1618; // 1000 · φ
+}
+
+/// Chrome insets published by whichever app shell is mounted, for widgets that
+/// live in the ROOT overlay — the toast — and therefore float above every route
+/// with no way to measure the shell they cover. While no shell is mounted (the
+/// auth flow, the server picker, the splash) the insets are zero, so those
+/// overlays hug the window edge instead of leaving a gap for chrome that isn't
+/// on screen.
+abstract final class ShellInsets {
+  /// How far the mounted shell's top chrome — the wide shell's floating top
+  /// bar, the compact shell's glass app bar — reaches *below the status-bar
+  /// inset*. Overlays read that inset from their own [MediaQuery] and add
+  /// whatever gap they want below this. Zero when no shell is mounted.
+  static ValueListenable<double> get top => _top;
+  static final ValueNotifier<double> _top = ValueNotifier<double>(0);
+
+  /// How far the mounted shell's bottom chrome — the compact shell's floating
+  /// nav — reaches *above the safe area and the keyboard*, both of which
+  /// overlays read from their own [MediaQuery]. Zero on the routes that hide
+  /// the nav (immersive pages) and on the wide shell, which navigates from a
+  /// rail instead.
+  static ValueListenable<double> get bottom => _bottom;
+  static final ValueNotifier<double> _bottom = ValueNotifier<double>(0);
+
+  /// The shell that published the current values, so a departing shell cannot
+  /// clear its successor's.
+  static Object? _owner;
+
+  /// Publishes [value] on behalf of [owner] (the shell's [State]). Safe to call
+  /// from `build`: the notification is deferred to the end of the frame, since
+  /// a listener rebuilding mid-build would throw.
+  static void publishTop(Object owner, double value) =>
+      _publish(owner, _top, value);
+
+  /// Bottom counterpart of [publishTop].
+  static void publishBottom(Object owner, double value) =>
+      _publish(owner, _bottom, value);
+
+  static void _publish(
+    Object owner,
+    ValueNotifier<double> inset,
+    double value,
+  ) {
+    if (identical(_owner, owner) && inset.value == value) return;
+    _owner = owner;
+    _afterFrame(() {
+      if (identical(_owner, owner)) inset.value = value;
+    });
+  }
+
+  /// Withdraws [owner]'s insets as its shell goes away. Ignored once another
+  /// shell has taken over — crossing the breakpoint disposes the outgoing shell
+  /// *after* its replacement is initialised, so this must never clobber the
+  /// newcomer's values.
+  static void withdraw(Object owner) {
+    if (!identical(_owner, owner)) return;
+    _owner = null;
+    _afterFrame(() {
+      if (_owner != null) return;
+      _top.value = 0;
+      _bottom.value = 0;
+    });
+  }
+
+  static void _afterFrame(VoidCallback fn) =>
+      WidgetsBinding.instance.addPostFrameCallback((_) => fn());
+
+  /// Back to "no shell mounted", immediately. For tests, which share this
+  /// static across cases; the app itself goes through [withdraw].
+  @visibleForTesting
+  static void reset() {
+    _owner = null;
+    _top.value = 0;
+    _bottom.value = 0;
+  }
 }
 
 enum LayoutSize { compact, medium, expanded }
