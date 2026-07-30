@@ -76,20 +76,30 @@ class _OwnerItem extends StatelessWidget {
                   owner.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
-                  context.t('git.connect.ownerMeta', variables: {
-                    'kind': owner.kind,
-                    'count': '${owner.repos}',
-                    'unit': '${provider.unit}s',
-                  }),
+                  context.t(
+                    'git.connect.ownerMeta',
+                    variables: {
+                      'kind': owner.kind,
+                      'count': '${owner.repos}',
+                      'unit': '${provider.unit}s',
+                    },
+                  ),
                   style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
                 ),
               ],
             ),
           ),
-          const Icon(LucideIcons.chevronRight, size: 18, color: AppColors.accentStrong),
+          const Icon(
+            LucideIcons.chevronRight,
+            size: 18,
+            color: AppColors.accentStrong,
+          ),
         ],
       ),
     );
@@ -140,7 +150,10 @@ class _RepoItem extends StatelessWidget {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Row(
@@ -161,12 +174,17 @@ class _RepoItem extends StatelessWidget {
                         [
                           if (repo.lang != null) repo.lang!,
                           if (repo.updated != null)
-                            context.t('git.connect.updatedAgo',
-                                variables: {'ago': '${repo.updated}'}),
+                            context.t(
+                              'git.connect.updatedAgo',
+                              variables: {'ago': '${repo.updated}'},
+                            ),
                         ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: AppColors.inkFaint,
+                        ),
                       ),
                     ),
                   ],
@@ -195,7 +213,11 @@ class _RepoItem extends StatelessWidget {
           ),
           if (selected) ...[
             const SizedBox(width: 8),
-            const Icon(LucideIcons.circleCheckBig, size: 18, color: AppColors.accentStrong),
+            const Icon(
+              LucideIcons.circleCheckBig,
+              size: 18,
+              color: AppColors.accentStrong,
+            ),
           ],
         ],
       ),
@@ -204,7 +226,11 @@ class _RepoItem extends StatelessWidget {
 }
 
 class _ListItem extends StatelessWidget {
-  const _ListItem({required this.child, required this.selected, required this.onTap});
+  const _ListItem({
+    required this.child,
+    required this.selected,
+    required this.onTap,
+  });
 
   final Widget child;
   final bool selected;
@@ -262,7 +288,10 @@ class _PrimaryAction extends StatelessWidget {
           ? const SizedBox(
               width: 15,
               height: 15,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             )
           : Icon(icon, size: 15),
       label: Text(label),

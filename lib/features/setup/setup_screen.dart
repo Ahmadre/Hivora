@@ -30,7 +30,13 @@ class _SetupScreenState extends State<SetupScreen> {
 
   @override
   void dispose() {
-    for (final controller in [_organization, _email, _username, _displayName, _password]) {
+    for (final controller in [
+      _organization,
+      _email,
+      _username,
+      _displayName,
+      _password,
+    ]) {
       controller.dispose();
     }
     super.dispose();
@@ -55,9 +61,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     children: [
                       Text(
                         context.t('setup.title'),
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
@@ -66,33 +70,55 @@ class _SetupScreenState extends State<SetupScreen> {
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 24),
-                      _field(_organization, 'setup.organization', LucideIcons.building2,
-                          textCapitalization: TextCapitalization.words),
-                      _field(_displayName, 'setup.displayName', LucideIcons.idCard,
-                          textCapitalization: TextCapitalization.words),
-                      _field(_email, 'setup.email', LucideIcons.atSign,
-                          keyboardType: TextInputType.emailAddress,
-                          autofillHints: const [AutofillHints.email],
-                          autocorrect: false,
-                          validator: (v) => v != null && v.contains('@')
-                              ? null
-                              : context.t('errors.invalidEmail')),
-                      _field(_username, 'setup.username', LucideIcons.user,
-                          autocorrect: false,
-                          validator: (v) => RegExp(r'^[a-zA-Z0-9._-]{3,40}$')
-                                  .hasMatch(v ?? '')
-                              ? null
-                              : context.t('errors.invalidUsername')),
-                      _field(_password, 'setup.password', LucideIcons.lock,
-                          obscure: true,
-                          validator: (v) => (v ?? '').length >= 10
-                              ? null
-                              : context.t('errors.passwordTooShort')),
+                      _field(
+                        _organization,
+                        'setup.organization',
+                        LucideIcons.building2,
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      _field(
+                        _displayName,
+                        'setup.displayName',
+                        LucideIcons.idCard,
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      _field(
+                        _email,
+                        'setup.email',
+                        LucideIcons.atSign,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.email],
+                        autocorrect: false,
+                        validator: (v) => v != null && v.contains('@')
+                            ? null
+                            : context.t('errors.invalidEmail'),
+                      ),
+                      _field(
+                        _username,
+                        'setup.username',
+                        LucideIcons.user,
+                        autocorrect: false,
+                        validator: (v) =>
+                            RegExp(r'^[a-zA-Z0-9._-]{3,40}$').hasMatch(v ?? '')
+                            ? null
+                            : context.t('errors.invalidUsername'),
+                      ),
+                      _field(
+                        _password,
+                        'setup.password',
+                        LucideIcons.lock,
+                        obscure: true,
+                        validator: (v) => (v ?? '').length >= 10
+                            ? null
+                            : context.t('errors.passwordTooShort'),
+                      ),
                       if (_error != null) ...[
                         const SizedBox(height: 8),
-                        Text(_error!,
-                            style: const TextStyle(color: AppColors.danger),
-                            textAlign: TextAlign.center),
+                        Text(
+                          _error!,
+                          style: const TextStyle(color: AppColors.danger),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
                       const SizedBox(height: 16),
                       FilledButton(
@@ -102,7 +128,9 @@ class _SetupScreenState extends State<SetupScreen> {
                                 width: 22,
                                 height: 22,
                                 child: HiveLoader(
-                                    strokeWidth: 2, color: Colors.white),
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : Text(context.t('setup.action')),
                       ),
@@ -137,10 +165,15 @@ class _SetupScreenState extends State<SetupScreen> {
         autofillHints: autofillHints,
         autocorrect: autocorrect,
         textCapitalization: textCapitalization,
-        decoration:
-            InputDecoration(labelText: context.t(labelKey), prefixIcon: Icon(icon)),
-        validator: validator ??
-            (v) => (v == null || v.trim().isEmpty) ? context.t('errors.required') : null,
+        decoration: InputDecoration(
+          labelText: context.t(labelKey),
+          prefixIcon: Icon(icon),
+        ),
+        validator:
+            validator ??
+            (v) => (v == null || v.trim().isEmpty)
+                ? context.t('errors.required')
+                : null,
       ),
     );
   }
@@ -153,12 +186,12 @@ class _SetupScreenState extends State<SetupScreen> {
     });
     try {
       await context.read<MetaRepository>().completeSetup(
-            organizationName: _organization.text.trim(),
-            adminEmail: _email.text.trim(),
-            adminUsername: _username.text.trim(),
-            adminDisplayName: _displayName.text.trim(),
-            adminPassword: _password.text,
-          );
+        organizationName: _organization.text.trim(),
+        adminEmail: _email.text.trim(),
+        adminUsername: _username.text.trim(),
+        adminDisplayName: _displayName.text.trim(),
+        adminPassword: _password.text,
+      );
       if (mounted) {
         context.read<AppConfigBloc>().add(const SetupFinished());
       }

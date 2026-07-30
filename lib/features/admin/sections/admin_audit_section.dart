@@ -250,10 +250,7 @@ class _AdminAuditSectionState extends State<AdminAuditSection> {
     }
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: filterBar,
-        ),
+        Padding(padding: const EdgeInsets.only(bottom: 12), child: filterBar),
         Expanded(child: _buildBody(context)),
       ],
     );

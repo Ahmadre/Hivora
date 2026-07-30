@@ -13,6 +13,7 @@ import '../../core/widgets/subtask_widgets.dart';
 import '../board/board_drag.dart';
 import '../board/board_filter.dart';
 import '../board/board_swimlanes.dart';
+import '../board/issue_quick_create.dart';
 import 'widgets/glass_sprint_header.dart';
 
 /// Active-sprint surface: the Liquid-Glass sprint header above a sprint-scoped
@@ -26,6 +27,8 @@ class SprintActiveSurface extends StatelessWidget {
     required this.filter,
     required this.onOpenIssue,
     required this.onMoveState,
+    required this.quickCreateSeed,
+    required this.onCreated,
     this.grouping = BoardGrouping.none,
     this.issuesById = const {},
     this.epics = const [],
@@ -41,6 +44,17 @@ class SprintActiveSurface extends StatelessWidget {
   final BoardFilter filter;
   final void Function(Issue) onOpenIssue;
   final void Function(Issue, String) onMoveState;
+
+  /// Seeds the inline composer at the foot of a column: the sprint is this
+  /// surface's own, [stateFor] resolves the column's workflow state for the
+  /// project a ticket lands in.
+  final IssueQuickCreateSeed Function(
+    String? Function(Project project) stateFor,
+  )
+  quickCreateSeed;
+
+  /// Fired once a composer created an issue, so the surface reloads.
+  final ValueChanged<Issue> onCreated;
 
   /// Swimlane grouping for the sprint board (none = flat columns).
   final BoardGrouping grouping;
@@ -60,6 +74,21 @@ class SprintActiveSurface extends StatelessWidget {
   /// Every active facet plus the epic facet (resolved per issue).
   bool _passes(Issue i) =>
       filter.matches(i) && filter.matchesEpic(boardEpicOf(i, issuesById));
+
+  /// Seeds the composer under [column]: a ticket written there starts in this
+  /// column's own workflow state. On a merged board the column carries one state
+  /// per spanned project, so the state is resolved against the project the
+  /// ticket actually lands in.
+  IssueQuickCreateSeed _seedFor(BoardColumnView column) => quickCreateSeed(
+    (project) => column.states.isEmpty
+        ? null
+        : column.states.firstWhere(
+            (s) => project.stateNames.any(
+              (own) => own.toLowerCase() == s.toLowerCase(),
+            ),
+            orElse: () => column.states.first,
+          ),
+  );
 
   bool _isBacklogColumn(BoardColumnView c) =>
       c.name.trim().toLowerCase() == 'backlog' ||
@@ -112,6 +141,8 @@ class SprintActiveSurface extends StatelessWidget {
           boardDropState(issue, column.states, projectsById) ?? issue.state,
         ),
         onOpenIssue: onOpenIssue,
+        quickCreate: _seedFor(column),
+        onCreated: onCreated,
       ),
     );
   }
@@ -188,6 +219,8 @@ class SprintActiveSurface extends StatelessWidget {
                                   issue.state,
                             ),
                             onOpenIssue: onOpenIssue,
+                            quickCreate: _seedFor(column),
+                            onCreated: onCreated,
                           );
                         },
                       ),
@@ -207,6 +240,8 @@ class _SprintColumn extends StatelessWidget {
     required this.issues,
     required this.onAccept,
     required this.onOpenIssue,
+    required this.quickCreate,
+    required this.onCreated,
     this.laneMode = false,
     this.width = BoardWall.columnWidth,
     this.projectsById = const {},
@@ -216,6 +251,10 @@ class _SprintColumn extends StatelessWidget {
   final List<Issue> issues;
   final void Function(Issue) onAccept;
   final void Function(Issue) onOpenIssue;
+
+  /// What an issue written in this column's inline composer inherits.
+  final IssueQuickCreateSeed quickCreate;
+  final ValueChanged<Issue> onCreated;
 
   /// The board's projects by id — see [_BoardColumn.projectsById]. Needed here
   /// for the same reason: a sprint board may span several projects, and a
@@ -403,6 +442,15 @@ class _SprintColumn extends StatelessWidget {
                     // the dragged card's own height, so nothing already on the wall
                     // has to move aside.
                     BoardDropSlot(open: dropping, hasCards: issues.isNotEmpty),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: IssueQuickCreate(
+                        label: context.t('board.addIssue'),
+                        seed: quickCreate,
+                        onCreated: onCreated,
+                      ),
+                    ),
                   ],
                 ),
                 // Over the cards, never above them — the wall does not move

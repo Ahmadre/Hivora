@@ -39,8 +39,9 @@ abstract final class KbTokens {
   static const Color codeBlockFaint = Color(0xFF9C99C4);
 
   // ── space chip: text oklch(0.5 0.1 H) on oklch(0.95 0.04 H) ──
-  static Color spaceChipText(int hue) =>
-      _dark ? oklch(0.82, 0.08, hue.toDouble()) : oklch(0.5, 0.10, hue.toDouble());
+  static Color spaceChipText(int hue) => _dark
+      ? oklch(0.82, 0.08, hue.toDouble())
+      : oklch(0.5, 0.10, hue.toDouble());
   static Color spaceChipBg(int hue) => _dark
       ? oklch(0.60, 0.14, hue.toDouble()).withValues(alpha: 0.20)
       : oklch(0.95, 0.04, hue.toDouble());
@@ -76,8 +77,9 @@ abstract final class KbTokens {
     }
   }
 
-  static Color calloutInk(String kind) =>
-      _dark ? oklch(0.84, 0.08, _calloutHueDeg(kind)) : oklch(0.45, 0.10, _calloutHueDeg(kind));
+  static Color calloutInk(String kind) => _dark
+      ? oklch(0.84, 0.08, _calloutHueDeg(kind))
+      : oklch(0.45, 0.10, _calloutHueDeg(kind));
 
   static Color _calloutHue(String kind) =>
       oklch(0.60, 0.13, _calloutHueDeg(kind));
@@ -111,7 +113,8 @@ abstract final class KbTokens {
   }
 
   // ── issue / state tints ──
-  static Color issueChipColor(int typeHue) => oklch(0.55, 0.14, typeHue.toDouble());
+  static Color issueChipColor(int typeHue) =>
+      oklch(0.55, 0.14, typeHue.toDouble());
   static Color stateInk(int hue) => oklch(0.5, 0.13, hue.toDouble());
   static Color stateDot(int hue) => oklch(0.55, 0.13, hue.toDouble());
 }

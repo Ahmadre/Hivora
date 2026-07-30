@@ -30,61 +30,75 @@ class _Results extends StatelessWidget {
     GlobalKey keyFor(int i) => rowKeys.putIfAbsent(i, () => GlobalKey());
 
     if (controller.showRecents) {
-      children.add(_RecentsHead(
-        tokens: tokens,
-        hasItems: controller.recents.isNotEmpty,
-        onClear: controller.clearRecents,
-      ));
-      if (controller.recents.isEmpty) {
-        children.add(_EmptyDeep(
+      children.add(
+        _RecentsHead(
           tokens: tokens,
-          icon: null,
-          title: context.t('search.empty.title'),
-          subtitle: context.t('search.empty.subtitle'),
-        ));
+          hasItems: controller.recents.isNotEmpty,
+          onClear: controller.clearRecents,
+        ),
+      );
+      if (controller.recents.isEmpty) {
+        children.add(
+          _EmptyDeep(
+            tokens: tokens,
+            icon: null,
+            title: context.t('search.empty.title'),
+            subtitle: context.t('search.empty.subtitle'),
+          ),
+        );
       } else {
         for (final recent in controller.recents) {
           final i = flatIndex++;
-          children.add(_RecentRow(
-            key: keyFor(i),
-            tokens: tokens,
-            text: recent,
-            selected: controller.selected == i,
-            onTap: () => onApplyRecent(recent),
-            onHover: () => onHoverIndex(i),
-          ));
+          children.add(
+            _RecentRow(
+              key: keyFor(i),
+              tokens: tokens,
+              text: recent,
+              selected: controller.selected == i,
+              onTap: () => onApplyRecent(recent),
+              onHover: () => onHoverIndex(i),
+            ),
+          );
         }
       }
     } else if (controller.flatLength == 0) {
       // Only surface "no matches" for a real query — a blank scoped query just
       // awaits its suggestions (don't flash an empty-state).
       if (controller.query.trim().isNotEmpty) {
-        children.add(_EmptyDeep(
-          tokens: tokens,
-          icon: LucideIcons.searchX,
-          title: context.t('search.noMatch',
-              variables: {'q': controller.query.trim()}),
-          subtitle: context.t('search.noMatchSub'),
-        ));
+        children.add(
+          _EmptyDeep(
+            tokens: tokens,
+            icon: LucideIcons.searchX,
+            title: context.t(
+              'search.noMatch',
+              variables: {'q': controller.query.trim()},
+            ),
+            subtitle: context.t('search.noMatchSub'),
+          ),
+        );
       }
     } else {
       for (final group in controller.groups) {
-        children.add(_GroupLabel(
-          tokens: tokens,
-          icon: kSearchCatMeta[group.cat]!.icon,
-          label: context.t(kSearchCatMeta[group.cat]!.labelKey),
-        ));
+        children.add(
+          _GroupLabel(
+            tokens: tokens,
+            icon: kSearchCatMeta[group.cat]!.icon,
+            label: context.t(kSearchCatMeta[group.cat]!.labelKey),
+          ),
+        );
         for (final entry in group.items) {
           final i = flatIndex++;
-          children.add(_ResultRow(
-            key: keyFor(i),
-            tokens: tokens,
-            entry: entry,
-            query: controller.query,
-            selected: controller.selected == i,
-            onTap: () => onActivateEntry(entry),
-            onHover: () => onHoverIndex(i),
-          ));
+          children.add(
+            _ResultRow(
+              key: keyFor(i),
+              tokens: tokens,
+              entry: entry,
+              query: controller.query,
+              selected: controller.selected == i,
+              onTap: () => onActivateEntry(entry),
+              onHover: () => onHoverIndex(i),
+            ),
+          );
         }
       }
     }
@@ -213,13 +227,17 @@ class _ResultRow extends StatelessWidget {
         );
       case SearchCat.people:
         return HiveAvatar(
-            name: entry.avatarName ?? entry.title,
-            imageUrl: entry.avatarUrl,
-            size: 34);
+          name: entry.avatarName ?? entry.title,
+          imageUrl: entry.avatarUrl,
+          size: 34,
+        );
       case SearchCat.commands:
       case SearchCat.boards:
       case SearchCat.docs:
-        return _IconTile(tokens: tokens, icon: entry.leadingIcon ?? LucideIcons.zap);
+        return _IconTile(
+          tokens: tokens,
+          icon: entry.leadingIcon ?? LucideIcons.zap,
+        );
     }
   }
 
@@ -348,12 +366,19 @@ class _ResultRow extends StatelessWidget {
     switch (entry.cat) {
       case SearchCat.issues:
         if (entry.avatarName != null) {
-          meta.add(HiveAvatar(
-              name: entry.avatarName!, imageUrl: entry.avatarUrl, size: 22));
+          meta.add(
+            HiveAvatar(
+              name: entry.avatarName!,
+              imageUrl: entry.avatarUrl,
+              size: 22,
+            ),
+          );
         }
       case SearchCat.projects:
         if (entry.memberNames != null && entry.memberNames!.isNotEmpty) {
-          meta.add(HiveAvatarStack(names: entry.memberNames!, size: 20, max: 3));
+          meta.add(
+            HiveAvatarStack(names: entry.memberNames!, size: 20, max: 3),
+          );
         }
       case SearchCat.commands:
         if (entry.hint != null) {
@@ -366,11 +391,16 @@ class _ResultRow extends StatelessWidget {
     }
     if (selected) {
       if (meta.isNotEmpty) meta.add(const SizedBox(width: 8));
-      meta.add(Text('↵',
+      meta.add(
+        Text(
+          '↵',
           style: TextStyle(
-              fontFamily: AppTheme.fontMono,
-              fontSize: 12,
-              color: tokens.inkFaint)));
+            fontFamily: AppTheme.fontMono,
+            fontSize: 12,
+            color: tokens.inkFaint,
+          ),
+        ),
+      );
     }
     if (meta.isEmpty) return const SizedBox.shrink();
     return Row(mainAxisSize: MainAxisSize.min, children: meta);
@@ -409,7 +439,10 @@ class _RecentRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: tokens.ink),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: tokens.ink,
+            ),
           ),
         ),
         const SizedBox(width: 8),

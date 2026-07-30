@@ -3,7 +3,12 @@ part of 'dashboard_screen.dart';
 // ══════════════════════════ Card header ════════════════════════════════════
 
 class _CardHead extends StatelessWidget {
-  const _CardHead({required this.title, this.subLabel, this.actionLabel, this.onAction});
+  const _CardHead({
+    required this.title,
+    this.subLabel,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String title;
   final String? subLabel;
@@ -30,7 +35,11 @@ class _CardHead extends StatelessWidget {
         if (subLabel != null)
           Text(
             subLabel!,
-            style: TextStyle(fontFamily: AppTheme.fontMono, fontSize: 12, color: AppColors.inkFaint),
+            style: TextStyle(
+              fontFamily: AppTheme.fontMono,
+              fontSize: 12,
+              color: AppColors.inkFaint,
+            ),
           ),
         if (actionLabel != null && onAction != null)
           GestureDetector(
@@ -47,7 +56,11 @@ class _CardHead extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 3),
-                const Icon(LucideIcons.arrowRight, size: 13, color: AppColors.accentStrong),
+                const Icon(
+                  LucideIcons.arrowRight,
+                  size: 13,
+                  color: AppColors.accentStrong,
+                ),
               ],
             ),
           ),
@@ -76,20 +89,21 @@ class _CustomizeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final label =
-        context.t(editing ? 'dashboard.done_editing' : 'dashboard.customize');
+    final label = context.t(
+      editing ? 'dashboard.done_editing' : 'dashboard.customize',
+    );
     final icon = editing ? LucideIcons.check : LucideIcons.settings2;
     final bg = editing
         ? AppColors.accent
         : (dark
-            ? Colors.white.withValues(alpha: .09)
-            : Colors.white.withValues(alpha: .6));
+              ? Colors.white.withValues(alpha: .09)
+              : Colors.white.withValues(alpha: .6));
     final fg = editing ? const Color(0xFF2A2410) : AppColors.ink;
     final border = editing
         ? Colors.transparent
         : (dark
-            ? Colors.white.withValues(alpha: .14)
-            : Colors.white.withValues(alpha: .7));
+              ? Colors.white.withValues(alpha: .14)
+              : Colors.white.withValues(alpha: .7));
 
     final Widget content = saving
         ? SizedBox(
@@ -98,22 +112,22 @@ class _CustomizeButton extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2, color: fg),
           )
         : (compact
-            ? Icon(icon, size: 18, color: fg)
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 16, color: fg),
-                  const SizedBox(width: 7),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: fg,
+              ? Icon(icon, size: 18, color: fg)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16, color: fg),
+                    const SizedBox(width: 7),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: fg,
+                      ),
                     ),
-                  ),
-                ],
-              ));
+                  ],
+                ));
 
     return Semantics(
       button: true,
@@ -169,7 +183,11 @@ class _HideableCard extends StatelessWidget {
             child: child,
           ),
         ),
-        Positioned(top: 12, right: 12, child: _EyeToggle(hidden: hidden, onTap: onToggle)),
+        Positioned(
+          top: 12,
+          right: 12,
+          child: _EyeToggle(hidden: hidden, onTap: onToggle),
+        ),
       ],
     );
   }
@@ -237,12 +255,16 @@ class _EditToolbar extends StatelessWidget {
         _selectedBoard?.name ?? context.t('dashboard.heroBoardAuto');
     final projectsLabel = draft.projectIds.isEmpty
         ? context.t('dashboard.scopeAllProjects')
-        : context.t('dashboard.scopeProjectsCount',
-            variables: {'count': '${draft.projectIds.length}'});
+        : context.t(
+            'dashboard.scopeProjectsCount',
+            variables: {'count': '${draft.projectIds.length}'},
+          );
     final teamsLabel = draft.teamIds.isEmpty
         ? context.t('dashboard.scopeAllTeams')
-        : context.t('dashboard.scopeTeamsCount',
-            variables: {'count': '${draft.teamIds.length}'});
+        : context.t(
+            'dashboard.scopeTeamsCount',
+            variables: {'count': '${draft.teamIds.length}'},
+          );
 
     return _GlassCard(
       padding: const EdgeInsets.all(16),
@@ -251,7 +273,11 @@ class _EditToolbar extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.sparkles, size: 15, color: AppColors.accentStrong),
+              const Icon(
+                LucideIcons.sparkles,
+                size: 15,
+                color: AppColors.accentStrong,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -291,11 +317,15 @@ class _EditToolbar extends StatelessWidget {
               // Compact fixed-width fields (matching the popover width) that wrap
               // instead of stretching across the whole toolbar.
               const gap = 12.0;
-              final width = c.maxWidth < _kPickerWidth ? c.maxWidth : _kPickerWidth;
+              final width = c.maxWidth < _kPickerWidth
+                  ? c.maxWidth
+                  : _kPickerWidth;
               return Wrap(
                 spacing: gap,
                 runSpacing: gap,
-                children: [for (final f in fields) SizedBox(width: width, child: f)],
+                children: [
+                  for (final f in fields) SizedBox(width: width, child: f),
+                ],
               );
             },
           ),
@@ -309,13 +339,16 @@ class _EditToolbar extends StatelessWidget {
       context,
       anchorRect: anchor,
       width: _kPickerWidth,
-      builder: (_) => _BoardPickerSheet(boards: boards, selected: draft.boardId),
+      builder: (_) =>
+          _BoardPickerSheet(boards: boards, selected: draft.boardId),
     );
     if (result == null) return; // dismissed
-    onChanged(draft.copyWith(
-      boardId: result.isEmpty ? null : result,
-      clearBoard: result.isEmpty,
-    ));
+    onChanged(
+      draft.copyWith(
+        boardId: result.isEmpty ? null : result,
+        clearBoard: result.isEmpty,
+      ),
+    );
   }
 
   Future<void> _pickProjects(BuildContext context, Rect anchor) async {
@@ -535,8 +568,11 @@ class _ScopePickerSheetState extends State<_ScopePickerSheet> {
                   showIcon: false,
                   label: it.name,
                   selected: _sel.contains(it.id),
-                  onTap: () => setState(() =>
-                      _sel.contains(it.id) ? _sel.remove(it.id) : _sel.add(it.id)),
+                  onTap: () => setState(
+                    () => _sel.contains(it.id)
+                        ? _sel.remove(it.id)
+                        : _sel.add(it.id),
+                  ),
                 ),
             ],
           ),
@@ -580,7 +616,9 @@ class _ChoiceRow extends StatelessWidget {
             color: selected ? AppColors.accentSoft : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: selected ? AppColors.accent.withValues(alpha: .5) : AppColors.hairline,
+              color: selected
+                  ? AppColors.accent.withValues(alpha: .5)
+                  : AppColors.hairline,
             ),
           ),
           child: Row(
@@ -606,7 +644,11 @@ class _ChoiceRow extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(LucideIcons.check, size: 16, color: AppColors.accentStrong),
+                const Icon(
+                  LucideIcons.check,
+                  size: 16,
+                  color: AppColors.accentStrong,
+                ),
             ],
           ),
         ),

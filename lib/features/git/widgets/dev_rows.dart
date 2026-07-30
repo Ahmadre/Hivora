@@ -11,7 +11,12 @@ import '../git_tokens.dart';
 
 /// A hue-tinted rounded glyph tile used at the head of each development row.
 class DevGlyph extends StatelessWidget {
-  const DevGlyph({super.key, required this.hue, required this.icon, this.size = 26});
+  const DevGlyph({
+    super.key,
+    required this.hue,
+    required this.icon,
+    this.size = 26,
+  });
 
   final int hue;
   final IconData icon;
@@ -34,7 +39,12 @@ class DevGlyph extends StatelessWidget {
 
 /// A compact state pill (PR/MR state or checks/build status).
 class StatePill extends StatelessWidget {
-  const StatePill({super.key, required this.hue, required this.icon, required this.label});
+  const StatePill({
+    super.key,
+    required this.hue,
+    required this.icon,
+    required this.label,
+  });
 
   final int hue;
   final IconData icon;
@@ -60,7 +70,11 @@ class StatePill extends StatelessWidget {
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg),
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
             ),
           ),
         ],
@@ -89,7 +103,11 @@ class _MiniChecks extends StatelessWidget {
             maxLines: 1,
             softWrap: false,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: c),
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: c,
+            ),
           ),
         ),
       ],
@@ -99,7 +117,12 @@ class _MiniChecks extends StatelessWidget {
 
 /// Shared row shell: glyph + main column (title row + wrapping meta) + actions.
 class _DevRow extends StatelessWidget {
-  const _DevRow({required this.glyph, required this.top, required this.sub, this.actions});
+  const _DevRow({
+    required this.glyph,
+    required this.top,
+    required this.sub,
+    this.actions,
+  });
 
   final Widget glyph;
   final Widget top;
@@ -137,17 +160,18 @@ class _DevRow extends StatelessWidget {
   }
 }
 
-Widget _subText(String text) => Text(
-  text,
-  style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
-);
+Widget _subText(String text) =>
+    Text(text, style: TextStyle(fontSize: 11, color: AppColors.inkFaint));
 
-Widget _avatar(String? id, Map<String, String> names, Map<String, String> avatars) =>
-    HiveAvatar(
-      name: id == null ? '·' : (names[id] ?? '·'),
-      imageUrl: id == null ? null : avatars[id],
-      size: 16,
-    );
+Widget _avatar(
+  String? id,
+  Map<String, String> names,
+  Map<String, String> avatars,
+) => HiveAvatar(
+  name: id == null ? '·' : (names[id] ?? '·'),
+  imageUrl: id == null ? null : avatars[id],
+  size: 16,
+);
 
 class BranchRow extends StatelessWidget {
   const BranchRow({
@@ -184,12 +208,18 @@ class BranchRow extends StatelessWidget {
             children: [
               TextSpan(
                 text: '${branch.ahead}',
-                style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.ink),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                ),
               ),
               const TextSpan(text: '↑  '),
               TextSpan(
                 text: '${branch.behind}',
-                style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.ink),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                ),
               ),
               const TextSpan(text: '↓'),
             ],
@@ -202,7 +232,9 @@ class BranchRow extends StatelessWidget {
         ),
         _subText(context.t('git.branchFrom', variables: {'base': branch.base})),
         if (branch.updatedAt != null)
-          _subText('· ${context.t('git.updated', variables: {'ago': agoSuffixed(branch.updatedAt)})}'),
+          _subText(
+            '· ${context.t('git.updated', variables: {'ago': agoSuffixed(branch.updatedAt)})}',
+          ),
         _avatar(branch.authorId, names, avatars),
       ],
       actions: _OpenButton(tooltip: context.t('git.openBranch'), onTap: onOpen),
@@ -226,15 +258,15 @@ class CommitRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onOpen,
-      child: _row(context),
-    );
+    return InkWell(onTap: onOpen, child: _row(context));
   }
 
   Widget _row(BuildContext context) {
     return _DevRow(
-      glyph: const DevGlyph(hue: kHueCommit, icon: LucideIcons.gitCommitHorizontal),
+      glyph: const DevGlyph(
+        hue: kHueCommit,
+        icon: LucideIcons.gitCommitHorizontal,
+      ),
       actions: _OpenButton(tooltip: context.t('git.openCommit'), onTap: onOpen),
       top: Text(
         commit.message,
@@ -256,7 +288,11 @@ class CommitRow extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.badgeCheck, size: 12, color: AppColors.success),
+              const Icon(
+                LucideIcons.badgeCheck,
+                size: 12,
+                color: AppColors.success,
+              ),
               const SizedBox(width: 3),
               Text(
                 context.t('git.verified'),
@@ -329,7 +365,10 @@ class PrRow extends StatelessWidget {
               pr.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 6),
@@ -385,7 +424,10 @@ class PrRow extends StatelessWidget {
         // so it reflows below the pills on a narrow rail instead of squeezing
         // them into an overflow.
         if (pr.state == PrState.draft)
-          _GhostAction(label: context.t('git.ready'), onTap: busy ? null : onReady),
+          _GhostAction(
+            label: context.t('git.ready'),
+            onTap: busy ? null : onReady,
+          ),
         if (pr.state == PrState.open)
           _GhostAction(
             label: context.t('git.merge'),
@@ -495,7 +537,11 @@ class GitEmptyBox extends StatelessWidget {
           const SizedBox(height: 8),
           DefaultTextStyle.merge(
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: AppColors.inkSoft,
+            ),
             child: child,
           ),
           if (action != null) ...[const SizedBox(height: 10), action!],

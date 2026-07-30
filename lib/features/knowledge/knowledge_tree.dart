@@ -9,11 +9,8 @@ import 'knowledge_tokens.dart';
 
 /// Re-parent callback: move [id] under [parentId] (null = space root) within
 /// [spaceId].
-typedef ArticleMove = void Function(
-  String id, {
-  String? parentId,
-  required String spaceId,
-});
+typedef ArticleMove =
+    void Function(String id, {String? parentId, required String spaceId});
 
 /// Space switcher + nested, folder-style article tree. Pages can be dragged onto
 /// one another to nest (Confluence-style), dropped on the root zone to un-nest,
@@ -60,8 +57,11 @@ class KnowledgeTree extends StatelessWidget {
                 GlassMenuItem(
                   value: s.id,
                   label: s.name,
-                  leading: Icon(lucideIcon(s.icon),
-                      size: 16, color: KbTokens.accent),
+                  leading: Icon(
+                    lucideIcon(s.icon),
+                    size: 16,
+                    color: KbTokens.accent,
+                  ),
                 ),
             ],
             child: Container(
@@ -79,13 +79,17 @@ class KnowledgeTree extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontFamily: 'Sora',
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600),
+                        fontFamily: 'Sora',
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                  Icon(lucideIcon('chevron-down'),
-                      size: 16, color: AppColors.inkFaint),
+                  Icon(
+                    lucideIcon('chevron-down'),
+                    size: 16,
+                    color: AppColors.inkFaint,
+                  ),
                 ],
               ),
             ),
@@ -151,18 +155,17 @@ class _RootDropZoneState extends State<_RootDropZone> {
         decoration: BoxDecoration(
           color: _hover ? AppColors.accentSoft : Colors.transparent,
           borderRadius: BorderRadius.circular(6),
-          border: _hover
-              ? Border.all(color: AppColors.accentLine)
-              : null,
+          border: _hover ? Border.all(color: AppColors.accentLine) : null,
         ),
         alignment: Alignment.center,
         child: _hover
             ? Text(
                 context.t('knowledge.moveToTopLevel'),
                 style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: KbTokens.accent),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: KbTokens.accent,
+                ),
               )
             : null,
       ),
@@ -207,8 +210,11 @@ class _TreeBranchState extends State<_TreeBranch> {
       width: 240,
       onSelected: (v) {
         if (v == 'root') {
-          widget.onMove(widget.article.id,
-              parentId: null, spaceId: widget.article.spaceId);
+          widget.onMove(
+            widget.article.id,
+            parentId: null,
+            spaceId: widget.article.spaceId,
+          );
         } else if (v == 'delete' && canDelete) {
           widget.onDelete(widget.article.id);
         }
@@ -218,8 +224,11 @@ class _TreeBranchState extends State<_TreeBranch> {
           GlassMenuItem(
             value: 'root',
             label: context.t('knowledge.moveToTopLevel'),
-            leading: Icon(lucideIcon('panel-left'),
-                size: 16, color: AppColors.inkSoft),
+            leading: Icon(
+              lucideIcon('panel-left'),
+              size: 16,
+              color: AppColors.inkSoft,
+            ),
           ),
         GlassMenuItem(
           value: 'delete',
@@ -229,22 +238,32 @@ class _TreeBranchState extends State<_TreeBranch> {
           enabled: canDelete,
           color: AppColors.danger,
           dividerAbove: widget.article.parentId != null,
-          leading: Icon(lucideIcon('trash-2'), size: 16, color: AppColors.danger),
+          leading: Icon(
+            lucideIcon('trash-2'),
+            size: 16,
+            color: AppColors.danger,
+          ),
         ),
       ],
       child: Padding(
         padding: const EdgeInsets.all(4),
-        child: Icon(lucideIcon('ellipsis'), size: 15, color: AppColors.inkFaint),
+        child: Icon(
+          lucideIcon('ellipsis'),
+          size: 15,
+          color: AppColors.inkFaint,
+        ),
       ),
     );
   }
+
   bool _hover = false;
   bool _dropHover = false;
 
   @override
   Widget build(BuildContext context) {
-    final kids =
-        widget.inSpace.where((a) => a.parentId == widget.article.id).toList();
+    final kids = widget.inSpace
+        .where((a) => a.parentId == widget.article.id)
+        .toList();
     final selected = widget.selectedId == widget.article.id;
 
     final row = MouseRegion(
@@ -254,8 +273,8 @@ class _TreeBranchState extends State<_TreeBranch> {
         color: _dropHover
             ? AppColors.accentSoft
             : selected
-                ? AppColors.accentSoft
-                : Colors.transparent,
+            ? AppColors.accentSoft
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
@@ -274,16 +293,19 @@ class _TreeBranchState extends State<_TreeBranch> {
                   GestureDetector(
                     onTap: () => setState(() => _open = !_open),
                     child: Icon(
-                        lucideIcon(_open ? 'chevron-down' : 'chevron-right'),
-                        size: 15,
-                        color: AppColors.inkFaint),
+                      lucideIcon(_open ? 'chevron-down' : 'chevron-right'),
+                      size: 15,
+                      color: AppColors.inkFaint,
+                    ),
                   )
                 else
                   const SizedBox(width: 15),
                 const SizedBox(width: 6),
-                Icon(lucideIcon(widget.article.icon),
-                    size: 15,
-                    color: selected ? KbTokens.accent : AppColors.inkSoft),
+                Icon(
+                  lucideIcon(widget.article.icon),
+                  size: 15,
+                  color: selected ? KbTokens.accent : AppColors.inkSoft,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -292,8 +314,7 @@ class _TreeBranchState extends State<_TreeBranch> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                       color: selected ? AppColors.ink : AppColors.inkSoft,
                     ),
                   ),
@@ -318,12 +339,16 @@ class _TreeBranchState extends State<_TreeBranch> {
     final draggable = Draggable<String>(
       data: widget.article.id,
       dragAnchorStrategy: childDragAnchorStrategy,
-      feedback: _DragChip(title: widget.article.title, icon: widget.article.icon),
+      feedback: _DragChip(
+        title: widget.article.title,
+        icon: widget.article.icon,
+      ),
       childWhenDragging: Opacity(opacity: 0.4, child: row),
       child: DragTarget<String>(
         onWillAcceptWithDetails: (d) {
           // Reject self / moving a page into its own subtree.
-          final ok = d.data != widget.article.id &&
+          final ok =
+              d.data != widget.article.id &&
               !widget.repo.isSelfOrAncestor(d.data, widget.article.id);
           if (ok) setState(() => _dropHover = true);
           return ok;
@@ -331,8 +356,11 @@ class _TreeBranchState extends State<_TreeBranch> {
         onLeave: (_) => setState(() => _dropHover = false),
         onAcceptWithDetails: (d) {
           setState(() => _dropHover = false);
-          widget.onMove(d.data,
-              parentId: widget.article.id, spaceId: widget.article.spaceId);
+          widget.onMove(
+            d.data,
+            parentId: widget.article.id,
+            spaceId: widget.article.spaceId,
+          );
         },
         builder: (context, _, _) => row,
       ),
@@ -422,7 +450,9 @@ class _DragChip extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],

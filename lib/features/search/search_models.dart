@@ -12,14 +12,14 @@ class SearchCatMeta {
 }
 
 const Map<SearchCat, SearchCatMeta> kSearchCatMeta = {
-  SearchCat.commands:
-      SearchCatMeta(LucideIcons.command, 'search.cat.commands'),
+  SearchCat.commands: SearchCatMeta(LucideIcons.command, 'search.cat.commands'),
   SearchCat.issues: SearchCatMeta(LucideIcons.circleDot, 'search.cat.issues'),
-  SearchCat.projects:
-      SearchCatMeta(LucideIcons.squareKanban, 'search.cat.projects'),
+  SearchCat.projects: SearchCatMeta(
+    LucideIcons.squareKanban,
+    'search.cat.projects',
+  ),
   SearchCat.people: SearchCatMeta(LucideIcons.users, 'search.cat.people'),
-  SearchCat.boards:
-      SearchCatMeta(LucideIcons.columns3, 'search.cat.boards'),
+  SearchCat.boards: SearchCatMeta(LucideIcons.columns3, 'search.cat.boards'),
   SearchCat.docs: SearchCatMeta(LucideIcons.bookOpen, 'search.cat.docs'),
 };
 

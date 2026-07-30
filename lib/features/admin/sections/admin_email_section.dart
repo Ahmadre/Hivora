@@ -17,8 +17,7 @@ class AdminEmailSection extends StatefulWidget {
 
 class _AdminEmailSectionState extends State<AdminEmailSection> {
   Map<String, dynamic> get _smtp =>
-      (widget.settings['smtp'] ??= <String, dynamic>{})
-          as Map<String, dynamic>;
+      (widget.settings['smtp'] ??= <String, dynamic>{}) as Map<String, dynamic>;
 
   @override
   Widget build(BuildContext context) {
@@ -62,8 +61,7 @@ class _AdminEmailSectionState extends State<AdminEmailSection> {
                     child: AdminToggle(
                       label: context.t('admin.smtpStartTls'),
                       value: (_smtp['starttls'] as bool?) ?? true,
-                      onChanged: (v) =>
-                          setState(() => _smtp['starttls'] = v),
+                      onChanged: (v) => setState(() => _smtp['starttls'] = v),
                     ),
                   ),
                 ],
@@ -88,8 +86,7 @@ class _AdminEmailSectionState extends State<AdminEmailSection> {
               ),
               AdminField(
                 label: context.t('admin.smtpFromName'),
-                initialValue:
-                    (_smtp['fromName'] as String?) ?? 'Hinata',
+                initialValue: (_smtp['fromName'] as String?) ?? 'Hinata',
                 onChanged: (v) => _smtp['fromName'] = v,
               ),
             ],

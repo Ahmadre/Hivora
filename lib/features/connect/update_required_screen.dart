@@ -18,10 +18,10 @@ String? storeUrlForPlatform(ServerMeta? meta) {
   final url = Platform.isIOS
       ? meta.iosStoreUrl
       : Platform.isAndroid
-          ? meta.androidStoreUrl
-          : Platform.isMacOS
-              ? meta.macosStoreUrl
-              : '';
+      ? meta.androidStoreUrl
+      : Platform.isMacOS
+      ? meta.macosStoreUrl
+      : '';
   return url.trim().isEmpty ? null : url.trim();
 }
 
@@ -54,25 +54,32 @@ class UpdateRequiredScreen extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(LucideIcons.cloudDownload,
-                        size: 56, color: AppColors.navy),
+                    const Icon(
+                      LucideIcons.cloudDownload,
+                      size: 56,
+                      color: AppColors.navy,
+                    ),
                     const SizedBox(height: 20),
                     Text(
                       context.t('update.title'),
                       textAlign: TextAlign.center,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
+                      style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      context.t('update.body', variables: {
-                        'current': appVersion,
-                        'required': minVersion,
-                      }),
+                      context.t(
+                        'update.body',
+                        variables: {
+                          'current': appVersion,
+                          'required': minVersion,
+                        },
+                      ),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
                     ),
                     if (storeUrl != null) ...[
                       const SizedBox(height: 24),

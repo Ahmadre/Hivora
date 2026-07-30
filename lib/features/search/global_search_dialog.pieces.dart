@@ -101,7 +101,8 @@ class _ScopeChip extends StatelessWidget {
           color: active ? tokens.tintStrong : Colors.transparent,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-              color: active ? tokens.edgeSoft : Colors.transparent),
+            color: active ? tokens.edgeSoft : Colors.transparent,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -111,7 +112,10 @@ class _ScopeChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                  fontSize: 12.5, fontWeight: FontWeight.w600, color: fg),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
             ),
             if (count != null) ...[
               const SizedBox(width: 6),
@@ -132,7 +136,11 @@ class _ScopeChip extends StatelessWidget {
 }
 
 class _EscPill extends StatelessWidget {
-  const _EscPill({required this.tokens, required this.onTap, required this.mobile});
+  const _EscPill({
+    required this.tokens,
+    required this.onTap,
+    required this.mobile,
+  });
   final SearchTokens tokens;
   final VoidCallback onTap;
   final bool mobile;
@@ -150,7 +158,9 @@ class _EscPill extends StatelessWidget {
           color: tokens.inkSoft,
           onPressed: onTap,
           style: ButtonStyle(
-            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 9, vertical: 4)),
+            padding: WidgetStateProperty.all(
+              const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            ),
           ),
         ),
       );
@@ -186,15 +196,21 @@ class _KbdHint extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-            fontFamily: AppTheme.fontMono, fontSize: 11, color: tokens.inkSoft),
+          fontFamily: AppTheme.fontMono,
+          fontSize: 11,
+          color: tokens.inkSoft,
+        ),
       ),
     );
   }
 }
 
 class _GroupLabel extends StatelessWidget {
-  const _GroupLabel(
-      {required this.tokens, required this.icon, required this.label});
+  const _GroupLabel({
+    required this.tokens,
+    required this.icon,
+    required this.label,
+  });
   final SearchTokens tokens;
   final IconData icon;
   final String label;
@@ -223,8 +239,11 @@ class _GroupLabel extends StatelessWidget {
 }
 
 class _RecentsHead extends StatelessWidget {
-  const _RecentsHead(
-      {required this.tokens, required this.hasItems, required this.onClear});
+  const _RecentsHead({
+    required this.tokens,
+    required this.hasItems,
+    required this.onClear,
+  });
   final SearchTokens tokens;
   final bool hasItems;
   final VoidCallback onClear;
@@ -252,9 +271,10 @@ class _RecentsHead extends StatelessWidget {
               child: Text(
                 context.t('search.recent.clear'),
                 style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: tokens.inkSoft),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: tokens.inkSoft,
+                ),
               ),
             ),
         ],
@@ -293,7 +313,10 @@ class _EmptyDeep extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: tokens.inkSoft),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: tokens.inkSoft,
+            ),
           ),
           const SizedBox(height: 6),
           ConstrainedBox(
@@ -311,8 +334,11 @@ class _EmptyDeep extends StatelessWidget {
 }
 
 class _FootHint extends StatelessWidget {
-  const _FootHint(
-      {required this.tokens, required this.caps, required this.label});
+  const _FootHint({
+    required this.tokens,
+    required this.caps,
+    required this.label,
+  });
   final SearchTokens tokens;
   final List<String> caps;
   final String label;
@@ -326,10 +352,7 @@ class _FootHint extends StatelessWidget {
           _Cap(tokens: tokens, text: c),
           const SizedBox(width: 6),
         ],
-        Text(
-          label,
-          style: TextStyle(fontSize: 11.5, color: tokens.inkSoft),
-        ),
+        Text(label, style: TextStyle(fontSize: 11.5, color: tokens.inkSoft)),
       ],
     );
   }
@@ -354,7 +377,10 @@ class _Cap extends StatelessWidget {
         text,
         textAlign: TextAlign.center,
         style: TextStyle(
-            fontFamily: AppTheme.fontMono, fontSize: 11, color: tokens.ink),
+          fontFamily: AppTheme.fontMono,
+          fontSize: 11,
+          color: tokens.ink,
+        ),
       ),
     );
   }
@@ -362,8 +388,11 @@ class _Cap extends StatelessWidget {
 
 /// Pointer-tracked radial sheen, soft-light blended (§3.6). Desktop only.
 class _PointerGlare extends StatefulWidget {
-  const _PointerGlare(
-      {required this.color, required this.enabled, required this.child});
+  const _PointerGlare({
+    required this.color,
+    required this.enabled,
+    required this.child,
+  });
   final Color color;
   final bool enabled;
   final Widget child;
@@ -418,8 +447,11 @@ class _PointerGlareState extends State<_PointerGlare> {
 
 /// 1px specular rim: bright top-left → dim → bright bottom-right at 140°.
 class _RimPainter extends CustomPainter {
-  _RimPainter(
-      {required this.radius, required this.edge, required this.edgeSoft});
+  _RimPainter({
+    required this.radius,
+    required this.edge,
+    required this.edgeSoft,
+  });
   final double radius;
   final Color edge;
   final Color edgeSoft;
@@ -427,8 +459,10 @@ class _RimPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect =
-        RRect.fromRectAndRadius(rect.deflate(0.5), Radius.circular(radius));
+    final rrect = RRect.fromRectAndRadius(
+      rect.deflate(0.5),
+      Radius.circular(radius),
+    );
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
@@ -448,7 +482,11 @@ class _RimPainter extends CustomPainter {
 
 /// Wraps matched query substrings in a highlight background (the `<mark>`).
 List<InlineSpan> _highlightSpans(
-    String text, String query, TextStyle base, Color markBg) {
+  String text,
+  String query,
+  TextStyle base,
+  Color markBg,
+) {
   final terms = query
       .trim()
       .toLowerCase()
@@ -464,9 +502,12 @@ List<InlineSpan> _highlightSpans(
     if (m.start > last) {
       spans.add(TextSpan(text: text.substring(last, m.start), style: base));
     }
-    spans.add(TextSpan(
+    spans.add(
+      TextSpan(
         text: text.substring(m.start, m.end),
-        style: base.copyWith(backgroundColor: markBg)));
+        style: base.copyWith(backgroundColor: markBg),
+      ),
+    );
     last = m.end;
   }
   if (last < text.length) {

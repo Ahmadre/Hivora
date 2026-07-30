@@ -223,7 +223,9 @@ class _InputPane extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(child: HivBrandLockup(hexSize: context.isCompact ? 34 : 44)),
+              Center(
+                child: HivBrandLockup(hexSize: context.isCompact ? 34 : 44),
+              ),
               const SizedBox(height: 18),
               child,
             ],

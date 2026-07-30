@@ -53,7 +53,8 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
   @override
   void didUpdateWidget(DeploymentPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.project.git?.branchTemplate != oldWidget.project.git?.branchTemplate) {
+    if (widget.project.git?.branchTemplate !=
+        oldWidget.project.git?.branchTemplate) {
       _templateOverride = null;
     }
   }
@@ -142,7 +143,11 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
             AnimatedRotation(
               turns: _open ? 0.25 : 0,
               duration: const Duration(milliseconds: 180),
-              child: Icon(LucideIcons.chevronRight, size: 15, color: AppColors.inkFaint),
+              child: Icon(
+                LucideIcons.chevronRight,
+                size: 15,
+                color: AppColors.inkFaint,
+              ),
             ),
             const SizedBox(width: 8),
             Text(
@@ -220,8 +225,10 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
               Expanded(
                 child: Text(
                   _gear
-                      ? context.t('git.branchTemplateHeader',
-                          variables: {'project': widget.project.name})
+                      ? context.t(
+                          'git.branchTemplateHeader',
+                          variables: {'project': widget.project.name},
+                        )
                       : context.t('git.branchApplyHeader'),
                   style: TextStyle(
                     fontSize: 11,
@@ -233,12 +240,18 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
                 ),
               ),
               const SizedBox(width: 8),
-              _GearButton(active: _gear, onTap: () => setState(() => _gear = !_gear)),
+              _GearButton(
+                active: _gear,
+                onTap: () => setState(() => _gear = !_gear),
+              ),
             ],
           ),
           const SizedBox(height: 9),
           if (_gear) ...[
-            CopyField(text: _template, onCopied: () => _toast(context.t('git.copied'))),
+            CopyField(
+              text: _template,
+              onCopied: () => _toast(context.t('git.copied')),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
@@ -246,24 +259,33 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
               children: [
                 _chip('+ {key}', () => _appendToken('{key}')),
                 _chip('+ {summary}', () => _appendToken('{summary}')),
-                _chip(context.t('git.reset'), () => _setTemplate('{key}-{summary}')),
+                _chip(
+                  context.t('git.reset'),
+                  () => _setTemplate('{key}-{summary}'),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               context.t('git.tokensHint'),
-              style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.inkSoft),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.inkSoft,
+              ),
             ),
           ] else ...[
             CopyField(
-                text: _checkout,
-                onCopied: () => _toast(context.t('git.copiedToClipboard'))),
+              text: _checkout,
+              onCopied: () => _toast(context.t('git.copiedToClipboard')),
+            ),
             if (auto.branchCreated.on && moveTo != null) ...[
               const SizedBox(height: 10),
               _autoHint(
-                  context.t('git.branchAutoPrefix', variables: {'key': _key}),
-                  moveTo,
-                  '.'),
+                context.t('git.branchAutoPrefix', variables: {'key': _key}),
+                moveTo,
+                '.',
+              ),
             ],
           ],
         ],
@@ -283,16 +305,24 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
           const SizedBox(height: 6),
           Text(
             context.t('git.linkCommitsDesc'),
-            style: TextStyle(fontSize: 12, height: 1.55, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.55,
+              color: AppColors.inkSoft,
+            ),
           ),
           const SizedBox(height: 10),
           _fieldLabel(context.t('git.copyKey')),
-          CopyField(text: _key, onCopied: () => _toast(context.t('git.copied'))),
+          CopyField(
+            text: _key,
+            onCopied: () => _toast(context.t('git.copied')),
+          ),
           const SizedBox(height: 10),
           _fieldLabel(context.t('git.copyExampleCommit')),
           CopyField(
-              text: _commitExample,
-              onCopied: () => _toast(context.t('git.copied'))),
+            text: _commitExample,
+            onCopied: () => _toast(context.t('git.copied')),
+          ),
           if (auto.smartCommits) ...[
             const SizedBox(height: 10),
             _autoHintRich(),
@@ -313,7 +343,10 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
             backgroundColor: AppColors.accent,
             foregroundColor: const Color(0xFF2A2410),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            textStyle: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusControl),
             ),
@@ -362,7 +395,10 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               trailing,
@@ -418,11 +454,18 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
           alignment: PlaceholderAlignment.middle,
           child: Padding(
             padding: EdgeInsets.only(right: 5),
-            child: Icon(LucideIcons.zap, size: 12, color: AppColors.accentStrong),
+            child: Icon(
+              LucideIcons.zap,
+              size: 12,
+              color: AppColors.accentStrong,
+            ),
           ),
         ),
         TextSpan(text: pre),
-        TextSpan(text: bold, style: const TextStyle(fontWeight: FontWeight.w700)),
+        TextSpan(
+          text: bold,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         TextSpan(text: post),
       ],
     ),
@@ -436,7 +479,11 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
           alignment: PlaceholderAlignment.middle,
           child: Padding(
             padding: EdgeInsets.only(right: 5),
-            child: Icon(LucideIcons.zap, size: 12, color: AppColors.accentStrong),
+            child: Icon(
+              LucideIcons.zap,
+              size: 12,
+              color: AppColors.accentStrong,
+            ),
           ),
         ),
         TextSpan(text: context.t('git.smartCommitsHintPrefix')),

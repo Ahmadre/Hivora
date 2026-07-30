@@ -147,7 +147,11 @@ class SettingRow extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             description!,
-            style: TextStyle(fontSize: 12, height: 1.35, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.35,
+              color: AppColors.inkSoft,
+            ),
             softWrap: true,
           ),
         ],

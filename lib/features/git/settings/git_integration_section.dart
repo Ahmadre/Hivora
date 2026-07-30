@@ -57,7 +57,8 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
     if (widget.project.git?.automation != oldWidget.project.git?.automation) {
       _automationOverride = null;
     }
-    if (widget.project.git?.branchTemplate != oldWidget.project.git?.branchTemplate) {
+    if (widget.project.git?.branchTemplate !=
+        oldWidget.project.git?.branchTemplate) {
       _templateOverride = null;
     }
   }
@@ -76,9 +77,14 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
     if (updated != null && mounted) {
       widget.onProjectChanged(updated);
       final added = updated.allRepos.isNotEmpty ? updated.allRepos.last : null;
-      _toast(added == null
-          ? context.t('git.repoConnected')
-          : context.t('git.connected', variables: {'repo': '${added.owner}/${added.repo}'}));
+      _toast(
+        added == null
+            ? context.t('git.repoConnected')
+            : context.t(
+                'git.connected',
+                variables: {'repo': '${added.owner}/${added.repo}'},
+              ),
+      );
     }
   }
 
@@ -86,7 +92,10 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
     final confirmed = await showGlassConfirm(
       context,
       icon: LucideIcons.unlink,
-      title: context.t('git.disconnectTitle', variables: {'repo': '${repo.owner}/${repo.repo}'}),
+      title: context.t(
+        'git.disconnectTitle',
+        variables: {'repo': '${repo.owner}/${repo.repo}'},
+      ),
       message: context.t('git.disconnectMessage'),
       confirmLabel: context.t('git.disconnect'),
       confirmIcon: LucideIcons.unlink,
@@ -95,10 +104,18 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
     if (confirmed != true) return;
     setState(() => _busy = true);
     try {
-      final updated = await _repo.gitDisconnect(widget.project.id, repoId: repo.id);
+      final updated = await _repo.gitDisconnect(
+        widget.project.id,
+        repoId: repo.id,
+      );
       if (mounted) {
         widget.onProjectChanged(updated);
-        _toast(context.t('git.disconnected', variables: {'repo': '${repo.owner}/${repo.repo}'}));
+        _toast(
+          context.t(
+            'git.disconnected',
+            variables: {'repo': '${repo.owner}/${repo.repo}'},
+          ),
+        );
       }
     } catch (e) {
       _toast(_message(e));
@@ -167,9 +184,7 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
               ],
             )
           : null,
-      child: (git != null && prov != null)
-          ? _connected(git, prov)
-          : _cta(),
+      child: (git != null && prov != null) ? _connected(git, prov) : _cta(),
     );
   }
 
@@ -190,7 +205,10 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
         ),
         const SizedBox(height: 12),
         Text(
-          context.t('git.connectTo', variables: {'project': widget.project.name}),
+          context.t(
+            'git.connectTo',
+            variables: {'project': widget.project.name},
+          ),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontFamily: AppTheme.fontBrand,
@@ -204,7 +222,11 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
           child: Text(
             context.t('git.ctaBody'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, height: 1.6, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.6,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -356,10 +378,17 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.refreshCw, size: 13, color: AppColors.success),
+            const Icon(
+              LucideIcons.refreshCw,
+              size: 13,
+              color: AppColors.success,
+            ),
             const SizedBox(width: 5),
             Text(
-              context.t('git.syncedAgo', variables: {'ago': _syncedLabel(context, git.lastSyncAt)}),
+              context.t(
+                'git.syncedAgo',
+                variables: {'ago': _syncedLabel(context, git.lastSyncAt)},
+              ),
               style: const TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -378,7 +407,9 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
           style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
         ),
         _dot(),
-        _methodBadge(context.t(git.isOAuth ? 'git.methodOauth' : 'git.methodToken')),
+        _methodBadge(
+          context.t(git.isOAuth ? 'git.methodOauth' : 'git.methodToken'),
+        ),
       ],
     );
   }
@@ -412,7 +443,11 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
               TextSpan(text: context.t('git.automationDescSuffix')),
             ],
           ),
-          style: TextStyle(fontSize: 12, height: 1.55, color: AppColors.inkSoft),
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.55,
+            color: AppColors.inkSoft,
+          ),
         ),
         const SizedBox(height: 10),
         _ruleRow(
@@ -432,14 +467,20 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
         _ruleRow(
           icon: LucideIcons.gitPullRequest,
           verb: context.t('git.prOpenedVerb', variables: {'pr': prov.prShort}),
-          when: context.t('git.prOpenedWhen', variables: {'pr': prov.prTerm.toLowerCase()}),
+          when: context.t(
+            'git.prOpenedWhen',
+            variables: {'pr': prov.prTerm.toLowerCase()},
+          ),
           rule: auto.prOpened,
           onChanged: (r) => _updateAutomation(auto.copyWith(prOpened: r)),
         ),
         _ruleRow(
           icon: LucideIcons.gitMerge,
           verb: context.t('git.prMergedVerb', variables: {'pr': prov.prShort}),
-          when: context.t('git.prMergedWhen', variables: {'pr': prov.prTerm.toLowerCase()}),
+          when: context.t(
+            'git.prMergedWhen',
+            variables: {'pr': prov.prTerm.toLowerCase()},
+          ),
           rule: auto.prMerged,
           onChanged: (r) => _updateAutomation(auto.copyWith(prMerged: r)),
         ),
@@ -478,9 +519,16 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
                     children: [
                       Text(
                         verb,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      Icon(LucideIcons.arrowRight, size: 14, color: AppColors.inkFaint),
+                      Icon(
+                        LucideIcons.arrowRight,
+                        size: 14,
+                        color: AppColors.inkFaint,
+                      ),
                       _stateSelect(rule, onChanged),
                     ],
                   ),
@@ -546,10 +594,17 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
                 ],
                 Text(
                   target?.name ?? context.t('git.chooseState'),
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(width: 4),
-                Icon(LucideIcons.chevronDown, size: 15, color: AppColors.inkFaint),
+                Icon(
+                  LucideIcons.chevronDown,
+                  size: 15,
+                  color: AppColors.inkFaint,
+                ),
               ],
             ),
           ),
@@ -590,7 +645,10 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
                 const SizedBox(width: 9),
                 Text(
                   s.name,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -617,7 +675,10 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
               children: [
                 Text(
                   context.t('git.smartCommits'),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -626,11 +687,26 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
                 ),
                 if (auto.smartCommits) ...[
                   const SizedBox(height: 10),
-                  _scExample('${widget.project.key}-42', '#comment', 'ready for QA', context.t('git.scAddsComment')),
+                  _scExample(
+                    '${widget.project.key}-42',
+                    '#comment',
+                    'ready for QA',
+                    context.t('git.scAddsComment'),
+                  ),
                   const SizedBox(height: 6),
-                  _scExample('${widget.project.key}-42', '#time', '2h 30m', context.t('git.scLogsWork')),
+                  _scExample(
+                    '${widget.project.key}-42',
+                    '#time',
+                    '2h 30m',
+                    context.t('git.scLogsWork'),
+                  ),
                   const SizedBox(height: 6),
-                  _scExample('${widget.project.key}-42', '#done', '', context.t('git.scTransitions')),
+                  _scExample(
+                    '${widget.project.key}-42',
+                    '#done',
+                    '',
+                    context.t('git.scTransitions'),
+                  ),
                 ],
               ],
             ),
@@ -640,7 +716,8 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
             padding: const EdgeInsets.only(top: 2),
             child: HiveSwitch(
               value: auto.smartCommits,
-              onChanged: (v) => _updateAutomation(auto.copyWith(smartCommits: v)),
+              onChanged: (v) =>
+                  _updateAutomation(auto.copyWith(smartCommits: v)),
             ),
           ),
         ],
@@ -711,7 +788,11 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
               TextSpan(text: context.t('git.branchNamingSuffix')),
             ],
           ),
-          style: TextStyle(fontSize: 12, height: 1.55, color: AppColors.inkSoft),
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.55,
+            color: AppColors.inkSoft,
+          ),
         ),
         const SizedBox(height: 10),
         ConstrainedBox(
@@ -719,15 +800,24 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CopyField(text: template, onCopied: () => _toast(context.t('git.copied'))),
+              CopyField(
+                text: template,
+                onCopied: () => _toast(context.t('git.copied')),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
                   _tokenChip('+ {key}', () => _appendToken(template, '{key}')),
-                  _tokenChip('+ {summary}', () => _appendToken(template, '{summary}')),
-                  _tokenChip(context.t('git.reset'), () => _updateTemplate('{key}-{summary}')),
+                  _tokenChip(
+                    '+ {summary}',
+                    () => _appendToken(template, '{summary}'),
+                  ),
+                  _tokenChip(
+                    context.t('git.reset'),
+                    () => _updateTemplate('{key}-{summary}'),
+                  ),
                 ],
               ),
             ],
@@ -739,7 +829,9 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
 
   void _appendToken(String current, String token) {
     final joined =
-        current + (current.isNotEmpty && !current.endsWith('-') ? '-' : '') + token;
+        current +
+        (current.isNotEmpty && !current.endsWith('-') ? '-' : '') +
+        token;
     _updateTemplate(joined);
   }
 
@@ -757,7 +849,11 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
         children: [
           const Padding(
             padding: EdgeInsets.only(top: 1),
-            child: Icon(LucideIcons.info, size: 16, color: AppColors.accentStrong),
+            child: Icon(
+              LucideIcons.info,
+              size: 16,
+              color: AppColors.accentStrong,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -767,8 +863,10 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
                   TextSpan(text: context.t('git.calloutPrefix')),
                   _mono('${widget.project.key}-123', boldAccent: true),
                   TextSpan(
-                    text: context.t('git.calloutSuffix',
-                        variables: {'pr': prov.prTerm.toLowerCase()}),
+                    text: context.t(
+                      'git.calloutSuffix',
+                      variables: {'pr': prov.prTerm.toLowerCase()},
+                    ),
                   ),
                 ],
               ),
@@ -817,7 +915,11 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(LucideIcons.gitBranch, size: 12, color: AppColors.accentStrong),
+        const Icon(
+          LucideIcons.gitBranch,
+          size: 12,
+          color: AppColors.accentStrong,
+        ),
         const SizedBox(width: 5),
         Text(
           branch,
@@ -896,7 +998,10 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
   Widget _dot() => Container(
     width: 3,
     height: 3,
-    decoration: BoxDecoration(color: AppColors.inkFaint, shape: BoxShape.circle),
+    decoration: BoxDecoration(
+      color: AppColors.inkFaint,
+      shape: BoxShape.circle,
+    ),
   );
 
   InlineSpan _mono(String text, {bool boldAccent = false}) => TextSpan(

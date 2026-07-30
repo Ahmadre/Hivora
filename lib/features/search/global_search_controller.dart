@@ -164,8 +164,9 @@ class GlobalSearchController extends ChangeNotifier {
           keys: hit.title.toLowerCase(),
           mono: hit.readableId,
           issueType: hit.type,
-          statusColor:
-              hit.state != null ? AppColors.stateColor(hit.state!) : null,
+          statusColor: hit.state != null
+              ? AppColors.stateColor(hit.state!)
+              : null,
           statusName: hit.state != null ? stateLabel(hit.state!) : null,
           avatarName: hit.assigneeName,
           avatarUrl: hit.assigneeAvatarUrl,
@@ -182,8 +183,9 @@ class GlobalSearchController extends ChangeNotifier {
           subtitle:
               '${hit.openCount ?? 0} open · ${hit.doneCount ?? 0} done · $members members',
           keyChipText: hit.projectKey,
-          keyChipColor:
-              hit.projectColor != null ? _parseHex(hit.projectColor!) : null,
+          keyChipColor: hit.projectColor != null
+              ? _parseHex(hit.projectColor!)
+              : null,
           memberNames: hit.memberNames,
           archived: hit.archived,
           onSelect: open,
@@ -239,7 +241,10 @@ class GlobalSearchController extends ChangeNotifier {
     for (final keyword in _archivedKeywords) {
       if (lower == keyword) return (query: '', archived: true);
       if (lower.startsWith('$keyword ')) {
-        return (query: trimmed.substring(keyword.length).trim(), archived: true);
+        return (
+          query: trimmed.substring(keyword.length).trim(),
+          archived: true,
+        );
       }
     }
     return (query: trimmed, archived: false);
@@ -260,7 +265,9 @@ class GlobalSearchController extends ChangeNotifier {
 
     _groups = out;
     _flat = [for (final g in out) ...g.items];
-    if (_selected >= flatLength) _selected = flatLength == 0 ? 0 : flatLength - 1;
+    if (_selected >= flatLength) {
+      _selected = flatLength == 0 ? 0 : flatLength - 1;
+    }
     if (_selected < 0) _selected = 0;
   }
 
@@ -276,7 +283,9 @@ class GlobalSearchController extends ChangeNotifier {
     final cap = _scope == SearchCat.commands ? 24 : 5;
     if (terms.isEmpty) {
       // Empty query only surfaces commands under the Commands scope.
-      return _scope == SearchCat.commands ? _commands.take(cap).toList() : const [];
+      return _scope == SearchCat.commands
+          ? _commands.take(cap).toList()
+          : const [];
     }
     final scored = <({SearchEntry it, int s})>[];
     for (final it in _commands) {
@@ -428,14 +437,14 @@ class GlobalSearchController extends ChangeNotifier {
   // ─────────────────────────── helpers ──────────────────────────────────
 
   static SearchCat? _catFromName(String name) => switch (name.toUpperCase()) {
-        'COMMANDS' => SearchCat.commands,
-        'ISSUES' => SearchCat.issues,
-        'PROJECTS' => SearchCat.projects,
-        'PEOPLE' => SearchCat.people,
-        'BOARDS' => SearchCat.boards,
-        'DOCS' => SearchCat.docs,
-        _ => null,
-      };
+    'COMMANDS' => SearchCat.commands,
+    'ISSUES' => SearchCat.issues,
+    'PROJECTS' => SearchCat.projects,
+    'PEOPLE' => SearchCat.people,
+    'BOARDS' => SearchCat.boards,
+    'DOCS' => SearchCat.docs,
+    _ => null,
+  };
 
   static Color _parseHex(String hex) {
     var h = hex.replaceAll('#', '').trim();

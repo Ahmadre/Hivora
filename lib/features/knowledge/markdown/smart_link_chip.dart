@@ -177,19 +177,20 @@ class _SmartLinkChipState extends State<SmartLinkChip> {
     }
   }
 
-  Widget _label(String text, Color color, {bool bold = false}) => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 240),
-    child: Text(
-      text,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-        color: color,
-      ),
-    ),
-  );
+  Widget _label(String text, Color color, {bool bold = false}) =>
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 240),
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+            color: color,
+          ),
+        ),
+      );
 
   Widget _chipShell({
     required Color background,

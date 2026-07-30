@@ -99,7 +99,11 @@ class _EditingBanner extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
       child: Row(
         children: [
-          const Icon(LucideIcons.pencil, size: 14, color: AppColors.accentStrong),
+          const Icon(
+            LucideIcons.pencil,
+            size: 14,
+            color: AppColors.accentStrong,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -154,12 +158,18 @@ class _ReplyBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(9),
-          border: const Border(left: BorderSide(color: AppColors.accent, width: 3)),
+          border: const Border(
+            left: BorderSide(color: AppColors.accent, width: 3),
+          ),
         ),
         padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
         child: Row(
           children: [
-            const Icon(LucideIcons.reply, size: 14, color: AppColors.accentStrong),
+            const Icon(
+              LucideIcons.reply,
+              size: 14,
+              color: AppColors.accentStrong,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(

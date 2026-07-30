@@ -198,7 +198,8 @@ class _BoardColumn extends StatefulWidget {
     required this.avatars,
     required this.onAccept,
     required this.canAccept,
-    required this.onAddIssue,
+    required this.quickCreate,
+    required this.onCreated,
     required this.onOpenIssue,
     this.laneMode = false,
     this.width = BoardWall.columnWidth,
@@ -223,7 +224,13 @@ class _BoardColumn extends StatefulWidget {
   /// the card's own workflow. Drives the drop affordance so an impossible drop
   /// is refused while it's still in the air, not with a toast afterwards.
   final bool Function(Issue) canAccept;
-  final VoidCallback onAddIssue;
+
+  /// What an issue written in this column's inline composer inherits — the
+  /// column's project(s) and workflow state, plus any lane pre-fills.
+  final IssueQuickCreateSeed quickCreate;
+
+  /// Fired once the composer created an issue, so the board reloads.
+  final ValueChanged<Issue> onCreated;
   final void Function(Issue) onOpenIssue;
 
   /// In a swimlane the board scrolls as one unit, so the column sizes to its
@@ -452,20 +459,16 @@ class _BoardColumnState extends State<_BoardColumn> {
                       ),
                       const SizedBox(height: 8),
                       // Reveal the add button on hover (mouse) / always (touch); keep
-                      // its space reserved so columns don't resize.
+                      // its space reserved so columns don't resize. Tapping it
+                      // opens the inline composer right here, which stays put
+                      // regardless of hover — it holds the user's draft.
                       SizedBox(
                         width: double.infinity,
-                        child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                          opacity: revealAdd ? 1 : 0,
-                          child: IgnorePointer(
-                            ignoring: !revealAdd,
-                            child: DottedAddButton(
-                              label: context.t('board.addIssue'),
-                              onTap: widget.onAddIssue,
-                            ),
-                          ),
+                        child: IssueQuickCreate(
+                          label: context.t('board.addIssue'),
+                          dimmed: !revealAdd,
+                          seed: widget.quickCreate,
+                          onCreated: widget.onCreated,
                         ),
                       ),
                     ],
@@ -646,110 +649,4 @@ class _MiniMeta extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Dashed "Add issue" button used at the foot of board columns.
-class DottedAddButton extends StatefulWidget {
-  const DottedAddButton({super.key, required this.label, this.onTap});
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  State<DottedAddButton> createState() => _DottedAddButtonState();
-}
-
-class _DottedAddButtonState extends State<DottedAddButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppTheme.radiusControl);
-    final accent = _hovered ? AppColors.accentStrong : AppColors.inkFaint;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: radius,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOut,
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            color: _hovered ? AppColors.accentSoft : null,
-          ),
-          child: CustomPaint(
-            painter: _DashedBorderPainter(
-              color: _hovered ? AppColors.accent : AppColors.hairline,
-              radius: AppTheme.radiusControl,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(LucideIcons.plus, size: 15, color: accent),
-                  const SizedBox(width: 7),
-                  Text(
-                    widget.label,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: accent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Paints a rounded-rectangle border made of evenly spaced dashes.
-class _DashedBorderPainter extends CustomPainter {
-  _DashedBorderPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-  static const double dashWidth = 5;
-  static const double dashGap = 4;
-  static const double strokeWidth = 1.3;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    const inset = strokeWidth / 2;
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        inset,
-        inset,
-        size.width - strokeWidth,
-        size.height - strokeWidth,
-      ),
-      Radius.circular(radius),
-    );
-
-    final path = Path()..addRRect(rrect);
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = math.min(distance + dashWidth, metric.length);
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance = end + dashGap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorderPainter old) =>
-      old.color != color || old.radius != radius;
 }

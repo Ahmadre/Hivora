@@ -175,7 +175,9 @@ class _BottomNav extends StatelessWidget {
                     // non-negative through the overshoot.
                     boxShadow: [
                       BoxShadow(
-                        color: _amber.withValues(alpha: i == index ? 0.55 : 0.0),
+                        color: _amber.withValues(
+                          alpha: i == index ? 0.55 : 0.0,
+                        ),
                         blurRadius: 10,
                       ),
                     ],

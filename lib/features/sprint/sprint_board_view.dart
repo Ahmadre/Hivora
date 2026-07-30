@@ -19,7 +19,7 @@ import '../board/board_filter.dart';
 import '../board/board_filter_popup.dart';
 import '../board/board_people_strip.dart';
 import '../board/board_swimlanes.dart';
-import '../issues/issue_form.dart';
+import '../board/issue_quick_create.dart';
 import 'modals/complete_sprint_dialog.dart';
 import 'modals/glass_modal.dart' show GlassToastKind, showGlassToast;
 import 'modals/create_sprint_dialog.dart';
@@ -497,20 +497,27 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
     }
   }
 
-  Future<void> _addIssue(String? sprintId) async {
-    final projectId = _board.projectIds.isNotEmpty
-        ? _board.projectIds.first
-        : null;
-    // Pre-select the target sprint so the issue is created straight into it
-    // (the server starts it in the working state, not the backlog).
-    final created = await showIssueForm(
-      context,
-      projectId: projectId,
-      initialSprintId: sprintId,
-    );
-    if (created == null) return;
-    await _loadAll();
-  }
+  /// The board's projects in board order — what an inline composer on this
+  /// surface may create into. More than one only on a merged board, where the
+  /// composer shows a project control rather than picking the first silently.
+  List<Project> get _boardProjects => [
+    for (final id in _board.projectIds)
+      if (widget.projectsById[id] != null) widget.projectsById[id]!,
+  ];
+
+  /// Seeds a section's inline composer. [sprintId] targets the sprint the
+  /// ticket is written into (null = the backlog); [stateFor] carries the column
+  /// state on the active board, where a composer sits under a column.
+  IssueQuickCreateSeed _quickCreateSeed(
+    String? sprintId, {
+    String? Function(Project project)? stateFor,
+  }) => IssueQuickCreateSeed(
+    projects: _boardProjects,
+    stateFor: stateFor,
+    sprintId: sprintId,
+  );
+
+  Future<void> _onQuickCreated(Issue created) => _loadAll();
 
   int _nextSprintNumber() {
     var max = 0;
@@ -770,7 +777,8 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           onEstimate: _estimate,
           onMoveToSprint: _moveIssueToSprint,
           onBulkMove: _bulkMove,
-          onAddIssue: _addIssue,
+          quickCreateSeed: _quickCreateSeed,
+          onCreated: _onQuickCreated,
           onCreateSprint: _createSprint,
           onStartSprint: _startSprint,
           onCompleteSprint: _completeSprint,
@@ -798,6 +806,9 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           projectsById: widget.projectsById,
           onOpenIssue: widget.onOpenIssue,
           onMoveState: _moveIssueState,
+          quickCreateSeed: (stateFor) =>
+              _quickCreateSeed(sprint.id, stateFor: stateFor),
+          onCreated: _onQuickCreated,
         );
       case _Tab.insights:
         final sprint = _activeSprint;

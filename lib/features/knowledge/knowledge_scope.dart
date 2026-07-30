@@ -20,13 +20,11 @@ class KnowledgeScope extends InheritedWidget {
   final void Function(KbUser user) openUser;
 
   static KnowledgeScope of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<KnowledgeScope>();
+    final scope = context.dependOnInheritedWidgetOfExactType<KnowledgeScope>();
     assert(scope != null, 'No KnowledgeScope found in context');
     return scope!;
   }
 
   @override
-  bool updateShouldNotify(KnowledgeScope oldWidget) =>
-      repo != oldWidget.repo;
+  bool updateShouldNotify(KnowledgeScope oldWidget) => repo != oldWidget.repo;
 }

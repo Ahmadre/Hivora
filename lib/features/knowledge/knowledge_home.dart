@@ -49,8 +49,8 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
         ? null
         : repo.articles.where((a) {
             final sp = repo.spaceById(a.spaceId);
-            final hay =
-                '${a.title} ${sp?.name ?? ''} ${a.labels.join(' ')}'.toLowerCase();
+            final hay = '${a.title} ${sp?.name ?? ''} ${a.labels.join(' ')}'
+                .toLowerCase();
             return hay.contains(_query.toLowerCase());
           }).toList();
 
@@ -66,10 +66,16 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
           const SizedBox(height: 26),
           _sectionHeader(context.t('knowledge.recentlyUpdated')),
           const SizedBox(height: 12),
-          ..._recent(repo).map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: _KbHit(repo: repo, article: a, onTap: widget.onOpenArticle),
-              )),
+          ..._recent(repo).map(
+            (a) => Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: _KbHit(
+                repo: repo,
+                article: a,
+                onTap: widget.onOpenArticle,
+              ),
+            ),
+          ),
         ],
       ],
     );
@@ -78,7 +84,8 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
   List<KbArticle> _recent(KnowledgeRepository repo) {
     final list = [...repo.articles];
     list.sort((a, b) {
-      int rank(KbArticle x) => x.updated.contains('h') || x.updated.contains('now') ? 0 : 1;
+      int rank(KbArticle x) =>
+          x.updated.contains('h') || x.updated.contains('now') ? 0 : 1;
       return rank(a).compareTo(rank(b));
     });
     return list.take(5).toList();
@@ -124,9 +131,15 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted, shape: BoxShape.circle),
+                  color: AppColors.surfaceMuted,
+                  shape: BoxShape.circle,
+                ),
                 alignment: Alignment.center,
-                child: Icon(lucideIcon('x'), size: 14, color: AppColors.inkSoft),
+                child: Icon(
+                  lucideIcon('x'),
+                  size: 14,
+                  color: AppColors.inkSoft,
+                ),
               ),
             ),
         ],
@@ -144,12 +157,18 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _sectionHeader('${matches.length} result${matches.length != 1 ? 's' : ''}'),
+        _sectionHeader(
+          '${matches.length} result${matches.length != 1 ? 's' : ''}',
+        ),
         const SizedBox(height: 12),
         for (final a in matches)
           Padding(
             padding: const EdgeInsets.only(bottom: 7),
-            child: _KbHit(repo: widget.repo, article: a, onTap: widget.onOpenArticle),
+            child: _KbHit(
+              repo: widget.repo,
+              article: a,
+              onTap: widget.onOpenArticle,
+            ),
           ),
       ],
     );
@@ -174,7 +193,8 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
                   space: s,
                   count: repo.articleCountInSpace(s.id),
                   onTap: () => widget.onOpenSpace(s.id),
-                  onDelete: repo.isPersistedSpace(s.id) &&
+                  onDelete:
+                      repo.isPersistedSpace(s.id) &&
                           repo.articleCountInSpace(s.id) == 0
                       ? () => widget.onDeleteSpace(s.id)
                       : null,
@@ -191,14 +211,14 @@ class _KnowledgeHomeState extends State<KnowledgeHome> {
   }
 
   Widget _sectionHeader(String text) => Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          letterSpacing: 0.8,
-          fontWeight: FontWeight.w700,
-          color: AppColors.inkFaint,
-        ),
-      );
+    text.toUpperCase(),
+    style: TextStyle(
+      fontSize: 12,
+      letterSpacing: 0.8,
+      fontWeight: FontWeight.w700,
+      color: AppColors.inkFaint,
+    ),
+  );
 }
 
 class _SpaceCard extends StatelessWidget {
@@ -245,11 +265,16 @@ class _SpaceCard extends StatelessWidget {
                     message: context.t('knowledge.deleteSpace'),
                     child: InkWell(
                       onTap: onDelete,
-                      borderRadius: BorderRadius.circular(KbTokens.radiusControl),
+                      borderRadius: BorderRadius.circular(
+                        KbTokens.radiusControl,
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(6),
-                        child: Icon(lucideIcon('trash-2'),
-                            size: 15, color: AppColors.inkFaint),
+                        child: Icon(
+                          lucideIcon('trash-2'),
+                          size: 15,
+                          color: AppColors.inkFaint,
+                        ),
                       ),
                     ),
                   ),
@@ -264,33 +289,48 @@ class _SpaceCard extends StatelessWidget {
                       height: 44,
                       decoration: BoxDecoration(
                         color: KbTokens.spaceChipBg(space.hue),
-                        borderRadius: BorderRadius.circular(KbTokens.radiusControl),
+                        borderRadius: BorderRadius.circular(
+                          KbTokens.radiusControl,
+                        ),
                       ),
                       alignment: Alignment.center,
-                      child: Icon(lucideIcon(space.icon),
-                          size: 22, color: KbTokens.spaceChipText(space.hue)),
+                      child: Icon(
+                        lucideIcon(space.icon),
+                        size: 22,
+                        color: KbTokens.spaceChipText(space.hue),
+                      ),
                     ),
                     const SizedBox(height: 14),
-                    Text(space.name,
-                        style: const TextStyle(
-                            fontFamily: AppTheme.fontBrand,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2)),
+                    Text(
+                      space.name,
+                      style: const TextStyle(
+                        fontFamily: AppTheme.fontBrand,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
                     const SizedBox(height: 7),
-                    Text(space.desc,
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            height: 1.45,
-                            color: AppColors.inkSoft)),
+                    Text(
+                      space.desc,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.45,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Text(
-                        context.t('knowledge.articleCount',
-                            variables: {'count': '$count'}),
-                        style: TextStyle(
-                            fontFamily: AppTheme.fontMono,
-                            fontSize: 11,
-                            color: AppColors.inkFaint)),
+                      context.t(
+                        'knowledge.articleCount',
+                        variables: {'count': '$count'},
+                      ),
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontMono,
+                        fontSize: 11,
+                        color: AppColors.inkFaint,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -332,8 +372,11 @@ class _NewSpaceCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(KbTokens.radiusControl),
                 ),
                 alignment: Alignment.center,
-                child: Icon(lucideIcon('folder-plus'),
-                    size: 22, color: AppColors.inkSoft),
+                child: Icon(
+                  lucideIcon('folder-plus'),
+                  size: 22,
+                  color: AppColors.inkSoft,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -357,7 +400,11 @@ class _NewSpaceCard extends StatelessWidget {
 }
 
 class _KbHit extends StatelessWidget {
-  const _KbHit({required this.repo, required this.article, required this.onTap});
+  const _KbHit({
+    required this.repo,
+    required this.article,
+    required this.onTap,
+  });
   final KnowledgeRepository repo;
   final KbArticle article;
   final ValueChanged<String> onTap;
@@ -389,25 +436,36 @@ class _KbHit extends StatelessWidget {
                   borderRadius: BorderRadius.circular(KbTokens.radiusControl),
                 ),
                 alignment: Alignment.center,
-                child: Icon(lucideIcon(article.icon),
-                    size: 19, color: KbTokens.spaceChipText(hue)),
+                child: Icon(
+                  lucideIcon(article.icon),
+                  size: 19,
+                  color: KbTokens.spaceChipText(hue),
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(article.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: -0.1)),
+                    Text(
+                      article.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       '${sp?.name ?? ''} · ${context.t('knowledge.updatedAgo', variables: {'when': article.updated})} · ${author?.name ?? ''}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.inkSoft,
+                      ),
                     ),
                   ],
                 ),
@@ -418,11 +476,14 @@ class _KbHit extends StatelessWidget {
                 children: [
                   Icon(lucideIcon('eye'), size: 13, color: AppColors.inkFaint),
                   const SizedBox(width: 5),
-                  Text('${article.reads}',
-                      style: TextStyle(
-                          fontFamily: AppTheme.fontMono,
-                          fontSize: 11.5,
-                          color: AppColors.inkFaint)),
+                  Text(
+                    '${article.reads}',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontMono,
+                      fontSize: 11.5,
+                      color: AppColors.inkFaint,
+                    ),
+                  ),
                 ],
               ),
             ],

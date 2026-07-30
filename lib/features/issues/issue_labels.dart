@@ -276,7 +276,11 @@ class _CreateRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
-              const Icon(LucideIcons.plus, size: 18, color: AppColors.accentStrong),
+              const Icon(
+                LucideIcons.plus,
+                size: 18,
+                color: AppColors.accentStrong,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

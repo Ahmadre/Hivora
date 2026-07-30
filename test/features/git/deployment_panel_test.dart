@@ -38,23 +38,23 @@ void main() {
   );
 
   Widget host(double width) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: width,
-              child: SingleChildScrollView(
-                child: DeploymentPanel(
-                  issue: issue,
-                  project: project,
-                  onConnectInSettings: () {},
-                  onProjectChanged: (_) {},
-                ),
-              ),
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      body: Center(
+        child: SizedBox(
+          width: width,
+          child: SingleChildScrollView(
+            child: DeploymentPanel(
+              issue: issue,
+              project: project,
+              onConnectInSettings: () {},
+              onProjectChanged: (_) {},
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   // The action rows label themselves via context.t (i18next); without a
   // localization delegate wired in, context.t echoes the raw key, so we tap the

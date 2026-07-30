@@ -108,7 +108,9 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
       // code for a token. Owners/repos are then fetched with the real token.
       final start = await _repoApi.gitOAuthStart(_pid, provider.id);
       if (!mounted) return;
-      if (!start.available || start.authorizeUrl == null || start.state == null) {
+      if (!start.available ||
+          start.authorizeUrl == null ||
+          start.state == null) {
         // No OAuth app is registered for this provider yet. This is a
         // platform-wide, admin-only setup — surface a clear explanation
         // (works for non-admins too) instead of silently dropping to the
@@ -124,8 +126,12 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
       );
       if (!mounted) return;
       if (!launched) {
-        _toast(context.t('git.connect.browserOpenError',
-            variables: {'provider': provider.label}));
+        _toast(
+          context.t(
+            'git.connect.browserOpenError',
+            variables: {'provider': provider.label},
+          ),
+        );
         return;
       }
       setState(() => _awaiting = true);
@@ -251,7 +257,8 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
       e is ApiFailure ? e.message : context.t('git.genericError');
 
   bool get _canFinish => switch (_step) {
-    _Step.token => _urlCtrl.text.trim().isNotEmpty && _tokenCtrl.text.trim().isNotEmpty,
+    _Step.token =>
+      _urlCtrl.text.trim().isNotEmpty && _tokenCtrl.text.trim().isNotEmpty,
     _Step.repo => _repo != null,
     _ => false,
   };
@@ -298,7 +305,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
               color: AppColors.accentSoft,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(LucideIcons.gitBranch, size: 20, color: AppColors.accentStrong),
+            child: const Icon(
+              LucideIcons.gitBranch,
+              size: 20,
+              color: AppColors.accentStrong,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -318,7 +329,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                 Text.rich(
                   TextSpan(
                     children: [
-                      TextSpan(text: '${context.t('git.connect.linkPrefix')}${p.name} '),
+                      TextSpan(
+                        text:
+                            '${context.t('git.connect.linkPrefix')}${p.name} ',
+                      ),
                       TextSpan(
                         text: '(${p.key})',
                         style: const TextStyle(fontFamily: AppTheme.fontMono),
@@ -360,8 +374,14 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
     final steps = <(_Step, String)>[
       (_Step.provider, context.t('git.connect.stepProvider')),
       (_Step.authorize, context.t('git.connect.stepAuthorize')),
-      (_Step.owner, p == null ? context.t('git.connect.stepOwner') : _cap(p.ownerWord)),
-      (_Step.repo, p == null ? context.t('git.connect.stepRepository') : _cap(p.unit)),
+      (
+        _Step.owner,
+        p == null ? context.t('git.connect.stepOwner') : _cap(p.ownerWord),
+      ),
+      (
+        _Step.repo,
+        p == null ? context.t('git.connect.stepRepository') : _cap(p.unit),
+      ),
     ];
     final currentIdx = steps.indexWhere((s) => s.$1 == _step);
     return Padding(
@@ -407,7 +427,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
               ? const Icon(LucideIcons.check, size: 12, color: Colors.white)
               : Text(
                   '${index + 1}',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
                 ),
         ),
         const SizedBox(width: 7),
@@ -473,7 +497,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                 TextSpan(text: context.t('git.connect.selfManagedSuffix')),
               ],
             ),
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
       ],
@@ -538,8 +566,15 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
         _hint(
           icon: LucideIcons.externalLink,
           child: Text(
-            context.t('git.connect.awaitingHint', variables: {'provider': p.label}),
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.inkSoft),
+            context.t(
+              'git.connect.awaitingHint',
+              variables: {'provider': p.label},
+            ),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
         const SizedBox(height: 22),
@@ -547,13 +582,19 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
           child: SizedBox(
             width: 26,
             height: 26,
-            child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.navy),
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: AppColors.navy,
+            ),
           ),
         ),
         const SizedBox(height: 14),
         Center(
           child: Text(
-            context.t('git.connect.awaitingWaiting', variables: {'provider': p.label}),
+            context.t(
+              'git.connect.awaitingWaiting',
+              variables: {'provider': p.label},
+            ),
             style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
           ),
         ),
@@ -566,7 +607,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                 launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
               }
             },
-            icon: Icon(LucideIcons.refreshCw, size: 14, color: AppColors.inkSoft),
+            icon: Icon(
+              LucideIcons.refreshCw,
+              size: 14,
+              color: AppColors.inkSoft,
+            ),
             label: Text(
               context.t('git.connect.reopenAuth'),
               style: TextStyle(color: AppColors.inkSoft),
@@ -593,13 +638,20 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
               color: AppColors.accentSoft,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(LucideIcons.lock, size: 24, color: AppColors.warning),
+            child: const Icon(
+              LucideIcons.lock,
+              size: 24,
+              color: AppColors.warning,
+            ),
           ),
         ),
         const SizedBox(height: 14),
         Center(
           child: Text(
-            context.t('git.connect.unavailableTitle', variables: {'provider': p.label}),
+            context.t(
+              'git.connect.unavailableTitle',
+              variables: {'provider': p.label},
+            ),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontFamily: AppTheme.fontBrand,
@@ -611,9 +663,16 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
         const SizedBox(height: 6),
         Center(
           child: Text(
-            context.t('git.connect.unavailableBody', variables: {'provider': p.label}),
+            context.t(
+              'git.connect.unavailableBody',
+              variables: {'provider': p.label},
+            ),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, height: 1.55, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12.5,
+              height: 1.55,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -633,7 +692,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                 ),
               ],
             ),
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
       ],
@@ -664,7 +727,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
               child: const HexMark(size: 30, color: AppColors.accent),
             ),
             const SizedBox(width: 14),
-            Icon(LucideIcons.arrowLeftRight, size: 18, color: AppColors.inkFaint),
+            Icon(
+              LucideIcons.arrowLeftRight,
+              size: 18,
+              color: AppColors.inkFaint,
+            ),
             const SizedBox(width: 14),
             ProviderGlyph(provider: p, size: 46),
           ],
@@ -672,7 +739,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
         const SizedBox(height: 14),
         Center(
           child: Text(
-            context.t('git.connect.authorizeTitle', variables: {'provider': p.label}),
+            context.t(
+              'git.connect.authorizeTitle',
+              variables: {'provider': p.label},
+            ),
             style: const TextStyle(
               fontFamily: AppTheme.fontBrand,
               fontSize: 17,
@@ -683,7 +753,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
         const SizedBox(height: 4),
         Center(
           child: Text(
-            context.t('git.connect.authorizeSubtitle', variables: {'provider': p.label}),
+            context.t(
+              'git.connect.authorizeSubtitle',
+              variables: {'provider': p.label},
+            ),
             style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
           ),
         ),
@@ -708,7 +781,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(LucideIcons.circleCheckBig, size: 16, color: AppColors.success),
+                      const Icon(
+                        LucideIcons.circleCheckBig,
+                        size: 16,
+                        color: AppColors.success,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -717,10 +794,16 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                             Text.rich(
                               TextSpan(
                                 children: [
-                                  TextSpan(text: _permTitle(context, perms[i].titleKey)),
+                                  TextSpan(
+                                    text: _permTitle(
+                                      context,
+                                      perms[i].titleKey,
+                                    ),
+                                  ),
                                   if (perms[i].required)
                                     TextSpan(
-                                      text: ' · ${context.t('git.connect.required')}',
+                                      text:
+                                          ' · ${context.t('git.connect.required')}',
                                       style: TextStyle(
                                         fontWeight: FontWeight.w500,
                                         color: AppColors.inkFaint,
@@ -735,7 +818,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                             ),
                             Text(
                               context.t(perms[i].descKey),
-                              style: TextStyle(fontSize: 11.5, color: AppColors.inkFaint),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.inkFaint,
+                              ),
                             ),
                           ],
                         ),
@@ -769,7 +855,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            context.t('git.connect.chooseOwner', variables: {'owner': p.ownerWord}),
+            context.t(
+              'git.connect.chooseOwner',
+              variables: {'owner': p.ownerWord},
+            ),
             style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
           ),
         ),
@@ -815,8 +904,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
-                    hintText: context.t('git.connect.searchHint',
-                        variables: {'unit': '${p.unit}s'}),
+                    hintText: context.t(
+                      'git.connect.searchHint',
+                      variables: {'unit': '${p.unit}s'},
+                    ),
                     hintStyle: TextStyle(color: AppColors.inkFaint),
                   ),
                 ),
@@ -830,8 +921,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Center(
               child: Text(
-                context.t('git.connect.noMatches',
-                    variables: {'unit': '${p.unit}s', 'query': _query}),
+                context.t(
+                  'git.connect.noMatches',
+                  variables: {'unit': '${p.unit}s', 'query': _query},
+                ),
                 style: TextStyle(color: AppColors.inkFaint),
               ),
             ),
@@ -860,7 +953,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
           icon: LucideIcons.info,
           child: Text(
             context.t('git.connect.tokenIntro'),
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -887,7 +984,9 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
             enableSuggestions: false,
             onChanged: (_) => setState(() {}),
             style: const TextStyle(fontFamily: AppTheme.fontMono),
-            decoration: glassInputDecoration(hint: 'glpat-••••••••••••••••••••'),
+            decoration: glassInputDecoration(
+              hint: 'glpat-••••••••••••••••••••',
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -895,7 +994,11 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: () => setState(() => _step = _Step.provider),
-            icon: Icon(LucideIcons.arrowLeft, size: 14, color: AppColors.inkSoft),
+            icon: Icon(
+              LucideIcons.arrowLeft,
+              size: 14,
+              color: AppColors.inkSoft,
+            ),
             label: Text(
               context.t('git.connect.useOauthInstead'),
               style: TextStyle(color: AppColors.inkSoft),
@@ -910,7 +1013,9 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
   Widget _footer() {
     final showBack =
         !widget.startToken &&
-        (_step == _Step.authorize || _step == _Step.owner || _step == _Step.repo);
+        (_step == _Step.authorize ||
+            _step == _Step.owner ||
+            _step == _Step.repo);
     final primary = _step == _Step.authorize
         ? (_unavailable
               ? _PrimaryAction(
@@ -927,7 +1032,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
                 ))
         : _PrimaryAction(
             label: _repo != null
-                ? context.t('git.connect.connectNamed', variables: {'name': _repo!.name})
+                ? context.t(
+                    'git.connect.connectNamed',
+                    variables: {'name': _repo!.name},
+                  )
                 : context.t('git.connect.connect'),
             icon: LucideIcons.link,
             busy: _busy,
@@ -938,16 +1046,24 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.hairline.withValues(alpha: 0.6))),
+        border: Border(
+          top: BorderSide(color: AppColors.hairline.withValues(alpha: 0.6)),
+        ),
       ),
       child: Row(
         children: [
           if (showBack)
             TextButton.icon(
               onPressed: _busy ? null : _back,
-              icon: Icon(LucideIcons.arrowLeft, size: 14, color: AppColors.inkSoft),
-              label: Text(context.t('common.back'),
-                  style: TextStyle(color: AppColors.inkSoft)),
+              icon: Icon(
+                LucideIcons.arrowLeft,
+                size: 14,
+                color: AppColors.inkSoft,
+              ),
+              label: Text(
+                context.t('common.back'),
+                style: TextStyle(color: AppColors.inkSoft),
+              ),
             ),
           const Spacer(),
           TextButton(

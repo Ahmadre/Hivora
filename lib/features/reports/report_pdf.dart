@@ -126,8 +126,7 @@ Future<pw.Document> _buildDocument(ReportPdfData data) async {
           _burndownSection(data),
           pw.SizedBox(height: 22),
         ],
-        ...data.sections
-            .map((s) => _distributionSection(s, data.noDataLabel)),
+        ...data.sections.map((s) => _distributionSection(s, data.noDataLabel)),
       ],
       footer: (context) => pw.Container(
         alignment: pw.Alignment.centerRight,
@@ -163,7 +162,9 @@ pw.Widget _header(ReportPdfData data, pw.Widget? logo) {
               if (logo != null)
                 pw.ConstrainedBox(
                   constraints: const pw.BoxConstraints(
-                      maxHeight: 36, maxWidth: 240),
+                    maxHeight: 36,
+                    maxWidth: 240,
+                  ),
                   child: pw.FittedBox(
                     fit: pw.BoxFit.contain,
                     alignment: pw.Alignment.centerLeft,
@@ -180,36 +181,51 @@ pw.Widget _header(ReportPdfData data, pw.Widget? logo) {
                       child: pw.SvgImage(svg: _hinataMarkSvg),
                     ),
                     pw.SizedBox(width: 9),
-                    pw.Text('hinata',
-                        style: const pw.TextStyle(
-                            color: PdfColors.white,
-                            fontSize: 19,
-                            fontWeight: pw.FontWeight.bold)),
+                    pw.Text(
+                      'hinata',
+                      style: const pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 19,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               pw.SizedBox(height: 10),
-              pw.Text(data.pdfTitleLabel,
-                  style: const pw.TextStyle(
-                      color: PdfColors.white,
-                      fontSize: 22,
-                      fontWeight: pw.FontWeight.bold)),
+              pw.Text(
+                data.pdfTitleLabel,
+                style: const pw.TextStyle(
+                  color: PdfColors.white,
+                  fontSize: 22,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
               pw.SizedBox(height: 2),
-              pw.Text(data.projectName,
-                  style: const pw.TextStyle(
-                      color: PdfColor.fromInt(0xFFC9C7E0), fontSize: 12)),
+              pw.Text(
+                data.projectName,
+                style: const pw.TextStyle(
+                  color: PdfColor.fromInt(0xFFC9C7E0),
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
         ),
         pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
-            pw.Text(data.orgName,
-                style: const pw.TextStyle(
-                    color: PdfColors.white, fontSize: 11)),
+            pw.Text(
+              data.orgName,
+              style: const pw.TextStyle(color: PdfColors.white, fontSize: 11),
+            ),
             pw.SizedBox(height: 4),
-            pw.Text(data.generatedAtLabel,
-                style: const pw.TextStyle(
-                    color: PdfColor.fromInt(0xFF807EA0), fontSize: 9)),
+            pw.Text(
+              data.generatedAtLabel,
+              style: const pw.TextStyle(
+                color: PdfColor.fromInt(0xFF807EA0),
+                fontSize: 9,
+              ),
+            ),
           ],
         ),
       ],
@@ -219,28 +235,33 @@ pw.Widget _header(ReportPdfData data, pw.Widget? logo) {
 
 pw.Widget _summaryRow(ReportPdfData data) {
   pw.Widget stat(String value, String label) => pw.Expanded(
-        child: pw.Container(
-          padding: const pw.EdgeInsets.all(16),
-          margin: const pw.EdgeInsets.only(right: 12),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: _hairline),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+    child: pw.Container(
+      padding: const pw.EdgeInsets.all(16),
+      margin: const pw.EdgeInsets.only(right: 12),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: _hairline),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(10)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            value,
+            style: const pw.TextStyle(
+              fontSize: 26,
+              fontWeight: pw.FontWeight.bold,
+              color: _ink,
+            ),
           ),
-          child: pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(value,
-                  style: const pw.TextStyle(
-                      fontSize: 26,
-                      fontWeight: pw.FontWeight.bold,
-                      color: _ink)),
-              pw.SizedBox(height: 2),
-              pw.Text(label,
-                  style: const pw.TextStyle(fontSize: 10, color: _inkSoft)),
-            ],
+          pw.SizedBox(height: 2),
+          pw.Text(
+            label,
+            style: const pw.TextStyle(fontSize: 10, color: _inkSoft),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
   return pw.Row(
     children: [
@@ -252,11 +273,16 @@ pw.Widget _summaryRow(ReportPdfData data) {
 }
 
 pw.Widget _sectionTitle(String title) => pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 10),
-      child: pw.Text(title,
-          style: const pw.TextStyle(
-              fontSize: 14, fontWeight: pw.FontWeight.bold, color: _ink)),
-    );
+  padding: const pw.EdgeInsets.only(bottom: 10),
+  child: pw.Text(
+    title,
+    style: const pw.TextStyle(
+      fontSize: 14,
+      fontWeight: pw.FontWeight.bold,
+      color: _ink,
+    ),
+  ),
+);
 
 pw.Widget _burndownSection(ReportPdfData data) {
   final maxY = data.burndown
@@ -276,11 +302,18 @@ pw.Widget _burndownSection(ReportPdfData data) {
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text(data.burndownTitleLabel,
-                style: const pw.TextStyle(
-                    fontSize: 14, fontWeight: pw.FontWeight.bold, color: _ink)),
-            pw.Text(data.openRemainingLabel,
-                style: const pw.TextStyle(fontSize: 10, color: _inkSoft)),
+            pw.Text(
+              data.burndownTitleLabel,
+              style: const pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+                color: _ink,
+              ),
+            ),
+            pw.Text(
+              data.openRemainingLabel,
+              style: const pw.TextStyle(fontSize: 10, color: _inkSoft),
+            ),
           ],
         ),
         pw.SizedBox(height: 14),
@@ -354,8 +387,10 @@ pw.Widget _distributionSection(PdfSection section, String noDataLabel) {
       children: [
         _sectionTitle(section.title),
         if (section.rows.isEmpty)
-          pw.Text(noDataLabel,
-              style: const pw.TextStyle(fontSize: 10, color: _inkFaint))
+          pw.Text(
+            noDataLabel,
+            style: const pw.TextStyle(fontSize: 10, color: _inkFaint),
+          )
         else
           ...section.rows.map((r) => _barRow(r, max)),
       ],
@@ -374,11 +409,16 @@ pw.Widget _barRow(PdfDatum d, int max) {
       children: [
         pw.SizedBox(
           width: 130,
-          child: pw.Text(d.label,
-              maxLines: 1,
-              overflow: pw.TextOverflow.clip,
-              style: const pw.TextStyle(
-                  fontSize: 10, fontWeight: pw.FontWeight.bold, color: _ink)),
+          child: pw.Text(
+            d.label,
+            maxLines: 1,
+            overflow: pw.TextOverflow.clip,
+            style: const pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: _ink,
+            ),
+          ),
         ),
         pw.SizedBox(width: 8),
         pw.Expanded(
@@ -397,7 +437,8 @@ pw.Widget _barRow(PdfDatum d, int max) {
                       decoration: pw.BoxDecoration(
                         color: _c(d.color),
                         borderRadius: const pw.BorderRadius.all(
-                            pw.Radius.circular(4)),
+                          pw.Radius.circular(4),
+                        ),
                       ),
                     ),
                   ),
@@ -409,10 +450,15 @@ pw.Widget _barRow(PdfDatum d, int max) {
         pw.SizedBox(width: 10),
         pw.SizedBox(
           width: 60,
-          child: pw.Text(d.display,
-              textAlign: pw.TextAlign.right,
-              style: const pw.TextStyle(
-                  fontSize: 10, fontWeight: pw.FontWeight.bold, color: _ink)),
+          child: pw.Text(
+            d.display,
+            textAlign: pw.TextAlign.right,
+            style: const pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: _ink,
+            ),
+          ),
         ),
       ],
     ),

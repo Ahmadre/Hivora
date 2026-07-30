@@ -127,7 +127,9 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) _toast(context.t('git.couldNotOpen', variables: {'url': url}));
+    if (!ok && mounted) {
+      _toast(context.t('git.couldNotOpen', variables: {'url': url}));
+    }
   }
 
   void _toast(String message, {GlassToastKind kind = GlassToastKind.error}) {
@@ -145,13 +147,21 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
     return '';
   }
 
-  Future<void> _merge(GitPullRequest pr) =>
-      _prAction(pr, PrState.merged, () => _repo.gitMergePr(widget.issue.readableId, pr.number),
-          _transitionNote(widget.project.git!.automation.prMerged), 'git.prMergedToast');
+  Future<void> _merge(GitPullRequest pr) => _prAction(
+    pr,
+    PrState.merged,
+    () => _repo.gitMergePr(widget.issue.readableId, pr.number),
+    _transitionNote(widget.project.git!.automation.prMerged),
+    'git.prMergedToast',
+  );
 
-  Future<void> _ready(GitPullRequest pr) =>
-      _prAction(pr, PrState.open, () => _repo.gitReadyPr(widget.issue.readableId, pr.number),
-          _transitionNote(widget.project.git!.automation.prOpened), 'git.prReadyToast');
+  Future<void> _ready(GitPullRequest pr) => _prAction(
+    pr,
+    PrState.open,
+    () => _repo.gitReadyPr(widget.issue.readableId, pr.number),
+    _transitionNote(widget.project.git!.automation.prOpened),
+    'git.prReadyToast',
+  );
 
   Future<void> _prAction(
     GitPullRequest pr,
@@ -175,11 +185,14 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
       });
       widget.onIssueChanged(result.issue);
       _toast(
-        context.t(toastKey, variables: {
-          'pr': _prov.prShort,
-          'issue': widget.issue.readableId,
-          'note': note,
-        }),
+        context.t(
+          toastKey,
+          variables: {
+            'pr': _prov.prShort,
+            'issue': widget.issue.readableId,
+            'note': note,
+          },
+        ),
         kind: GlassToastKind.success,
       );
     } catch (e) {
@@ -217,7 +230,10 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
             children: [
               Text(
                 context.t('git.development'),
-                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(width: 10),
               // With one repo the chip rides in the header; with several, each
@@ -310,15 +326,22 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
       );
     }
 
-    add('branches', context.t('git.branches'), kHueBranch, g.branches.length, null, [
-      for (final b in g.branches)
-        BranchRow(
-          branch: b,
-          names: widget.names,
-          avatars: widget.avatars,
-          onOpen: () => _open(gitBranchUrl(prov, g.repo, b.name)),
-        ),
-    ]);
+    add(
+      'branches',
+      context.t('git.branches'),
+      kHueBranch,
+      g.branches.length,
+      null,
+      [
+        for (final b in g.branches)
+          BranchRow(
+            branch: b,
+            names: widget.names,
+            avatars: widget.avatars,
+            onOpen: () => _open(gitBranchUrl(prov, g.repo, b.name)),
+          ),
+      ],
+    );
     add(
       'commits',
       context.t('git.commits'),
@@ -326,7 +349,10 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
       g.commits.length,
       g.commits.isNotEmpty && g.commits.first.at != null
           ? Text(
-              context.t('git.latest', variables: {'ago': agoSuffixed(g.commits.first.at)}),
+              context.t(
+                'git.latest',
+                variables: {'ago': agoSuffixed(g.commits.first.at)},
+              ),
               style: TextStyle(
                 fontFamily: AppTheme.fontMono,
                 fontSize: 11.5,
@@ -344,22 +370,34 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
           ),
       ],
     );
-    add('prs', prov.prTermPlural, kHuePullRequest, g.prs.length, _prBadge(context, g.prs), [
-      for (final pr in g.prs)
-        PrRow(
-          pr: pr,
-          provider: prov,
-          names: widget.names,
-          avatars: widget.avatars,
-          busy: _busy,
-          onMerge: () => _merge(pr),
-          onReady: () => _ready(pr),
-          onOpen: () => _open(gitPrUrl(prov, g.repo, pr.number)),
-        ),
-    ]);
-    add('builds', context.t('git.builds'), kHueBuild, g.builds.length, _buildBadge(context, g.builds), [
-      for (final b in g.builds) BuildRow(run: b),
-    ]);
+    add(
+      'prs',
+      prov.prTermPlural,
+      kHuePullRequest,
+      g.prs.length,
+      _prBadge(context, g.prs),
+      [
+        for (final pr in g.prs)
+          PrRow(
+            pr: pr,
+            provider: prov,
+            names: widget.names,
+            avatars: widget.avatars,
+            busy: _busy,
+            onMerge: () => _merge(pr),
+            onReady: () => _ready(pr),
+            onOpen: () => _open(gitPrUrl(prov, g.repo, pr.number)),
+          ),
+      ],
+    );
+    add(
+      'builds',
+      context.t('git.builds'),
+      kHueBuild,
+      g.builds.length,
+      _buildBadge(context, g.builds),
+      [for (final b in g.builds) BuildRow(run: b)],
+    );
     return cats;
   }
 
@@ -437,7 +475,10 @@ class _DevCat extends StatelessWidget {
                   const SizedBox(width: 11),
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Text(

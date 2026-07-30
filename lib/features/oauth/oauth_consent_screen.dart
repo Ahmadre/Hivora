@@ -108,7 +108,9 @@ class _OAuthConsentScreenState extends State<OAuthConsentScreen> {
         await launchUrl(
           uri,
           webOnlyWindowName: kIsWeb ? '_self' : null,
-          mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+          mode: kIsWeb
+              ? LaunchMode.platformDefault
+              : LaunchMode.externalApplication,
         );
       }
     } on ApiFailure catch (f) {
@@ -203,10 +205,10 @@ class _ConsentCard extends StatelessWidget {
               variables: {'client': info.clientName},
             ),
             textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w800, color: AppColors.ink),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -243,8 +245,7 @@ class _ConsentCard extends StatelessWidget {
               child: Column(
                 children: [
                   for (var i = 0; i < info.scopes.length; i++) ...[
-                    if (i > 0)
-                      Divider(height: 1, color: AppColors.hairline2),
+                    if (i > 0) Divider(height: 1, color: AppColors.hairline2),
                     _ScopeRow(scope: info.scopes[i]),
                   ],
                 ],

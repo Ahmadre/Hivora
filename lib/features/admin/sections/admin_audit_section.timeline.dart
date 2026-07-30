@@ -37,9 +37,7 @@ class _DayHeaderRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Container(height: 1, color: AppColors.hairline),
-          ),
+          Expanded(child: Container(height: 1, color: AppColors.hairline)),
         ],
       ),
     );
@@ -74,17 +72,11 @@ class _AuditTimelineTile extends StatelessWidget {
             width: 44,
             child: Column(
               children: [
-                _GlyphBadge(
-                  icon: _actionIcon(entry.action),
-                  tint: glyphTint,
-                ),
+                _GlyphBadge(icon: _actionIcon(entry.action), tint: glyphTint),
                 if (!isLastInGroup)
                   Expanded(
                     child: Center(
-                      child: Container(
-                        width: 2,
-                        color: AppColors.hairline,
-                      ),
+                      child: Container(width: 2, color: AppColors.hairline),
                     ),
                   ),
               ],
@@ -249,9 +241,7 @@ class _MiniChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
-        border: color == null
-            ? Border.all(color: AppColors.hairline2)
-            : null,
+        border: color == null ? Border.all(color: AppColors.hairline2) : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -324,4 +314,3 @@ Future<void> showAuditDetailSheet(BuildContext context, AuditEntry entry) {
     builder: (_) => _AuditDetailSheet(entry: entry),
   );
 }
-

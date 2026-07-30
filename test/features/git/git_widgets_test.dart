@@ -67,7 +67,10 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        _host(width: 240, child: const CopyField(text: 'git checkout -b $longBranch')),
+        _host(
+          width: 240,
+          child: const CopyField(text: 'git checkout -b $longBranch'),
+        ),
       );
       expect(tester.takeException(), isNull);
     });
@@ -79,7 +82,8 @@ void main() {
           child: PrRow(
             pr: const GitPullRequest(
               number: 57,
-              title: 'API-230 Serialize token refresh across every request path',
+              title:
+                  'API-230 Serialize token refresh across every request path',
               state: PrState.open,
               reviewerIds: ['u1', 'u2'],
               approvals: 1,
@@ -103,6 +107,8 @@ void main() {
 Widget _host({required double width, required Widget child}) => MaterialApp(
   debugShowCheckedModeBanner: false,
   home: Scaffold(
-    body: Center(child: SizedBox(width: width, child: child)),
+    body: Center(
+      child: SizedBox(width: width, child: child),
+    ),
   ),
 );

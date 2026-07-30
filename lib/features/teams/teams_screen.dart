@@ -39,13 +39,17 @@ class _TeamsScreenState extends State<TeamsScreen> {
   void initState() {
     super.initState();
     _cubit = FetchCubit<_TeamsData>(() async {
-      final results = await Future.wait([context.read<TeamRepository>().teams(), context.read<UserRepository>().users()]);
+      final results = await Future.wait([
+        context.read<TeamRepository>().teams(),
+        context.read<UserRepository>().users(),
+      ]);
       final teams = results[0] as List<Team>;
       final users = results[1] as List<DirectoryUser>;
       final names = {for (final u in users) u.id: u.displayName};
       final avatars = {
         for (final u in users)
-          if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty) u.id: u.avatarUrl!,
+          if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
+            u.id: u.avatarUrl!,
       };
       return (teams: teams, names: names, avatars: avatars);
     })..load();

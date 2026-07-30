@@ -92,7 +92,11 @@ class _ConnectHintBody extends StatelessWidget {
                   color: AppColors.accentSoft,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(LucideIcons.radioTower, size: 20, color: AppColors.accentStrong),
+                child: const Icon(
+                  LucideIcons.radioTower,
+                  size: 20,
+                  color: AppColors.accentStrong,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -122,7 +126,11 @@ class _ConnectHintBody extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
           child: Text(
             context.t('admin.connectHintBody'),
-            style: TextStyle(fontSize: 13.5, height: 1.45, color: AppColors.inkSoft),
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.45,
+              color: AppColors.inkSoft,
+            ),
           ),
         ),
         Padding(

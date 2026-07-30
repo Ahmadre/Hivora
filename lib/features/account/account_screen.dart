@@ -28,8 +28,7 @@ import '../../core/widgets/hive_widgets.dart' show HiveSwitch;
 import '../../core/widgets/honeycomb_background.dart';
 import '../connect/server_switcher.dart';
 import '../legal/legal_links.dart';
-import '../sprint/modals/glass_modal.dart'
-    show showGlassToast, GlassToastKind;
+import '../sprint/modals/glass_modal.dart' show showGlassToast, GlassToastKind;
 import '../shell/page_chrome.dart';
 import 'account_modals.dart';
 import 'account_widgets.dart';
@@ -158,8 +157,7 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  void _toast(String message,
-      {GlassToastKind kind = GlassToastKind.success}) {
+  void _toast(String message, {GlassToastKind kind = GlassToastKind.success}) {
     if (!mounted) return;
     showGlassToast(context, context.t(message), kind: kind);
   }
@@ -518,8 +516,7 @@ class _AccountScreenState extends State<AccountScreen> {
           title: _sectionTitle(item.section),
           subtitle: _sectionSubtitle(item.section),
           danger: item.section == _SettingsSection.danger,
-          onTap: () =>
-              context.go('/settings?section=${item.section.name}'),
+          onTap: () => context.go('/settings?section=${item.section.name}'),
         ),
       );
       if (item.section == _SettingsSection.appearance && isAdmin) {
@@ -1051,7 +1048,11 @@ class _AccountScreenState extends State<AccountScreen> {
             IconButton(
               tooltip: context.t('account.sessions.signOut'),
               visualDensity: VisualDensity.compact,
-              icon: const Icon(LucideIcons.logOut, size: 17, color: AppColors.danger),
+              icon: const Icon(
+                LucideIcons.logOut,
+                size: 17,
+                color: AppColors.danger,
+              ),
               onPressed: () => _revokeSession(s),
             ),
           ],
@@ -1682,4 +1683,3 @@ class _AccountScreenState extends State<AccountScreen> {
     return value == null ? AppColors.stTodo : Color(value);
   }
 }
-

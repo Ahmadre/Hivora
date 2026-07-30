@@ -8,8 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
-import '../sprint/modals/glass_modal.dart'
-    show GlassToastKind, showGlassToast;
+import '../sprint/modals/glass_modal.dart' show GlassToastKind, showGlassToast;
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -71,7 +70,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([context.read<ProjectRepository>().projects(), context.read<UserRepository>().users()]);
+      final results = await Future.wait([
+        context.read<ProjectRepository>().projects(),
+        context.read<UserRepository>().users(),
+      ]);
       _projects = results[0] as List<Project>;
       final users = results[1] as List<DirectoryUser>;
       _userNames = {for (final u in users) u.id: u.displayName};
@@ -95,8 +97,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _error = null;
     });
     final now = DateTime.now();
-    final from =
-        now.subtract(const Duration(days: 30)).toIso8601String().substring(0, 10);
+    final from = now
+        .subtract(const Duration(days: 30))
+        .toIso8601String()
+        .substring(0, 10);
     final to = now.toIso8601String().substring(0, 10);
     try {
       final futures = _reportNames.map((name) {
@@ -109,7 +113,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       }).toList();
       final results = await Future.wait([
         Future.wait(futures),
-        context.read<DashboardRepository>().createdVsResolved(_projectId!, days: 30),
+        context.read<DashboardRepository>().createdVsResolved(
+          _projectId!,
+          days: 30,
+        ),
       ]);
       final maps = results[0] as List<Map<String, int>>;
       _trend = results[1] as List<TrendPoint>;
@@ -131,12 +138,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // ── export ───────────────────────────────────────────────────────────────
 
   String _labelFor(String report, String key) => switch (report) {
-        'issues-by-state' => stateLabel(key),
-        'issues-by-priority' =>
-          key.isEmpty ? key : key[0] + key.substring(1).toLowerCase(),
-        'issues-by-assignee' => _userNames[key] ?? key,
-        _ => key,
-      };
+    'issues-by-state' => stateLabel(key),
+    'issues-by-priority' =>
+      key.isEmpty ? key : key[0] + key.substring(1).toLowerCase(),
+    'issues-by-assignee' => _userNames[key] ?? key,
+    _ => key,
+  };
 
   String _buildCsv() {
     final buf = StringBuffer('report,label,value\n');
@@ -146,7 +153,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final map = _reports[name] ?? const {};
       for (final entry in map.entries) {
         buf.writeln(
-            '${esc(name)},${esc(_labelFor(name, entry.key))},${entry.value}');
+          '${esc(name)},${esc(_labelFor(name, entry.key))},${entry.value}',
+        );
       }
     }
     return buf.toString();
@@ -185,7 +193,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final logoAsset = await metaApi.organizationLogo();
       if (logoAsset != null) {
         logoPng = await logoToPng(
-            bytes: logoAsset.bytes, isSvg: logoAsset.isSvg);
+          bytes: logoAsset.bytes,
+          isSvg: logoAsset.isSvg,
+        );
       }
       if (!mounted) return;
       final failMsg = context.t('reports.exportFailed');
@@ -199,14 +209,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final isCsv = format == 'csv';
     final content = isCsv ? _buildCsv() : _buildJson();
     final mime = isCsv ? 'text/csv' : 'application/json';
-    final exportedMsg = context.t('reports.exported',
-        variables: {'format': format.toUpperCase()});
-    final copiedMsg = context.t('reports.copied',
-        variables: {'format': format.toUpperCase()});
+    final exportedMsg = context.t(
+      'reports.exported',
+      variables: {'format': format.toUpperCase()},
+    );
+    final copiedMsg = context.t(
+      'reports.copied',
+      variables: {'format': format.toUpperCase()},
+    );
     if (kIsWeb) {
       // Browser handles the data: URI as a download / preview tab.
       final uri = Uri.parse(
-          'data:$mime;charset=utf-8,${Uri.encodeComponent(content)}');
+        'data:$mime;charset=utf-8,${Uri.encodeComponent(content)}',
+      );
       await launchUrl(uri, webOnlyWindowName: '_blank');
       _toast(exportedMsg, kind: GlassToastKind.success);
     } else {
@@ -221,12 +236,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final bd = _burndown();
     final now = DateTime.now();
     final locale = Localizations.localeOf(context).toString();
-    final generatedAtLabel = context.t('reports.pdf.generated', variables: {
-      'date': DateFormat('MMM d, y · HH:mm', locale).format(now),
-    });
+    final generatedAtLabel = context.t(
+      'reports.pdf.generated',
+      variables: {'date': DateFormat('MMM d, y · HH:mm', locale).format(now)},
+    );
 
-    PdfSection section(String report, String titleKey,
-        {bool duration = false}) {
+    PdfSection section(
+      String report,
+      String titleKey, {
+      bool duration = false,
+    }) {
       final rows = [
         for (final d in _data(report))
           (
@@ -252,8 +271,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         section('issues-by-state', 'reports.issues-by-state'),
         section('issues-by-priority', 'reports.issues-by-priority'),
         section('issues-by-assignee', 'reports.issues-by-assignee'),
-        section('time-per-activity', 'reports.time-per-activity',
-            duration: true),
+        section(
+          'time-per-activity',
+          'reports.time-per-activity',
+          duration: true,
+        ),
       ],
       burndown: bd.points,
       burndownRemaining: bd.remaining,
@@ -262,8 +284,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       openLast30DaysLabel: context.t('reports.pdf.openLast30Days'),
       breakdownsLabel: context.t('reports.pdf.breakdowns'),
       burndownTitleLabel: context.t('reports.burndown'),
-      openRemainingLabel:
-          context.t('reports.remaining', variables: {'count': '${bd.remaining}'}),
+      openRemainingLabel: context.t(
+        'reports.remaining',
+        variables: {'count': '${bd.remaining}'},
+      ),
       noDataLabel: context.t('reports.empty'),
       axis30dLabel: context.t('reports.windowStart'),
       axisTodayLabel: context.t('reports.windowEnd'),
@@ -290,8 +314,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
             title: context.t('reports.title'),
             subtitle: _projectName().isEmpty
                 ? context.t('reports.subtitle')
-                : context.t('reports.forProject',
-                    variables: {'project': _projectName()}),
+                : context.t(
+                    'reports.forProject',
+                    variables: {'project': _projectName()},
+                  ),
             actions: [
               if (_projects.isNotEmpty && !_loading && _error == null)
                 _ExportButton(onSelected: _export),
@@ -331,12 +357,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(context.t(_error!),
-                  style: TextStyle(color: AppColors.inkSoft)),
+              Text(
+                context.t(_error!),
+                style: TextStyle(color: AppColors.inkSoft),
+              ),
               const SizedBox(height: 12),
               OutlinedButton(
-                  onPressed: _loadReports,
-                  child: Text(context.t('common.retry'))),
+                onPressed: _loadReports,
+                child: Text(context.t('common.retry')),
+              ),
             ],
           ),
         ),
@@ -374,18 +403,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
     ];
 
-    final grid = LayoutBuilder(builder: (context, c) {
-      final twoCol = c.maxWidth > 720;
-      const gap = 18.0;
-      final width = twoCol ? (c.maxWidth - gap) / 2 : c.maxWidth;
-      return Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: [
-          for (final card in cards) SizedBox(width: width, child: card),
-        ],
-      );
-    });
+    final grid = LayoutBuilder(
+      builder: (context, c) {
+        final twoCol = c.maxWidth > 720;
+        const gap = 18.0;
+        final width = twoCol ? (c.maxWidth - gap) / 2 : c.maxWidth;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final card in cards) SizedBox(width: width, child: card),
+          ],
+        );
+      },
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -402,10 +433,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   // Cumulative open-issue trend over the window, anchored to the current
   // open count, with a linear "ideal" reference burning down to zero.
   ({List<({int day, double remaining, double ideal})> points, int remaining})
-      _burndown() {
+  _burndown() {
     if (_trend.length < 2) return (points: const [], remaining: 0);
-    final project =
-        _projects.where((p) => p.id == _projectId).firstOrNull;
+    final project = _projects.where((p) => p.id == _projectId).firstOrNull;
     final resolvedStates = (project?.resolvedStates ?? const []).toSet();
     final byState = _reports['issues-by-state'] ?? const {};
     final openNow = byState.entries
@@ -456,26 +486,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Color _colorFor(String report, String key) => switch (report) {
-        'issues-by-state' => AppColors.stateColor(key.toUpperCase()),
-        'issues-by-priority' => AppColors.priorityColor(key.toUpperCase()),
-        'issues-by-assignee' => hiveHueColor(_userNames[key] ?? key),
-        _ => AppColors.accent,
-      };
+    'issues-by-state' => AppColors.stateColor(key.toUpperCase()),
+    'issues-by-priority' => AppColors.priorityColor(key.toUpperCase()),
+    'issues-by-assignee' => hiveHueColor(_userNames[key] ?? key),
+    _ => AppColors.accent,
+  };
 
   Widget? _leadingFor(String report, String key) => switch (report) {
-        'issues-by-state' => Container(
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-                color: AppColors.stateColor(key.toUpperCase()),
-                shape: BoxShape.circle),
-          ),
-        'issues-by-priority' =>
-          PriorityFlag(priority: key.toUpperCase()),
-        'issues-by-assignee' =>
-          HiveAvatar(name: _userNames[key] ?? key, size: 22),
-        _ => null,
-      };
+    'issues-by-state' => Container(
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(
+        color: AppColors.stateColor(key.toUpperCase()),
+        shape: BoxShape.circle,
+      ),
+    ),
+    'issues-by-priority' => PriorityFlag(priority: key.toUpperCase()),
+    'issues-by-assignee' => HiveAvatar(name: _userNames[key] ?? key, size: 22),
+    _ => null,
+  };
 }
 
 // ─────────────────────────── data model ────────────────────────────────────
@@ -518,7 +547,10 @@ class _BurndownCard extends StatelessWidget {
             children: [
               Expanded(child: _SectionTitle(context.t('reports.burndown'))),
               Text(
-                context.t('reports.remaining', variables: {'count': '$remaining'}),
+                context.t(
+                  'reports.remaining',
+                  variables: {'count': '$remaining'},
+                ),
                 style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
               ),
             ],
@@ -536,16 +568,19 @@ class _BurndownCard extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: (maxY / 4).clamp(1, double.infinity),
-                  getDrawingHorizontalLine: (_) => FlLine(
-                      color: AppColors.hairline2, strokeWidth: 1),
+                  getDrawingHorizontalLine: (_) =>
+                      FlLine(color: AppColors.hairline2, strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -563,9 +598,10 @@ class _BurndownCard extends StatelessWidget {
                                 ? context.t('reports.windowStart')
                                 : context.t('reports.windowEnd'),
                             style: TextStyle(
-                                fontFamily: AppTheme.fontMono,
-                                fontSize: 10,
-                                color: AppColors.inkFaint),
+                              fontFamily: AppTheme.fontMono,
+                              fontSize: 10,
+                              color: AppColors.inkFaint,
+                            ),
                           ),
                         );
                       },
@@ -577,8 +613,7 @@ class _BurndownCard extends StatelessWidget {
                   // ideal (dashed grey)
                   LineChartBarData(
                     spots: [
-                      for (final p in points)
-                        FlSpot(p.day.toDouble(), p.ideal),
+                      for (final p in points) FlSpot(p.day.toDouble(), p.ideal),
                     ],
                     isCurved: false,
                     color: AppColors.inkFaint,
@@ -647,22 +682,25 @@ class _BarReportCard extends StatelessWidget {
                 child: Row(
                   children: [
                     if (d.leading != null) ...[
-                      SizedBox(
-                          width: 22,
-                          child: Center(child: d.leading)),
+                      SizedBox(width: 22, child: Center(child: d.leading)),
                       const SizedBox(width: 8),
                     ],
                     SizedBox(
                       width: 96,
-                      child: Text(d.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        d.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: HiveProgress(value: d.fraction, color: d.color)),
+                      child: HiveProgress(value: d.fraction, color: d.color),
+                    ),
                     const SizedBox(width: 10),
                     SizedBox(
                       width: durationValues ? 64 : 40,
@@ -670,10 +708,11 @@ class _BarReportCard extends StatelessWidget {
                         durationValues ? fmtDuration(d.value) : '${d.value}',
                         textAlign: TextAlign.right,
                         style: TextStyle(
-                            fontFamily: AppTheme.fontMono,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.ink),
+                          fontFamily: AppTheme.fontMono,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                   ],
@@ -701,21 +740,23 @@ class _SummaryCard extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                Text('$total',
-                    style: TextStyle(
-                        fontFamily: AppTheme.fontBrand,
-                        fontSize: 44,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -1,
-                        height: 1,
-                        color: AppColors.ink)),
+                Text(
+                  '$total',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontBrand,
+                    fontSize: 44,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -1,
+                    height: 1,
+                    color: AppColors.ink,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   projectName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 12.5, color: AppColors.inkSoft),
+                  style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
                 ),
               ],
             ),
@@ -733,14 +774,17 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.1,
-            color: AppColors.ink));
+    return Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 14.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.1,
+        color: AppColors.ink,
+      ),
+    );
   }
 }
 
@@ -784,11 +828,14 @@ class _ExportButton extends StatelessWidget {
           children: [
             Icon(LucideIcons.download, size: 16, color: AppColors.ink),
             const SizedBox(width: 8),
-            Text(context.t('reports.export'),
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.ink)),
+            Text(
+              context.t('reports.export'),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+              ),
+            ),
           ],
         ),
       ),
@@ -811,7 +858,7 @@ class _ProjectPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = selected != null
         ? projects.where((p) => p.id == selected).firstOrNull?.name ??
-            projects.first.name
+              projects.first.name
         : projects.first.name;
     return GlassPopupMenu<String?>(
       value: selected,
@@ -831,15 +878,18 @@ class _ProjectPicker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(
-              child: Text(label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const SizedBox(width: 4),
-            Icon(LucideIcons.chevronDown,
-                size: 16, color: AppColors.inkSoft),
+            Icon(LucideIcons.chevronDown, size: 16, color: AppColors.inkSoft),
           ],
         ),
       ),

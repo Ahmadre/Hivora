@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -23,7 +22,6 @@ import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
 import '../../core/widgets/subtask_widgets.dart';
 import '../issues/issue_detail_sheet.dart';
-import '../issues/issue_form.dart';
 import '../issues/issues_screen.dart' show IssueRow;
 import '../shell/page_chrome.dart';
 import '../sprint/modals/glass_modal.dart'
@@ -37,6 +35,7 @@ import 'create_board_dialog.dart';
 import 'board_filter_popup.dart';
 import 'board_people_strip.dart';
 import 'board_timeline.dart';
+import 'issue_quick_create.dart';
 import '../../core/repositories/board_repository.dart';
 import '../../core/repositories/issue_repository.dart';
 import '../../core/repositories/project_repository.dart';
@@ -618,41 +617,45 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     }
   }
 
-  Future<void> _addIssue(
+  /// The board's projects in board order — what a column's inline composer may
+  /// create into. More than one only on a merged board, where the composer
+  /// shows a project control instead of silently picking the first.
+  List<Project> get _boardProjects => [
+    for (final id in _view?.board.projectIds ?? const <String>[])
+      if (_projectsById[id] != null) _projectsById[id]!,
+  ];
+
+  /// Seeds the inline composer at the foot of [column]: the column's project(s)
+  /// and workflow state, plus whatever the surrounding swimlane implies.
+  IssueQuickCreateSeed _quickCreateSeed(
     BoardColumnView column, {
     String? parentId,
     String? forcedType,
     String? assigneeId,
-  }) async {
-    final view = _view;
-    if (view == null) return;
-    final projectId = view.board.projectIds.isNotEmpty
-        ? view.board.projectIds.first
-        : null;
-    // On a cross-project board the column carries one state per spanned
-    // project, so pre-fill the one belonging to the project the form starts in
-    // (the user can still switch project inside the form).
-    final project = projectId == null ? null : _projectsById[projectId];
-    final initialState = column.states.isEmpty
+  }) => IssueQuickCreateSeed(
+    projects: _boardProjects,
+    // On a merged board the column carries one state per spanned project, so
+    // resolve the one belonging to the project the ticket lands in.
+    stateFor: (project) => column.states.isEmpty
         ? null
-        : (project == null
-              ? column.states.first
-              : column.states.firstWhere(
-                  (s) => project.stateNames.any(
-                    (own) => own.toLowerCase() == s.toLowerCase(),
-                  ),
-                  orElse: () => column.states.first,
-                ));
-    final created = await showIssueForm(
-      context,
-      projectId: projectId,
-      initialState: initialState,
-      parentId: parentId,
-      forcedType: forcedType,
-      initialAssigneeId: assigneeId,
-    );
-    if (created != null) await _load();
-  }
+        : column.states.firstWhere(
+            (s) => project.stateNames.any(
+              (own) => own.toLowerCase() == s.toLowerCase(),
+            ),
+            orElse: () => column.states.first,
+          ),
+    // Only a sprint the user explicitly selected: the wall is then that
+    // sprint's, so a ticket written on it belongs there. With no selection the
+    // wall isn't sprint-scoped and the ticket must not silently join one.
+    sprintId: _sprintId,
+    parentId: parentId,
+    forcedType: forcedType,
+    assigneeId: assigneeId,
+    assigneeName: assigneeId == null ? null : _names[assigneeId],
+    assigneeAvatarUrl: assigneeId == null ? null : _avatars[assigneeId],
+  );
+
+  Future<void> _onQuickCreated(Issue created) => _load();
 
   /// The parent to pre-fill when creating an issue inside a swimlane: the
   /// lane's epic under the epic grouping, the lane's parent issue under the
@@ -988,7 +991,8 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 projectsById: _projectsById,
                 onAccept: (issue) => _moveIssue(issue, column),
                 canAccept: (issue) => _canDrop(issue, column),
-                onAddIssue: () => _addIssue(column),
+                quickCreate: _quickCreateSeed(column),
+                onCreated: _onQuickCreated,
                 onOpenIssue: _openIssue,
               );
             },
@@ -1044,7 +1048,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         projectsById: _projectsById,
         onAccept: (issue) => _moveIssue(issue, column),
         canAccept: (issue) => _canDrop(issue, column),
-        onAddIssue: () => _addIssue(
+        quickCreate: _quickCreateSeed(
           column,
           parentId: _laneParentId(lane),
           // A sub-task lane's parent is a standard issue, so the only valid
@@ -1061,6 +1065,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
               ? lane.key
               : null,
         ),
+        onCreated: _onQuickCreated,
         onOpenIssue: _openIssue,
       ),
     );

@@ -20,6 +20,7 @@
     "add": "Hinzufügen",
     "ok": "OK",
     "next": "Weiter",
+    "clear": "Zurücksetzen",
     "paste": "Einfügen"
   },
   "delete": {
@@ -745,6 +746,8 @@
     "boardLabel": "Board",
     "agileBoard": "Agiles Board",
     "addIssue": "Aufgabe hinzufügen",
+    "quickCreateHint": "Was ist zu tun?",
+    "quickCreateSubmit": "Erstellen (Enter)",
     "newBoard": "Neues Board",
     "deleteBoard": "Board löschen",
     "name": "Board-Name",

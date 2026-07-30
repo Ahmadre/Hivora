@@ -56,10 +56,10 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
       ]);
       _rows = results[0] as List<TimesheetRow>;
       _users = {
-        for (final user in results[1] as List<DirectoryUser>) user.id: user
+        for (final user in results[1] as List<DirectoryUser>) user.id: user,
       };
       _projects = {
-        for (final project in results[2] as List<Project>) project.id: project
+        for (final project in results[2] as List<Project>) project.id: project,
       };
       setState(() => _loading = false);
     } on ApiFailure catch (failure) {
@@ -103,15 +103,16 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
           if (_loading)
             const Padding(
               padding: EdgeInsets.all(60),
-              child: Center(
-                  child: HiveLoader()),
+              child: Center(child: HiveLoader()),
             )
           else if (_error != null)
             Padding(
               padding: const EdgeInsets.all(40),
-              child: Text(context.t(_error!),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.textSecondary)),
+              child: Text(
+                context.t(_error!),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
             )
           else if (_rows.isEmpty)
             HiveEmptyState(
@@ -125,39 +126,51 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
                   headingTextStyle: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      color: AppColors.textPrimary),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    color: AppColors.textPrimary,
+                  ),
                   columns: [
                     DataColumn(label: Text(context.t('timesheet.member'))),
                     DataColumn(label: Text(context.t('timesheet.project'))),
                     for (final day in days)
                       DataColumn(
-                          label: Text(localizations.formatShortDate(day))),
+                        label: Text(localizations.formatShortDate(day)),
+                      ),
                     DataColumn(label: Text(context.t('timesheet.total'))),
                   ],
                   rows: [
                     for (final row in _rows)
-                      DataRow(cells: [
-                        DataCell(Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppAvatar(
-                              name: _users[row.userId]?.displayName ?? '?',
-                              radius: 12,
+                      DataRow(
+                        cells: [
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                AppAvatar(
+                                  name: _users[row.userId]?.displayName ?? '?',
+                                  radius: 12,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _users[row.userId]?.displayName ?? row.userId,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Text(_users[row.userId]?.displayName ?? row.userId),
-                          ],
-                        )),
-                        DataCell(Text(_projects[row.projectId]?.key ?? '–')),
-                        for (final day in days)
-                          DataCell(Text(_formatCell(row, day))),
-                        DataCell(Text(
-                          _formatMinutes(row.totalMinutes),
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        )),
-                      ]),
+                          ),
+                          DataCell(Text(_projects[row.projectId]?.key ?? '–')),
+                          for (final day in days)
+                            DataCell(Text(_formatCell(row, day))),
+                          DataCell(
+                            Text(
+                              _formatMinutes(row.totalMinutes),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -191,10 +204,12 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
 
   String _formatCell(TimesheetRow row, DateTime day) {
     final minutes = row.minutesPerDay.entries
-        .where((entry) =>
-            entry.key.year == day.year &&
-            entry.key.month == day.month &&
-            entry.key.day == day.day)
+        .where(
+          (entry) =>
+              entry.key.year == day.year &&
+              entry.key.month == day.month &&
+              entry.key.day == day.day,
+        )
         .fold<int>(0, (sum, entry) => sum + entry.value);
     return minutes == 0 ? '–' : _formatMinutes(minutes);
   }

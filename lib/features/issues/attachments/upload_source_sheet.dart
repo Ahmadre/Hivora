@@ -82,7 +82,10 @@ class _UploadSourceSheet extends StatelessWidget {
         quality: GlassQuality.premium,
         clipBehavior: Clip.antiAlias,
         shape: const LiquidRoundedSuperellipse(borderRadius: _radius),
-        settings: liquidGlassPanelSettings(glassFill: tokens.glassFill, dark: dark),
+        settings: liquidGlassPanelSettings(
+          glassFill: tokens.glassFill,
+          dark: dark,
+        ),
         child: Material(
           type: MaterialType.transparency,
           child: Column(
@@ -211,10 +214,7 @@ class _SourceRow extends StatelessWidget {
           margin: const EdgeInsets.fromLTRB(20, 6, 20, 6),
           color: tokens.hairline,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          child: row,
-        ),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: row),
       ],
     );
   }

@@ -10,7 +10,7 @@ import '../../core/widgets/glass_bulk_bar.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../search/search_tokens.dart';
 import '../board/board_filter.dart';
-import '../board/board_screen.dart' show DottedAddButton;
+import '../board/issue_quick_create.dart';
 import 'sprint_format.dart';
 import 'widgets/plan_row.dart';
 import 'widgets/sprint_widgets.dart';
@@ -40,7 +40,8 @@ class SprintPlanningSurface extends StatelessWidget {
     required this.onEstimate,
     required this.onMoveToSprint,
     required this.onBulkMove,
-    required this.onAddIssue,
+    required this.quickCreateSeed,
+    required this.onCreated,
     required this.onCreateSprint,
     required this.onStartSprint,
     required this.onCompleteSprint,
@@ -65,7 +66,13 @@ class SprintPlanningSurface extends StatelessWidget {
   final void Function(Issue) onEstimate;
   final void Function(Issue, String?) onMoveToSprint;
   final void Function(String?) onBulkMove;
-  final void Function(String? sprintId) onAddIssue;
+
+  /// Seeds the inline composer of a section: the sprint it belongs to (null for
+  /// the backlog) decides what a ticket written there inherits.
+  final IssueQuickCreateSeed Function(String? sprintId) quickCreateSeed;
+
+  /// Fired once a composer created an issue, so the surface reloads.
+  final ValueChanged<Issue> onCreated;
   final VoidCallback onCreateSprint;
   final void Function(Sprint) onStartSprint;
   final void Function(Sprint) onCompleteSprint;
@@ -98,7 +105,8 @@ class SprintPlanningSurface extends StatelessWidget {
                 onOpenIssue: onOpenIssue,
                 onEstimate: onEstimate,
                 onAccept: (issue) => onMoveToSprint(issue, s.id),
-                onAddIssue: () => onAddIssue(s.id),
+                quickCreate: quickCreateSeed(s.id),
+                onCreated: onCreated,
                 action: s.id == activeSprintId
                     ? GhostButton(
                         label: context.t('sprint.completeSprint'),
@@ -127,7 +135,8 @@ class SprintPlanningSurface extends StatelessWidget {
               onOpenIssue: onOpenIssue,
               onEstimate: onEstimate,
               onAccept: (issue) => onMoveToSprint(issue, null),
-              onAddIssue: () => onAddIssue(null),
+              quickCreate: quickCreateSeed(null),
+              onCreated: onCreated,
               onPage: onPage,
             ),
           ],
@@ -262,7 +271,8 @@ class _SprintGroup extends StatefulWidget {
     required this.onOpenIssue,
     required this.onEstimate,
     required this.onAccept,
-    required this.onAddIssue,
+    required this.quickCreate,
+    required this.onCreated,
     required this.action,
   });
 
@@ -274,7 +284,8 @@ class _SprintGroup extends StatefulWidget {
   final void Function(Issue) onOpenIssue;
   final void Function(Issue) onEstimate;
   final void Function(Issue) onAccept;
-  final VoidCallback onAddIssue;
+  final IssueQuickCreateSeed quickCreate;
+  final ValueChanged<Issue> onCreated;
   final Widget action;
 
   @override
@@ -338,9 +349,10 @@ class _SprintGroupState extends State<_SprintGroup> {
                               onEstimate: () => widget.onEstimate(issue),
                             ),
                           ),
-                      DottedAddButton(
+                      IssueQuickCreate(
                         label: context.t('sprint.addIssue'),
-                        onTap: widget.onAddIssue,
+                        seed: widget.quickCreate,
+                        onCreated: widget.onCreated,
                       ),
                     ],
                   ),
@@ -550,7 +562,8 @@ class _BacklogGroup extends StatefulWidget {
     required this.onOpenIssue,
     required this.onEstimate,
     required this.onAccept,
-    required this.onAddIssue,
+    required this.quickCreate,
+    required this.onCreated,
     required this.onPage,
   });
 
@@ -565,7 +578,8 @@ class _BacklogGroup extends StatefulWidget {
   final void Function(Issue) onOpenIssue;
   final void Function(Issue) onEstimate;
   final void Function(Issue) onAccept;
-  final VoidCallback onAddIssue;
+  final IssueQuickCreateSeed quickCreate;
+  final ValueChanged<Issue> onCreated;
   final ValueChanged<int> onPage;
 
   @override
@@ -657,9 +671,10 @@ class _BacklogGroupState extends State<_BacklogGroup> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: 7),
-                        child: DottedAddButton(
+                        child: IssueQuickCreate(
                           label: context.t('sprint.addBacklogItem'),
-                          onTap: widget.onAddIssue,
+                          seed: widget.quickCreate,
+                          onCreated: widget.onCreated,
                         ),
                       ),
                       if (widget.issues.isEmpty)

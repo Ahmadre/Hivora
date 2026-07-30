@@ -54,9 +54,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
                           const SizedBox(height: 24),
                           Text(
                             context.t('connect.title'),
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
@@ -82,7 +81,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
                               final uri = Uri.tryParse(value?.trim() ?? '');
                               if (uri == null ||
                                   uri.host.isEmpty ||
-                                  !(uri.isScheme('http') || uri.isScheme('https'))) {
+                                  !(uri.isScheme('http') ||
+                                      uri.isScheme('https'))) {
                                 return context.t('connect.invalidUrl');
                               }
                               return null;
@@ -105,7 +105,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
                                     width: 22,
                                     height: 22,
                                     child: HiveLoader(
-                                        strokeWidth: 2, color: Colors.white),
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
                                   )
                                 : Text(context.t('connect.action')),
                           ),
@@ -125,9 +127,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
 
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
-      context
-          .read<AppConfigBloc>()
-          .add(ServerUrlSubmitted(_controller.text.trim()));
+      context.read<AppConfigBloc>().add(
+        ServerUrlSubmitted(_controller.text.trim()),
+      );
     }
   }
 
@@ -158,16 +160,22 @@ class _ConnectScreenState extends State<ConnectScreen> {
           dense: true,
           enabled: !connecting,
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(LucideIcons.server,
-              size: 18, color: AppColors.accentStrong),
-          title: Text(server.displayName,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: Text(server.host,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          leading: const Icon(
+            LucideIcons.server,
+            size: 18,
+            color: AppColors.accentStrong,
+          ),
+          title: Text(
+            server.displayName,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            server.host,
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
           trailing: const Icon(LucideIcons.chevronRight, size: 18),
           onTap: connecting ? null : () => switchToServer(context, server.url),
         ),
     ];
   }
 }
-

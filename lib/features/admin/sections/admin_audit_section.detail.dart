@@ -12,10 +12,11 @@ class _AuditDetailSheet extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final locale = Localizations.localeOf(context).toString();
     final failed = entry.outcome == AuditOutcome.failure;
-    final tint =
-        failed ? AppColors.danger : _severityColor(entry.severity);
+    final tint = failed ? AppColors.danger : _severityColor(entry.severity);
 
-    final when = DateFormat.yMMMMEEEEd(locale).add_Hms().format(entry.timestamp);
+    final when = DateFormat.yMMMMEEEEd(
+      locale,
+    ).add_Hms().format(entry.timestamp);
 
     final rows = <Widget>[
       _DetailRow(
@@ -88,7 +89,10 @@ class _AuditDetailSheet extends StatelessWidget {
         quality: GlassQuality.premium,
         clipBehavior: Clip.antiAlias,
         shape: const LiquidRoundedSuperellipse(borderRadius: _radius),
-        settings: liquidGlassPanelSettings(glassFill: tokens.glassFill, dark: dark),
+        settings: liquidGlassPanelSettings(
+          glassFill: tokens.glassFill,
+          dark: dark,
+        ),
         child: Material(
           type: MaterialType.transparency,
           child: ConstrainedBox(
@@ -111,10 +115,7 @@ class _AuditDetailSheet extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 4),
                   child: Row(
                     children: [
-                      _GlyphBadge(
-                        icon: _actionIcon(entry.action),
-                        tint: tint,
-                      ),
+                      _GlyphBadge(icon: _actionIcon(entry.action), tint: tint),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -136,14 +137,20 @@ class _AuditDetailSheet extends StatelessWidget {
                             Text(
                               context.t('audit.detail.title'),
                               style: TextStyle(
-                                  fontSize: 12, color: tokens.inkFaint),
+                                fontSize: 12,
+                                color: tokens.inkFaint,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).maybePop(),
-                        icon: Icon(LucideIcons.x, size: 18, color: tokens.inkSoft),
+                        icon: Icon(
+                          LucideIcons.x,
+                          size: 18,
+                          color: tokens.inkSoft,
+                        ),
                         visualDensity: VisualDensity.compact,
                       ),
                     ],
@@ -156,7 +163,10 @@ class _AuditDetailSheet extends StatelessWidget {
                     children: [
                       ...rows,
                       if (entry.metadata.isNotEmpty)
-                        _MetadataBlock(metadata: entry.metadata, tokens: tokens),
+                        _MetadataBlock(
+                          metadata: entry.metadata,
+                          tokens: tokens,
+                        ),
                     ],
                   ),
                 ),
@@ -303,8 +313,10 @@ class _MetadataBlock extends StatelessWidget {
                   if (i > 0)
                     Divider(height: 1, color: tokens.hairline, thickness: 1),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -385,9 +397,10 @@ class _EventIdFooter extends StatelessWidget {
             label: Text(
               context.t('audit.detail.copyId'),
               style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: tokens.inkSoft),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: tokens.inkSoft,
+              ),
             ),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -404,52 +417,52 @@ class _EventIdFooter extends StatelessWidget {
 // ─────────────────────────── Visual mappings ─────────────────────────────
 
 Color _severityColor(AuditSeverity s) => switch (s) {
-      AuditSeverity.info => AppColors.stTodo,
-      AuditSeverity.notice => AppColors.accent,
-      AuditSeverity.warning => AppColors.danger,
-      AuditSeverity.unknown => AppColors.inkSoft,
-    };
+  AuditSeverity.info => AppColors.stTodo,
+  AuditSeverity.notice => AppColors.accent,
+  AuditSeverity.warning => AppColors.danger,
+  AuditSeverity.unknown => AppColors.inkSoft,
+};
 
 IconData _categoryIcon(AuditCategory c) => switch (c) {
-      AuditCategory.authentication => LucideIcons.logIn,
-      AuditCategory.account => LucideIcons.circleUser,
-      AuditCategory.administration => LucideIcons.shieldCheck,
-      AuditCategory.configuration => LucideIcons.settings,
-      AuditCategory.data => LucideIcons.database,
-      AuditCategory.integration => LucideIcons.plug,
-      AuditCategory.unknown => LucideIcons.activity,
-    };
+  AuditCategory.authentication => LucideIcons.logIn,
+  AuditCategory.account => LucideIcons.circleUser,
+  AuditCategory.administration => LucideIcons.shieldCheck,
+  AuditCategory.configuration => LucideIcons.settings,
+  AuditCategory.data => LucideIcons.database,
+  AuditCategory.integration => LucideIcons.plug,
+  AuditCategory.unknown => LucideIcons.activity,
+};
 
 /// Per-action glyph. Falls back to the action's category glyph for any future
 /// action not listed here (keeps the UI forward-compatible with new events).
 IconData _actionIcon(String action) => switch (action) {
-      'LOGIN_SUCCESS' => LucideIcons.logIn,
-      'LOGIN_FAILURE' => LucideIcons.circleX,
-      'LOGIN_BLOCKED' => LucideIcons.ban,
-      'MFA_FAILURE' => LucideIcons.shieldX,
-      'SSO_LOGIN' => LucideIcons.fingerprint,
-      'SESSION_REVOKED' => LucideIcons.monitorX,
-      'PASSWORD_CHANGED' => LucideIcons.keyRound,
-      'PASSWORD_RESET_REQUESTED' => LucideIcons.mailQuestion,
-      'PASSWORD_RESET_COMPLETED' => LucideIcons.keyRound,
-      'EMAIL_CHANGE_REQUESTED' => LucideIcons.mail,
-      'EMAIL_CHANGED' => LucideIcons.mailCheck,
-      'TWO_FACTOR_ENABLED' => LucideIcons.shieldCheck,
-      'TWO_FACTOR_DISABLED' => LucideIcons.shieldOff,
-      'RECOVERY_CODES_REGENERATED' => LucideIcons.refreshCw,
-      'ACCOUNT_DELETED' => LucideIcons.userX,
-      'USER_INVITED' => LucideIcons.userPlus,
-      'USER_CREATED' => LucideIcons.userPlus,
-      'USER_ROLE_CHANGED' => LucideIcons.userCog,
-      'USER_ACTIVATED' => LucideIcons.userCheck,
-      'USER_DEACTIVATED' => LucideIcons.userMinus,
-      'USER_DELETED' => LucideIcons.userX,
-      'USER_PASSWORD_RESET_SENT' => LucideIcons.keyRound,
-      'USER_SESSIONS_REVOKED' => LucideIcons.monitorX,
-      'SETTINGS_CHANGED' => LucideIcons.sliders,
-      'DATA_EXPORT_REQUESTED' => LucideIcons.download,
-      _ => LucideIcons.history,
-    };
+  'LOGIN_SUCCESS' => LucideIcons.logIn,
+  'LOGIN_FAILURE' => LucideIcons.circleX,
+  'LOGIN_BLOCKED' => LucideIcons.ban,
+  'MFA_FAILURE' => LucideIcons.shieldX,
+  'SSO_LOGIN' => LucideIcons.fingerprint,
+  'SESSION_REVOKED' => LucideIcons.monitorX,
+  'PASSWORD_CHANGED' => LucideIcons.keyRound,
+  'PASSWORD_RESET_REQUESTED' => LucideIcons.mailQuestion,
+  'PASSWORD_RESET_COMPLETED' => LucideIcons.keyRound,
+  'EMAIL_CHANGE_REQUESTED' => LucideIcons.mail,
+  'EMAIL_CHANGED' => LucideIcons.mailCheck,
+  'TWO_FACTOR_ENABLED' => LucideIcons.shieldCheck,
+  'TWO_FACTOR_DISABLED' => LucideIcons.shieldOff,
+  'RECOVERY_CODES_REGENERATED' => LucideIcons.refreshCw,
+  'ACCOUNT_DELETED' => LucideIcons.userX,
+  'USER_INVITED' => LucideIcons.userPlus,
+  'USER_CREATED' => LucideIcons.userPlus,
+  'USER_ROLE_CHANGED' => LucideIcons.userCog,
+  'USER_ACTIVATED' => LucideIcons.userCheck,
+  'USER_DEACTIVATED' => LucideIcons.userMinus,
+  'USER_DELETED' => LucideIcons.userX,
+  'USER_PASSWORD_RESET_SENT' => LucideIcons.keyRound,
+  'USER_SESSIONS_REVOKED' => LucideIcons.monitorX,
+  'SETTINGS_CHANGED' => LucideIcons.sliders,
+  'DATA_EXPORT_REQUESTED' => LucideIcons.download,
+  _ => LucideIcons.history,
+};
 
 /// Human "actor → target" line for the card subtitle. Returns null when there
 /// is nothing meaningful to show beyond the action title itself.

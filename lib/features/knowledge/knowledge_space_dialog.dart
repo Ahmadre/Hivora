@@ -4,7 +4,12 @@ import '../../core/i18n/i18n.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/hue_colors.dart';
 import '../sprint/modals/glass_modal.dart'
-    show GlassField, GlassModalFooter, GlassModalHeader, glassInputDecoration, showGlassModal;
+    show
+        GlassField,
+        GlassModalFooter,
+        GlassModalHeader,
+        glassInputDecoration,
+        showGlassModal;
 import 'data/knowledge_models.dart';
 import 'knowledge_tokens.dart';
 
@@ -36,7 +41,8 @@ Future<String?> showCreateSpaceDialog(
     required String icon,
     required int hue,
     required String description,
-  }) onCreate,
+  })
+  onCreate,
 }) {
   return showGlassModal<String>(
     context,
@@ -53,7 +59,8 @@ class _CreateSpaceForm extends StatefulWidget {
     required String icon,
     required int hue,
     required String description,
-  }) onCreate;
+  })
+  onCreate;
 
   @override
   State<_CreateSpaceForm> createState() => _CreateSpaceFormState();
@@ -160,13 +167,19 @@ class _CreateSpaceFormState extends State<_CreateSpaceForm> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Icon(lucideIcon('triangle-alert'),
-                        size: 15, color: AppColors.danger),
+                    Icon(
+                      lucideIcon('triangle-alert'),
+                      size: 15,
+                      color: AppColors.danger,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _error!,
-                        style: const TextStyle(fontSize: 12.5, color: AppColors.danger),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.danger,
+                        ),
                       ),
                     ),
                   ],

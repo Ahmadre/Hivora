@@ -54,7 +54,11 @@ class ServerSelectorButton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(LucideIcons.server, size: 20, color: AppColors.accentStrong),
+              const Icon(
+                LucideIcons.server,
+                size: 20,
+                color: AppColors.accentStrong,
+              ),
               const SizedBox(width: 11),
               Expanded(
                 child: Column(

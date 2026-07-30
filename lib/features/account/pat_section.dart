@@ -319,7 +319,10 @@ class _ScopeChip extends StatelessWidget {
 
 /// Opens the "Create token" glass sheet. Resolves to the freshly-minted
 /// [CreatedPat] (with its one-time plaintext) or null if dismissed.
-Future<CreatedPat?> showCreatePat(BuildContext context, AccountRepository repo) {
+Future<CreatedPat?> showCreatePat(
+  BuildContext context,
+  AccountRepository repo,
+) {
   return showGlassModal<CreatedPat>(
     context,
     width: 480,

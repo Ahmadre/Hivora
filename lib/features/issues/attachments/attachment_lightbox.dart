@@ -319,8 +319,12 @@ class _LightboxScaffoldState extends State<_LightboxScaffold> {
                       if (reduceMotion) {
                         return Opacity(opacity: anim.value, child: child);
                       }
-                      final curved = const Cubic(0.34, 1.56, 0.64, 1)
-                          .transform(anim.value.clamp(0.0, 1.0));
+                      final curved = const Cubic(
+                        0.34,
+                        1.56,
+                        0.64,
+                        1,
+                      ).transform(anim.value.clamp(0.0, 1.0));
                       final fade = (anim.value / 0.6).clamp(0.0, 1.0);
                       return Opacity(
                         opacity: fade,
@@ -574,7 +578,8 @@ class _TextPageState extends State<_TextPage> {
 
   Future<String> _load() async {
     final bytes = await _fetchBytes(context, widget.item.url!);
-    final isJson = (widget.item.mime == 'application/json') ||
+    final isJson =
+        (widget.item.mime == 'application/json') ||
         widget.item.name.toLowerCase().endsWith('.json');
     // Decoding + (for JSON) parse/pretty-print up to 2 MB is heavy enough to
     // drop frames on the UI isolate, so hand it to a background isolate. On web

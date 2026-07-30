@@ -97,11 +97,11 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
 
   Future<void> _toggle(IngestConnection connection, bool enabled) async {
     final index = _connections.indexOf(connection);
-    setState(() =>
-        _connections[index] = connection.copyWith(enabled: enabled));
+    setState(() => _connections[index] = connection.copyWith(enabled: enabled));
     try {
-      final saved = await _repo
-          .updateIngestConnection(connection.copyWith(enabled: enabled));
+      final saved = await _repo.updateIngestConnection(
+        connection.copyWith(enabled: enabled),
+      );
       if (!mounted) return;
       setState(() => _connections[index] = saved);
     } on ApiFailure catch (failure) {
@@ -122,8 +122,9 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
     if (result == null || !mounted) return;
     _projects[result.project.id] = result.project;
     setState(() {
-      final index =
-          _connections.indexWhere((c) => c.id == result.connection.id);
+      final index = _connections.indexWhere(
+        (c) => c.id == result.connection.id,
+      );
       if (index >= 0) {
         _connections[index] = result.connection;
       } else {
@@ -137,8 +138,10 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
       context,
       icon: LucideIcons.trash2,
       title: context.t('admin.ingest.deleteTitle'),
-      message: context.t('admin.ingest.deleteBody',
-          variables: {'name': connection.label}),
+      message: context.t(
+        'admin.ingest.deleteBody',
+        variables: {'name': connection.label},
+      ),
       confirmLabel: context.t('common.delete'),
       destructive: true,
       confirmIcon: LucideIcons.trash2,
@@ -147,8 +150,11 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
     try {
       await _repo.deleteIngestConnection(connection.id!);
       if (!mounted) return;
-      setState(() => _connections =
-          _connections.where((c) => c.id != connection.id).toList());
+      setState(
+        () => _connections = _connections
+            .where((c) => c.id != connection.id)
+            .toList(),
+      );
     } on ApiFailure catch (failure) {
       if (!mounted) return;
       _showError(failure);
@@ -193,8 +199,10 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
         context,
         icon: LucideIcons.triangleAlert,
         title: context.t('admin.ingest.reprocessFullTitle'),
-        message: context.t('admin.ingest.reprocessFullBody',
-            variables: {'name': connection.label}),
+        message: context.t(
+          'admin.ingest.reprocessFullBody',
+          variables: {'name': connection.label},
+        ),
         confirmLabel: context.t('admin.ingest.reprocessFullConfirm'),
         destructive: true,
         confirmIcon: LucideIcons.mailPlus,
@@ -211,11 +219,14 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
       if (!mounted) return;
       showGlassToast(
         context,
-        context.t('admin.ingest.reprocessDone', variables: {
-          'scanned': result.scanned,
-          'updated': result.updated,
-          'created': result.created,
-        }),
+        context.t(
+          'admin.ingest.reprocessDone',
+          variables: {
+            'scanned': result.scanned,
+            'updated': result.updated,
+            'created': result.created,
+          },
+        ),
         kind: GlassToastKind.success,
       );
     } on ApiFailure catch (failure) {
@@ -366,7 +377,8 @@ class _ConnectionTile extends StatelessWidget {
         color: AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-            color: enabled ? AppColors.accentLine : AppColors.hairline2),
+          color: enabled ? AppColors.accentLine : AppColors.hairline2,
+        ),
       ),
       child: Row(
         children: [
@@ -393,10 +405,13 @@ class _ConnectionTile extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _MetaChip(
-                        icon: LucideIcons.server,
-                        text: '${connection.host}:${connection.port}'),
+                      icon: LucideIcons.server,
+                      text: '${connection.host}:${connection.port}',
+                    ),
                     _MetaChip(
-                        icon: LucideIcons.folder, text: connection.folder),
+                      icon: LucideIcons.folder,
+                      text: connection.folder,
+                    ),
                     _MetaChip(
                       icon: LucideIcons.squareKanban,
                       text: projectLabel,
@@ -427,7 +442,8 @@ class _ConnectionTile extends StatelessWidget {
               icon: LucideIcons.refreshCw,
               onPressed: () {
                 final box =
-                    reprocessKey.currentContext?.findRenderObject() as RenderBox?;
+                    reprocessKey.currentContext?.findRenderObject()
+                        as RenderBox?;
                 final rect = box != null && box.attached
                     ? box.localToGlobal(Offset.zero) & box.size
                     : null;
@@ -489,10 +505,12 @@ class _MetaChip extends StatelessWidget {
         // Flexible so a long value ellipsizes within the row instead of
         // overflowing the wrap line on narrow screens.
         Flexible(
-          child: Text(text,
-              style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );

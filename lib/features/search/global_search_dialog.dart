@@ -98,10 +98,12 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final rowCtx = _rowKeys[_c.selected]?.currentContext;
       if (rowCtx != null) {
-        Scrollable.ensureVisible(rowCtx,
-            alignment: 0.12,
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOutCubic);
+        Scrollable.ensureVisible(
+          rowCtx,
+          alignment: 0.12,
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+        );
       }
     });
     if (mounted) setState(() {});
@@ -210,8 +212,12 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
   }
 
   // ---- desktop: centered dialog with the spring entrance (§3.5) ----
-  Widget _desktopPanel(SearchTokens tokens, Animation<double> anim,
-      bool reduceMotion, Size size) {
+  Widget _desktopPanel(
+    SearchTokens tokens,
+    Animation<double> anim,
+    bool reduceMotion,
+    Size size,
+  ) {
     final maxW = math.min(640.0, size.width - 48);
     final maxH = math.min(620.0, size.height * 0.78);
     final panel = Padding(
@@ -220,8 +226,11 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
-          child: _shadowed(tokens, BorderRadius.circular(28),
-              _glassPanel(tokens, radius: 28, mobile: false)),
+          child: _shadowed(
+            tokens,
+            BorderRadius.circular(28),
+            _glassPanel(tokens, radius: 28, mobile: false),
+          ),
         ),
       ),
     );
@@ -229,8 +238,12 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
       animation: anim,
       builder: (_, child) {
         if (reduceMotion) return Opacity(opacity: anim.value, child: child);
-        final curved = const Cubic(0.34, 1.56, 0.64, 1).transform(
-            anim.value.clamp(0.0, 1.0));
+        final curved = const Cubic(
+          0.34,
+          1.56,
+          0.64,
+          1,
+        ).transform(anim.value.clamp(0.0, 1.0));
         final fade = (anim.value / 0.6).clamp(0.0, 1.0);
         return Opacity(
           opacity: fade,
@@ -249,19 +262,30 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
   }
 
   // ---- mobile: full-screen sheet sliding from the top (§3.5) ----
-  Widget _mobilePanel(SearchTokens tokens, Animation<double> anim,
-      bool reduceMotion, Size size) {
+  Widget _mobilePanel(
+    SearchTokens tokens,
+    Animation<double> anim,
+    bool reduceMotion,
+    Size size,
+  ) {
     const radius = BorderRadius.vertical(bottom: Radius.circular(26));
     final panel = SizedBox.expand(
       child: _shadowed(
-          tokens, radius, _glassPanel(tokens, radius: 26, mobile: true)),
+        tokens,
+        radius,
+        _glassPanel(tokens, radius: 26, mobile: true),
+      ),
     );
     return AnimatedBuilder(
       animation: anim,
       builder: (_, child) {
         if (reduceMotion) return Opacity(opacity: anim.value, child: child);
-        final eased =
-            const Cubic(0.22, 1, 0.36, 1).transform(anim.value.clamp(0.0, 1.0));
+        final eased = const Cubic(
+          0.22,
+          1,
+          0.36,
+          1,
+        ).transform(anim.value.clamp(0.0, 1.0));
         return FractionalTranslation(
           translation: Offset(0, eased - 1.0),
           child: child,
@@ -275,11 +299,17 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
   /// so the dark blur can't bleed up through it. See [GlassPanelShadow].
   Widget _shadowed(SearchTokens tokens, BorderRadius radius, Widget child) {
     return GlassPanelShadow(
-      radius: radius, shadows: tokens.panelShadow, child: child);
+      radius: radius,
+      shadows: tokens.panelShadow,
+      child: child,
+    );
   }
 
-  Widget _glassPanel(SearchTokens tokens,
-      {required double radius, required bool mobile}) {
+  Widget _glassPanel(
+    SearchTokens tokens, {
+    required double radius,
+    required bool mobile,
+  }) {
     final content = _PointerGlare(
       color: tokens.glare,
       enabled: !mobile,
@@ -287,7 +317,10 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
         children: [
           // showGeneralDialog inserts no Material, so the TextField (and any
           // ink-using descendant) needs one. Transparent → keeps the glass look.
-          Material(type: MaterialType.transparency, child: _column(tokens, mobile)),
+          Material(
+            type: MaterialType.transparency,
+            child: _column(tokens, mobile),
+          ),
           // Specular rim — bright top-left → dim → bright, at 140° (§3.3).
           Positioned.fill(
             child: IgnorePointer(
@@ -319,14 +352,16 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
       quality: GlassQuality.premium,
       clipBehavior: Clip.antiAlias,
       shape: LiquidRoundedSuperellipse(borderRadius: mobile ? 0 : radius),
-      settings: liquidGlassPanelSettings(glassFill: tokens.glassFill, dark: dark),
+      settings: liquidGlassPanelSettings(
+        glassFill: tokens.glassFill,
+        dark: dark,
+      ),
       child: content,
     );
 
     if (mobile) {
       return ClipRRect(
-        borderRadius:
-            const BorderRadius.vertical(bottom: Radius.circular(26)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
         child: glass,
       );
     }
@@ -352,10 +387,7 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
         children: [
           _field(tokens, mobile),
           _scopes(tokens),
-          if (mobile)
-            Expanded(child: results)
-          else
-            Flexible(child: results),
+          if (mobile) Expanded(child: results) else Flexible(child: results),
           if (!mobile) _footer(tokens),
         ],
       ),
@@ -464,11 +496,23 @@ class _GlobalSearchDialogState extends State<GlobalSearchDialog> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _FootHint(tokens: tokens, caps: const ['↑', '↓'], label: context.t('search.foot.navigate')),
+                  _FootHint(
+                    tokens: tokens,
+                    caps: const ['↑', '↓'],
+                    label: context.t('search.foot.navigate'),
+                  ),
                   const SizedBox(width: 16),
-                  _FootHint(tokens: tokens, caps: const ['↵'], label: context.t('search.foot.open')),
+                  _FootHint(
+                    tokens: tokens,
+                    caps: const ['↵'],
+                    label: context.t('search.foot.open'),
+                  ),
                   const SizedBox(width: 16),
-                  _FootHint(tokens: tokens, caps: const ['tab'], label: context.t('search.foot.scope')),
+                  _FootHint(
+                    tokens: tokens,
+                    caps: const ['tab'],
+                    label: context.t('search.foot.scope'),
+                  ),
                 ],
               ),
             ),

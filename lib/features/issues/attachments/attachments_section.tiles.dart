@@ -27,6 +27,7 @@ class _AttachmentTile extends StatefulWidget {
   final _Upload? upload;
   final IssueAttachment? attachment;
   final String subtitle;
+
   /// Relative API download path for [attachment]'s bytes (image thumbnails are
   /// fetched authenticated from it). Null for the uploading tile.
   final String Function(String id)? imagePath;
@@ -232,7 +233,10 @@ class _AttachmentTileState extends State<_AttachmentTile> {
                     const SizedBox(height: 8),
                     Text(
                       context.t('issues.attachments.uploadFailed'),
-                      style: const TextStyle(fontSize: 11, color: AppColors.danger),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.danger,
+                      ),
                     ),
                   ],
                 )

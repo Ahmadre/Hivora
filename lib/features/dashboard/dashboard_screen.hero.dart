@@ -25,7 +25,8 @@ class _GlassCard extends StatelessWidget {
     final fill = dark
         ? Colors.white.withValues(alpha: .09)
         : Colors.white.withValues(alpha: .55);
-    final border = borderColor ??
+    final border =
+        borderColor ??
         (dark
             ? Colors.white.withValues(alpha: .13)
             : Colors.white.withValues(alpha: .62));
@@ -84,7 +85,9 @@ class _GlassCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(_radius),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2D2B55).withValues(alpha: dark ? .48 : .26),
+              color: const Color(
+                0xFF2D2B55,
+              ).withValues(alpha: dark ? .48 : .26),
               blurRadius: 40,
               spreadRadius: -24,
               offset: const Offset(0, 22),
@@ -101,16 +104,16 @@ class _GlassCard extends StatelessWidget {
 }
 
 BoxDecoration _innerTile(bool dark) => BoxDecoration(
-      color: dark
-          ? Colors.white.withValues(alpha: .045)
-          : Colors.white.withValues(alpha: .5),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(
-        color: dark
-            ? Colors.white.withValues(alpha: .07)
-            : Colors.white.withValues(alpha: .55),
-      ),
-    );
+  color: dark
+      ? Colors.white.withValues(alpha: .045)
+      : Colors.white.withValues(alpha: .5),
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(
+    color: dark
+        ? Colors.white.withValues(alpha: .07)
+        : Colors.white.withValues(alpha: .55),
+  ),
+);
 
 // ══════════════════════════ Greeting header ════════════════════════════════
 
@@ -126,8 +129,8 @@ class _Greeting extends StatelessWidget {
     final key = hour < 11
         ? 'dashboard.greetMorning'
         : hour < 18
-            ? 'dashboard.greetAfternoon'
-            : 'dashboard.greetEvening';
+        ? 'dashboard.greetAfternoon'
+        : 'dashboard.greetEvening';
     final greeting = context.t(key, variables: {'name': first}).trim();
     final date = _dateLabel(context);
 
@@ -135,7 +138,9 @@ class _Greeting extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          greeting.endsWith(',') ? greeting.substring(0, greeting.length - 1) : greeting,
+          greeting.endsWith(',')
+              ? greeting.substring(0, greeting.length - 1)
+              : greeting,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -156,10 +161,13 @@ class _Greeting extends StatelessWidget {
                   children: [
                     Text('$date · '),
                     Text(
-                      context.t('dashboard.sprintDay', variables: {
-                        'day': '${sprint!.day}',
-                        'days': '${sprint!.days}',
-                      }),
+                      context.t(
+                        'dashboard.sprintDay',
+                        variables: {
+                          'day': '${sprint!.day}',
+                          'days': '${sprint!.days}',
+                        },
+                      ),
                       style: const TextStyle(
                         color: AppColors.accentStrong,
                         fontWeight: FontWeight.w700,
@@ -192,7 +200,10 @@ class _SprintHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = context.isCompact;
-    final ring = _ProgressRing(pct: sprint.progressPercent, size: compact ? 104 : 150);
+    final ring = _ProgressRing(
+      pct: sprint.progressPercent,
+      size: compact ? 104 : 150,
+    );
     return _GlassCard(
       padding: EdgeInsets.all(compact ? 20 : 26),
       gradient: const LinearGradient(
@@ -222,7 +233,10 @@ class _SprintHero extends StatelessWidget {
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [Expanded(child: _badge(context)), ring],
+                  children: [
+                    Expanded(child: _badge(context)),
+                    ring,
+                  ],
                 ),
                 const SizedBox(height: 14),
                 _body(context),
@@ -234,7 +248,11 @@ class _SprintHero extends StatelessWidget {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [_badge(context), const SizedBox(height: 14), _body(context)],
+                    children: [
+                      _badge(context),
+                      const SizedBox(height: 14),
+                      _body(context),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 22),
@@ -259,11 +277,18 @@ class _SprintHero extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(color: AppColors.accent, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: AppColors.accent,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 7),
           Text(
-            context.t(sprint.isSprint ? 'dashboard.activeSprint' : 'dashboard.kanbanBoard'),
+            context.t(
+              sprint.isSprint
+                  ? 'dashboard.activeSprint'
+                  : 'dashboard.kanbanBoard',
+            ),
             style: const TextStyle(
               fontFamily: AppTheme.fontMono,
               fontSize: 10.5,
@@ -313,13 +338,34 @@ class _SprintHero extends StatelessWidget {
           runSpacing: 8,
           children: [
             if (sprint.isSprint) ...[
-              _chip(LucideIcons.calendarDays,
-                  context.t('dashboard.dayChip', variables: {'day': '${sprint.day}', 'days': '${sprint.days}'})),
-              _chip(LucideIcons.gauge,
-                  context.t('dashboard.spChip', variables: {'done': '${sprint.points}', 'total': '${sprint.pointsTotal}'})),
+              _chip(
+                LucideIcons.calendarDays,
+                context.t(
+                  'dashboard.dayChip',
+                  variables: {'day': '${sprint.day}', 'days': '${sprint.days}'},
+                ),
+              ),
+              _chip(
+                LucideIcons.gauge,
+                context.t(
+                  'dashboard.spChip',
+                  variables: {
+                    'done': '${sprint.points}',
+                    'total': '${sprint.pointsTotal}',
+                  },
+                ),
+              ),
             ],
-            _chip(LucideIcons.circleCheck,
-                context.t('dashboard.issuesChip', variables: {'done': '${sprint.issuesDone}', 'total': '${sprint.issuesTotal}'})),
+            _chip(
+              LucideIcons.circleCheck,
+              context.t(
+                'dashboard.issuesChip',
+                variables: {
+                  'done': '${sprint.issuesDone}',
+                  'total': '${sprint.issuesTotal}',
+                },
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 18),
@@ -373,7 +419,9 @@ class _SprintHero extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFE4AC3E), Color(0xFFCE9526)]),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE4AC3E), Color(0xFFCE9526)],
+            ),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -386,7 +434,11 @@ class _SprintHero extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.columns3, size: 15, color: Color(0xFF2A2410)),
+              const Icon(
+                LucideIcons.columns3,
+                size: 15,
+                color: Color(0xFF2A2410),
+              ),
               const SizedBox(width: 8),
               Text(
                 context.t('dashboard.toBoard'),
@@ -420,7 +472,11 @@ class _SprintEmpty extends StatelessWidget {
               color: AppColors.accent.withValues(alpha: .14),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(LucideIcons.goal, color: AppColors.accentStrong, size: 22),
+            child: const Icon(
+              LucideIcons.goal,
+              color: AppColors.accentStrong,
+              size: 22,
+            ),
           ),
           const SizedBox(height: 14),
           Text(
@@ -476,24 +532,36 @@ class _AvatarStack extends StatelessWidget {
           for (final (i, m) in shown.indexed)
             Positioned(
               left: i * _step,
-              child: _ringed(HiveAvatar(name: m.displayName, imageUrl: m.avatarUrl, size: _size)),
+              child: _ringed(
+                HiveAvatar(
+                  name: m.displayName,
+                  imageUrl: m.avatarUrl,
+                  size: _size,
+                ),
+              ),
             ),
           if (extra > 0)
             Positioned(
               left: shown.length * _step,
-              child: _ringed(Container(
-                width: _size,
-                height: _size,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: .16),
+              child: _ringed(
+                Container(
+                  width: _size,
+                  height: _size,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: .16),
+                  ),
+                  child: Text(
+                    '+$extra',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _heroInk,
+                    ),
+                  ),
                 ),
-                child: Text(
-                  '+$extra',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _heroInk),
-                ),
-              )),
+              ),
             ),
         ],
       ),
@@ -502,10 +570,13 @@ class _AvatarStack extends StatelessWidget {
 
   // A solid ring drawn *around* (not over) the avatar so initials stay intact.
   Widget _ringed(Widget child) => Container(
-        padding: const EdgeInsets.all(_ring),
-        decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF262450)),
-        child: child,
-      );
+    padding: const EdgeInsets.all(_ring),
+    decoration: const BoxDecoration(
+      shape: BoxShape.circle,
+      color: Color(0xFF262450),
+    ),
+    child: child,
+  );
 }
 
 // ══════════════════════════ Progress ring ══════════════════════════════════
@@ -544,7 +615,10 @@ class _ProgressRing extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   context.t('dashboard.sprintCompleted'),
-                  style: TextStyle(fontSize: 10.5, color: Colors.white.withValues(alpha: .7)),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Colors.white.withValues(alpha: .7),
+                  ),
                 ),
               ],
             ),
@@ -610,10 +684,34 @@ class _Kpis extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      _KpiCard(label: context.t('dashboard.kpiToday'), value: today, icon: LucideIcons.inbox, hue: _cToday, onTap: () => _open(context, 'today')),
-      _KpiCard(label: context.t('dashboard.inProgress'), value: completion.inProgress, icon: LucideIcons.loader, hue: AppColors.accentStrong, onTap: () => _open(context, 'inprogress')),
-      _KpiCard(label: context.t('dashboard.backlog'), value: completion.backlog, icon: LucideIcons.layers, hue: _cBacklog, onTap: () => _open(context, 'backlog')),
-      _KpiCard(label: context.t('dashboard.done'), value: completion.done, icon: LucideIcons.circleCheckBig, hue: _cDone, onTap: () => _open(context, 'done')),
+      _KpiCard(
+        label: context.t('dashboard.kpiToday'),
+        value: today,
+        icon: LucideIcons.inbox,
+        hue: _cToday,
+        onTap: () => _open(context, 'today'),
+      ),
+      _KpiCard(
+        label: context.t('dashboard.inProgress'),
+        value: completion.inProgress,
+        icon: LucideIcons.loader,
+        hue: AppColors.accentStrong,
+        onTap: () => _open(context, 'inprogress'),
+      ),
+      _KpiCard(
+        label: context.t('dashboard.backlog'),
+        value: completion.backlog,
+        icon: LucideIcons.layers,
+        hue: _cBacklog,
+        onTap: () => _open(context, 'backlog'),
+      ),
+      _KpiCard(
+        label: context.t('dashboard.done'),
+        value: completion.done,
+        icon: LucideIcons.circleCheckBig,
+        hue: _cDone,
+        onTap: () => _open(context, 'done'),
+      ),
     ];
     if (context.isCompact) {
       return SizedBox(
@@ -630,17 +728,21 @@ class _Kpis extends StatelessWidget {
     }
     return Column(
       children: [
-        Row(children: [
-          Expanded(child: items[0]),
-          const SizedBox(width: _gap),
-          Expanded(child: items[1]),
-        ]),
+        Row(
+          children: [
+            Expanded(child: items[0]),
+            const SizedBox(width: _gap),
+            Expanded(child: items[1]),
+          ],
+        ),
         const SizedBox(height: _gap),
-        Row(children: [
-          Expanded(child: items[2]),
-          const SizedBox(width: _gap),
-          Expanded(child: items[3]),
-        ]),
+        Row(
+          children: [
+            Expanded(child: items[2]),
+            const SizedBox(width: _gap),
+            Expanded(child: items[3]),
+          ],
+        ),
       ],
     );
   }
@@ -686,7 +788,11 @@ class _KpiCard extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.inkSoft),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkSoft,
+                  ),
                 ),
               ),
             ],

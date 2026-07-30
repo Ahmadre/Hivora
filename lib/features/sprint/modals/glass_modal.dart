@@ -502,12 +502,17 @@ class _AnchoredPanel extends StatelessWidget {
 /// chosen day echoed in the header and a Cancel / OK footer.
 ///
 /// Resolves to the picked [DateTime], or `null` if dismissed.
+///
+/// Pass [onClear] where the field being edited may hold no date at all: the
+/// footer then offers a "clear" action that fires it and closes. Without it the
+/// picker can only confirm or cancel, as before.
 Future<DateTime?> showGlassDatePicker(
   BuildContext context, {
   required DateTime initialDate,
   required DateTime firstDate,
   required DateTime lastDate,
   required String title,
+  VoidCallback? onClear,
 }) {
   return showGlassModal<DateTime>(
     context,
@@ -517,8 +522,137 @@ Future<DateTime?> showGlassDatePicker(
       firstDate: firstDate,
       lastDate: lastDate,
       title: title,
+      onClear: onClear,
     ),
   );
+}
+
+/// The same calendar, anchored beside the control that opened it instead of
+/// centred on a scrim — for inline field editors where a full modal is heavier
+/// than the edit it performs (the board's quick-create composer).
+///
+/// Picking a day commits immediately and closes, the way a dropdown does; there
+/// is no OK. [onClear] adds a "clear" row for fields that may hold no date.
+///
+/// Wide screens only — callers decide, mirroring [showGlassOptions]: on a phone
+/// use [showGlassDatePicker], whose sheet-sized modal fits the small screen.
+/// Resolves to the picked date, or null when dismissed or cleared.
+Future<DateTime?> showGlassDatePopover(
+  BuildContext context, {
+  required Rect anchorRect,
+  required DateTime initialDate,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  required String title,
+  VoidCallback? onClear,
+}) {
+  return showGlassAnchoredPopover<DateTime>(
+    context,
+    anchorRect: anchorRect,
+    width: 330,
+    minHeight: 260,
+    maxHeight: 460,
+    builder: (popoverContext) => _GlassDatePopoverBody(
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      title: title,
+      onClear: onClear,
+    ),
+  );
+}
+
+/// Themes Material's [CalendarDatePicker] onto the app's glass: no opaque
+/// dialog surface of its own, navy selection, amber "today". Shared so the
+/// anchored popover and the modal picker render the same calendar.
+ThemeData _glassCalendarTheme(BuildContext context) {
+  final base = Theme.of(context);
+  return base.copyWith(
+    colorScheme: base.colorScheme.copyWith(
+      primary: AppColors.navy,
+      onPrimary: Colors.white,
+      surface: Colors.transparent,
+      onSurface: AppColors.ink,
+    ),
+    datePickerTheme: DatePickerThemeData(
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      todayForegroundColor: WidgetStateProperty.all(AppColors.accentStrong),
+      todayBorder: const BorderSide(color: AppColors.accent),
+    ),
+  );
+}
+
+class _GlassDatePopoverBody extends StatelessWidget {
+  const _GlassDatePopoverBody({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.title,
+    this.onClear,
+  });
+
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final String title;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Theme(
+            data: _glassCalendarTheme(context),
+            child: SizedBox(
+              // The calendar needs a bounded height; the panel scrolls when it
+              // has less room than this.
+              height: 312,
+              child: CalendarDatePicker(
+                initialDate: initialDate,
+                firstDate: firstDate,
+                lastDate: lastDate,
+                // A popover commits on pick — no OK button to hunt for.
+                onDateChanged: (d) => Navigator.of(context).pop(d),
+              ),
+            ),
+          ),
+          if (onClear != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () {
+                    onClear!();
+                    Navigator.of(context).pop();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.inkSoft,
+                  ),
+                  icon: const Icon(LucideIcons.x, size: 15),
+                  label: Text(context.t('common.clear')),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _GlassDatePicker extends StatefulWidget {
@@ -527,12 +661,16 @@ class _GlassDatePicker extends StatefulWidget {
     required this.firstDate,
     required this.lastDate,
     required this.title,
+    this.onClear,
   });
 
   final DateTime initialDate;
   final DateTime firstDate;
   final DateTime lastDate;
   final String title;
+
+  /// When set, the footer offers clearing the field the picker is editing.
+  final VoidCallback? onClear;
 
   @override
   State<_GlassDatePicker> createState() => _GlassDatePickerState();
@@ -543,24 +681,9 @@ class _GlassDatePickerState extends State<_GlassDatePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context);
     // Theme the Material calendar to the app's surface-free, navy/amber palette
     // so it reads on the glass instead of painting its own opaque dialog.
-    final themed = base.copyWith(
-      colorScheme: base.colorScheme.copyWith(
-        primary: AppColors.navy,
-        onPrimary: Colors.white,
-        surface: Colors.transparent,
-        onSurface: AppColors.ink,
-      ),
-      datePickerTheme: DatePickerThemeData(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        todayForegroundColor: WidgetStateProperty.all(AppColors.accentStrong),
-        todayBorder: const BorderSide(color: AppColors.accent),
-      ),
-    );
+    final themed = _glassCalendarTheme(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -585,6 +708,24 @@ class _GlassDatePickerState extends State<_GlassDatePicker> {
         GlassModalFooter(
           confirmLabel: MaterialLocalizations.of(context).okButtonLabel,
           onConfirm: () => Navigator.of(context).pop(_selected),
+          // Clearing closes without a value, so it rides the footer's left
+          // hint slot rather than competing with OK.
+          hint: widget.onClear == null
+              ? null
+              : Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      widget.onClear!();
+                      Navigator.of(context).pop();
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.inkSoft,
+                    ),
+                    icon: const Icon(LucideIcons.x, size: 15),
+                    label: Text(context.t('common.clear')),
+                  ),
+                ),
         ),
       ],
     );

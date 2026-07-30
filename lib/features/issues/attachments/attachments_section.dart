@@ -422,8 +422,8 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     // client), then save/share them via the browser / OS share sheet.
     try {
       final res = await context.read<ApiClient>().getBytes(
-            '/api/v1/issues/${widget.issueId}/attachments/${a.id}/download',
-          );
+        '/api/v1/issues/${widget.issueId}/attachments/${a.id}/download',
+      );
       if (res == null) {
         if (mounted) _toast(context.t('errors.unexpected'));
         return;

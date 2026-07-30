@@ -683,8 +683,11 @@ class _SprintCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
-                child: const Icon(LucideIcons.goal,
-                    size: 18, color: AppColors.accentStrong),
+                child: const Icon(
+                  LucideIcons.goal,
+                  size: 18,
+                  color: AppColors.accentStrong,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -718,17 +721,22 @@ class _SprintCard extends StatelessWidget {
               ),
               if (sprint.days > 0)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentSoft,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    context.t('weeklySummary.sprintDay', variables: {
-                      'day': '${sprint.day}',
-                      'days': '${sprint.days}',
-                    }),
+                    context.t(
+                      'weeklySummary.sprintDay',
+                      variables: {
+                        'day': '${sprint.day}',
+                        'days': '${sprint.days}',
+                      },
+                    ),
                     style: const TextStyle(
                       fontFamily: AppTheme.fontMono,
                       fontSize: 11,
@@ -742,7 +750,9 @@ class _SprintCard extends StatelessWidget {
           const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(child: HiveProgress(value: pct, color: AppColors.accent)),
+              Expanded(
+                child: HiveProgress(value: pct, color: AppColors.accent),
+              ),
               const SizedBox(width: 12),
               Text(
                 '${(pct * 100).round()}%',
@@ -757,10 +767,13 @@ class _SprintCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            context.t('weeklySummary.sprintProgress', variables: {
-              'done': '${sprint.issuesDone}',
-              'total': '${sprint.issuesTotal}',
-            }),
+            context.t(
+              'weeklySummary.sprintProgress',
+              variables: {
+                'done': '${sprint.issuesDone}',
+                'total': '${sprint.issuesTotal}',
+              },
+            ),
             style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
           ),
         ],
@@ -863,8 +876,10 @@ class _ContributorRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Text(
-          context.t('weeklySummary.doneCount',
-              variables: {'count': '${contributor.completed}'}),
+          context.t(
+            'weeklySummary.doneCount',
+            variables: {'count': '${contributor.completed}'},
+          ),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -897,8 +912,7 @@ class _HighlightsCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          for (final issue in issues)
-            _IssueRow(issue: issue, showDue: false),
+          for (final issue in issues) _IssueRow(issue: issue, showDue: false),
         ],
       ),
     );
@@ -935,8 +949,10 @@ class _UpcomingCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    context.t('weeklySummary.upcomingCount',
-                        variables: {'count': '${upcoming.total}'}),
+                    context.t(
+                      'weeklySummary.upcomingCount',
+                      variables: {'count': '${upcoming.total}'},
+                    ),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -946,15 +962,19 @@ class _UpcomingCard extends StatelessWidget {
                 ),
                 if (upcoming.overdue > 0)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: _cOverdue.withValues(alpha: .12),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
-                      context.t('weeklySummary.overdueCount',
-                          variables: {'count': '${upcoming.overdue}'}),
+                      context.t(
+                        'weeklySummary.overdueCount',
+                        variables: {'count': '${upcoming.overdue}'},
+                      ),
                       style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
@@ -1016,9 +1036,15 @@ class _IssueRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final due = issue.dueDate;
-    final overdue = due != null &&
-        due.isBefore(DateTime(
-            DateTime.now().year, DateTime.now().month, DateTime.now().day));
+    final overdue =
+        due != null &&
+        due.isBefore(
+          DateTime(
+            DateTime.now().year,
+            DateTime.now().month,
+            DateTime.now().day,
+          ),
+        );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1066,8 +1092,9 @@ class _IssueRow extends StatelessWidget {
                             ).format(due.toLocal()),
                             style: TextStyle(
                               fontSize: 11.5,
-                              fontWeight:
-                                  overdue ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: overdue
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: overdue ? _cOverdue : AppColors.inkSoft,
                             ),
                           ),
@@ -1080,8 +1107,11 @@ class _IssueRow extends StatelessWidget {
               const SizedBox(width: 8),
               PriorityFlag(priority: issue.priority),
               const SizedBox(width: 6),
-              Icon(LucideIcons.chevronRight,
-                  size: 15, color: AppColors.inkFaint),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 15,
+                color: AppColors.inkFaint,
+              ),
             ],
           ),
         ),

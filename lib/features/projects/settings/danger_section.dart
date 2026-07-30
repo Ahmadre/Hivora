@@ -51,7 +51,10 @@ class DangerSection extends StatelessWidget {
               backgroundColor: AppColors.danger,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusControl),
               ),

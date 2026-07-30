@@ -38,9 +38,13 @@ Future<bool?> showDeleteBoardFlow(
       titleKey: 'delete.board.title',
       subtitleKey: 'delete.board.subtitle',
       confirmName: boardName,
-      loadImpact: () => context.read<BoardRepository>().boardDeletionImpact(boardId).then(_boardImpact),
-      openStream: (_, cancel) =>
-          context.read<BoardRepository>().boardDeleteStream(boardId, cancelToken: cancel),
+      loadImpact: () => context
+          .read<BoardRepository>()
+          .boardDeletionImpact(boardId)
+          .then(_boardImpact),
+      openStream: (_, cancel) => context
+          .read<BoardRepository>()
+          .boardDeleteStream(boardId, cancelToken: cancel),
     ),
   );
 }
@@ -59,13 +63,17 @@ Future<bool?> showDeleteProjectFlow(
       titleKey: 'delete.project.title',
       subtitleKey: 'delete.project.subtitle',
       confirmName: projectName,
-      loadImpact: () => context.read<ProjectRepository>().projectDeletionImpact(projectId).then(_projectImpact),
-      openStream: (choice, cancel) => context.read<ProjectRepository>().projectDeleteStream(
-        projectId,
-        strategy: choice.strategy,
-        migrateToProjectId: choice.targetId,
-        cancelToken: cancel,
-      ),
+      loadImpact: () => context
+          .read<ProjectRepository>()
+          .projectDeletionImpact(projectId)
+          .then(_projectImpact),
+      openStream: (choice, cancel) =>
+          context.read<ProjectRepository>().projectDeleteStream(
+            projectId,
+            strategy: choice.strategy,
+            migrateToProjectId: choice.targetId,
+            cancelToken: cancel,
+          ),
     ),
   );
 }
@@ -84,8 +92,13 @@ Future<bool?> showDeleteTeamFlow(
       titleKey: 'delete.team.title',
       subtitleKey: 'delete.team.subtitle',
       confirmName: teamName,
-      loadImpact: () => context.read<TeamRepository>().teamDeletionImpact(teamId).then(_teamImpact),
-      openStream: (_, cancel) => context.read<TeamRepository>().teamDeleteStream(teamId, cancelToken: cancel),
+      loadImpact: () => context
+          .read<TeamRepository>()
+          .teamDeletionImpact(teamId)
+          .then(_teamImpact),
+      openStream: (_, cancel) => context
+          .read<TeamRepository>()
+          .teamDeleteStream(teamId, cancelToken: cancel),
     ),
   );
 }
@@ -260,7 +273,9 @@ class _DeleteFlowState extends State<_DeleteFlow> {
     final impact = _impact;
     if (impact == null || !impact.needsIssueChoice) return true;
     if (_choice.strategy == IssueStrategy.delete) return true;
-    if (_choice.strategy == IssueStrategy.migrate) return _choice.targetId != null;
+    if (_choice.strategy == IssueStrategy.migrate) {
+      return _choice.targetId != null;
+    }
     return false; // nothing chosen yet
   }
 
@@ -343,7 +358,10 @@ class _DeleteFlowState extends State<_DeleteFlow> {
       icon: _stage == _Stage.deleting ? LucideIcons.loader : widget.icon,
       iconColor: AppColors.danger,
       iconBg: AppColors.dangerSoft,
-      title: context.t(widget.titleKey, variables: {'name': widget.confirmName}),
+      title: context.t(
+        widget.titleKey,
+        variables: {'name': widget.confirmName},
+      ),
       subtitle: context.t(widget.subtitleKey),
       body: switch (_stage) {
         _Stage.loading => const _Centered(child: CircularProgressIndicator()),
@@ -395,7 +413,10 @@ class _DeleteFlowState extends State<_DeleteFlow> {
         ] else
           const SizedBox(height: 6),
         FieldLabel(
-          context.t('delete.confirmLabel', variables: {'name': widget.confirmName}),
+          context.t(
+            'delete.confirmLabel',
+            variables: {'name': widget.confirmName},
+          ),
         ),
         TextField(
           controller: _confirmCtrl,
@@ -417,8 +438,10 @@ class _Centered extends StatelessWidget {
   const _Centered({required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) =>
-      Padding(padding: const EdgeInsets.all(24), child: Center(child: child));
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Center(child: child),
+  );
 }
 
 class _WarnRow extends StatelessWidget {
@@ -479,8 +502,11 @@ class _IssueChoice extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FieldLabel(
-          context.t('delete.project.issuesLabel', variables: {'count': '$issueCount'},
-              count: issueCount),
+          context.t(
+            'delete.project.issuesLabel',
+            variables: {'count': '$issueCount'},
+            count: issueCount,
+          ),
         ),
         _Option(
           icon: LucideIcons.trash2,
@@ -550,7 +576,9 @@ class _Option extends StatelessWidget {
     return Opacity(
       opacity: disabled ? 0.5 : 1,
       child: Material(
-        color: selected ? AppColors.accentSoft : AppColors.surface.withValues(alpha: 0.7),
+        color: selected
+            ? AppColors.accentSoft
+            : AppColors.surface.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(AppTheme.radiusControl),
         child: InkWell(
           onTap: onTap,
@@ -585,7 +613,10 @@ class _Option extends StatelessWidget {
                       ),
                       Text(
                         hint,
-                        style: TextStyle(fontSize: 11, color: AppColors.inkSoft),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.inkSoft,
+                        ),
                       ),
                     ],
                   ),
@@ -613,7 +644,9 @@ class _TargetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.accentSoft : AppColors.surface.withValues(alpha: 0.5),
+      color: selected
+          ? AppColors.accentSoft
+          : AppColors.surface.withValues(alpha: 0.5),
       borderRadius: BorderRadius.circular(AppTheme.radiusControl),
       child: InkWell(
         onTap: onTap,
@@ -658,7 +691,11 @@ class _TargetRow extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Icon(LucideIcons.check, size: 16, color: AppColors.accentStrong),
+                const Icon(
+                  LucideIcons.check,
+                  size: 16,
+                  color: AppColors.accentStrong,
+                ),
             ],
           ),
         ),
@@ -738,7 +775,11 @@ class _ErrorBody extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(LucideIcons.circleAlert, size: 16, color: AppColors.danger),
+          const Icon(
+            LucideIcons.circleAlert,
+            size: 16,
+            color: AppColors.danger,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

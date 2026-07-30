@@ -23,7 +23,8 @@ const Map<String, AttachmentKindMeta> _kindMeta = {
   'file': AttachmentKindMeta(LucideIcons.file, Color(0xFF7B7E88)),
 };
 
-AttachmentKindMeta kindMeta(String kind) => _kindMeta[kind] ?? _kindMeta['file']!;
+AttachmentKindMeta kindMeta(String kind) =>
+    _kindMeta[kind] ?? _kindMeta['file']!;
 
 bool kindIsImage(String kind) => kind == 'image';
 
@@ -33,15 +34,35 @@ bool kindIsPdf(String kind) => kind == 'pdf';
 /// superset of what the server actually accepts (text/plain, text/csv,
 /// application/json) so previews keep working if the whitelist grows.
 const Set<String> kTextPreviewExtensions = {
-  'txt', 'text', 'log', 'md', 'markdown', 'json', 'jsonc', 'geojson',
-  'csv', 'tsv', 'xml', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf',
-  'properties', 'env', 'html', 'htm', 'css',
+  'txt',
+  'text',
+  'log',
+  'md',
+  'markdown',
+  'json',
+  'jsonc',
+  'geojson',
+  'csv',
+  'tsv',
+  'xml',
+  'yaml',
+  'yml',
+  'toml',
+  'ini',
+  'cfg',
+  'conf',
+  'properties',
+  'env',
+  'html',
+  'htm',
+  'css',
 };
 
 /// Whether [name]/[mime] is previewable as plain text inline. Switches on MIME
 /// first (covers text/* and application/json), then falls back to extension.
 bool isTextPreviewable(String name, [String? mime]) {
-  if (mime != null && (mime.startsWith('text/') || mime == 'application/json')) {
+  if (mime != null &&
+      (mime.startsWith('text/') || mime == 'application/json')) {
     return true;
   }
   final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
@@ -52,7 +73,15 @@ bool isTextPreviewable(String name, [String? mime]) {
 String kindFromName(String name, [String? mime]) {
   final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
   if ((mime != null && mime.startsWith('image/')) ||
-      const ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'heic'].contains(ext)) {
+      const [
+        'png',
+        'jpg',
+        'jpeg',
+        'gif',
+        'webp',
+        'svg',
+        'heic',
+      ].contains(ext)) {
     return 'image';
   }
   if ((mime != null && mime.startsWith('video/')) ||
@@ -92,9 +121,9 @@ String formatBytes(int b) {
 String relativeAgeLabel(BuildContext context, DateTime when) {
   final d = DateTime.now().difference(when);
   String t(String key, [int? n]) => context.t(
-        'issues.attachments.$key',
-        variables: n == null ? const {} : {'n': n},
-      );
+    'issues.attachments.$key',
+    variables: n == null ? const {} : {'n': n},
+  );
   if (d.inSeconds < 45) return t('ageNow');
   if (d.inMinutes < 60) return t('ageMinutes', d.inMinutes);
   if (d.inHours < 24) return t('ageHours', d.inHours);
@@ -108,11 +137,46 @@ String relativeAgeLabel(BuildContext context, DateTime when) {
 /// with a friendly message; the server whitelist of MIME types is the real
 /// gate (these never appear in it), this just avoids a wasted round-trip.
 const Set<String> kBlockedExtensions = {
-  'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'pif', 'cpl', 'dll', 'sys',
-  'sh', 'bash', 'zsh', 'ksh', 'run', 'bin', 'app', 'command',
-  'js', 'jse', 'vbs', 'vbe', 'wsf', 'wsh', 'ps1', 'psm1', 'hta',
-  'jar', 'apk', 'deb', 'rpm', 'dmg', 'pkg',
-  'reg', 'lnk', 'gadget', 'inf', 'ade', 'adp', 'mst',
+  'exe',
+  'msi',
+  'bat',
+  'cmd',
+  'com',
+  'scr',
+  'pif',
+  'cpl',
+  'dll',
+  'sys',
+  'sh',
+  'bash',
+  'zsh',
+  'ksh',
+  'run',
+  'bin',
+  'app',
+  'command',
+  'js',
+  'jse',
+  'vbs',
+  'vbe',
+  'wsf',
+  'wsh',
+  'ps1',
+  'psm1',
+  'hta',
+  'jar',
+  'apk',
+  'deb',
+  'rpm',
+  'dmg',
+  'pkg',
+  'reg',
+  'lnk',
+  'gadget',
+  'inf',
+  'ade',
+  'adp',
+  'mst',
 };
 
 bool isBlockedFileName(String name) {

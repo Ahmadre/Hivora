@@ -99,7 +99,6 @@ class _DashboardViewState extends State<_DashboardView> {
   List<Project> _projects = const [];
   List<Team> _teams = const [];
 
-
   /// Re-fetch when an issue is created/changed elsewhere (e.g. the global
   /// nav-rail "new issue" button, which can't reach this screen's cubit).
   StreamSubscription<void>? _issueSub;
@@ -176,8 +175,9 @@ class _DashboardViewState extends State<_DashboardView> {
 
   /// Card show/hide is client-side only — no server round trip.
   void _toggleCard(String key) {
-    setState(() =>
-        _draft = _draft.toggleCard(key, hidden: !_draft.isHidden(key)));
+    setState(
+      () => _draft = _draft.toggleCard(key, hidden: !_draft.isHidden(key)),
+    );
   }
 
   @override
@@ -234,7 +234,10 @@ class _DashboardViewState extends State<_DashboardView> {
             ),
           ],
           const SizedBox(height: 22),
-          if (wide) _wideGrid(context, data, prefs) else _stack(context, data, prefs),
+          if (wide)
+            _wideGrid(context, data, prefs)
+          else
+            _stack(context, data, prefs),
         ],
       ),
     );
@@ -261,16 +264,31 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 
   // Desktop / tablet: golden-ratio two columns (1.618 : 1).
-  Widget _wideGrid(BuildContext context, DashboardData data, DashboardPrefs prefs) {
+  Widget _wideGrid(
+    BuildContext context,
+    DashboardData data,
+    DashboardPrefs prefs,
+  ) {
     final left = <(String, Widget)>[
       (_Card.hero, _sprintCard(data.activeBoard)),
       (_Card.focus, _FocusCard(issues: data.todayTasks)),
-      if (data.gitActivity.isNotEmpty) (_Card.git, _GitCard(events: data.gitActivity)),
+      if (data.gitActivity.isNotEmpty)
+        (_Card.git, _GitCard(events: data.gitActivity)),
     ];
     final right = <(String, Widget)>[
-      (_Card.kpis, _Kpis(today: data.todayCount, completion: data.completion, projectIds: prefs.projectIds)),
+      (
+        _Card.kpis,
+        _Kpis(
+          today: data.todayCount,
+          completion: data.completion,
+          projectIds: prefs.projectIds,
+        ),
+      ),
       (_Card.completion, _CompletionCard(completion: data.completion)),
-      (_Card.tracker, _TrackerCard(week: data.tracker, month: data.trackerMonth)),
+      (
+        _Card.tracker,
+        _TrackerCard(week: data.tracker, month: data.trackerMonth),
+      ),
       (_Card.ranking, _LeaderboardCard(ranking: data.ranking)),
     ];
     return Row(
@@ -284,14 +302,29 @@ class _DashboardViewState extends State<_DashboardView> {
   }
 
   // Phone: one column.
-  Widget _stack(BuildContext context, DashboardData data, DashboardPrefs prefs) {
+  Widget _stack(
+    BuildContext context,
+    DashboardData data,
+    DashboardPrefs prefs,
+  ) {
     final items = <(String, Widget)>[
       (_Card.hero, _sprintCard(data.activeBoard)),
-      (_Card.kpis, _Kpis(today: data.todayCount, completion: data.completion, projectIds: prefs.projectIds)),
+      (
+        _Card.kpis,
+        _Kpis(
+          today: data.todayCount,
+          completion: data.completion,
+          projectIds: prefs.projectIds,
+        ),
+      ),
       (_Card.focus, _FocusCard(issues: data.todayTasks)),
       (_Card.completion, _CompletionCard(completion: data.completion)),
-      (_Card.tracker, _TrackerCard(week: data.tracker, month: data.trackerMonth)),
-      if (data.gitActivity.isNotEmpty) (_Card.git, _GitCard(events: data.gitActivity)),
+      (
+        _Card.tracker,
+        _TrackerCard(week: data.tracker, month: data.trackerMonth),
+      ),
+      if (data.gitActivity.isNotEmpty)
+        (_Card.git, _GitCard(events: data.gitActivity)),
       (_Card.ranking, _LeaderboardCard(ranking: data.ranking)),
     ];
     return _column(items, prefs);
@@ -308,13 +341,20 @@ class _DashboardViewState extends State<_DashboardView> {
       if (children.isNotEmpty) children.add(const SizedBox(height: _gap));
       children.add(_editableCard(key, widget, hidden));
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    );
   }
 
   Widget _editableCard(String key, Widget child, bool hidden) {
     // The hero is the personalisation anchor (holds the board picker) — always on.
     if (!_editing || key == _Card.hero) return child;
-    return _HideableCard(hidden: hidden, onToggle: () => _toggleCard(key), child: child);
+    return _HideableCard(
+      hidden: hidden,
+      onToggle: () => _toggleCard(key),
+      child: child,
+    );
   }
 
   Widget _sprintCard(DashboardBoard? sprint) =>
