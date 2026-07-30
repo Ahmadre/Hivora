@@ -41,6 +41,12 @@ class _GlassCard extends StatelessWidget {
     );
     if (onTap != null) {
       content = Stack(
+        // Passthrough, NOT the default loose fit: loose hands the decorated box
+        // `loose(biggest)`, so it shrink-wraps its content and a tappable card
+        // with little to say (the KPI tiles) draws a small pill inside its slot
+        // while the Stack alone fills it. Passthrough forwards the card's own
+        // constraints, exactly as the untappable branch below gets them.
+        fit: StackFit.passthrough,
         children: [
           content,
           Positioned.fill(

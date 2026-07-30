@@ -102,6 +102,14 @@ void main() {
   final behind = section(LucideIcons.history); // "the week behind"
   final ahead = section(LucideIcons.listTodo); // "your week ahead"
 
+  /// The content column inside the stat card carrying [icon] — the box that
+  /// shrink-wrapped while the tappable glass card handed it loose constraints, so
+  /// it is what proves the card really fills its slot. Taking the last match
+  /// matters for the focus glyph, which a hero chip (built earlier) reuses.
+  Finder card(IconData icon) => find
+      .ancestor(of: find.byIcon(icon).last, matching: find.byType(Column))
+      .first;
+
   testWidgets('desktop spreads the two sections at the golden ratio', (
     tester,
   ) async {
@@ -136,6 +144,29 @@ void main() {
     expect(
       tester.getTopLeft(behind).dx,
       closeTo((width - singleColumnMax) / 2, 1),
+    );
+  });
+
+  testWidgets('the stat cards fill the row in equal thirds', (tester) async {
+    await pump(tester, const Size(1600, 1000));
+
+    // A tappable glass card used to shrink-wrap its content, so these three drew
+    // as small pills of three different widths inside their equal slots.
+    final cards = [
+      LucideIcons.circleCheckBig, // completed
+      LucideIcons.plus, // created
+      LucideIcons.timer, // focus time — the hero chip reuses this glyph
+    ].map((icon) => card(icon)).toList();
+
+    for (final other in cards.skip(1)) {
+      expect(tester.getSize(other).width, tester.getSize(cards.first).width);
+    }
+    // …and that shared width is a full third of the section, not just content.
+    const gap = 12.0; // _StatRow's spacing
+    const inset = 14.0 + 1.0; // _StatCard's padding + the card's 1px border
+    expect(
+      tester.getSize(cards.first).width,
+      closeTo((tester.getSize(behind).width - 2 * gap) / 3 - 2 * inset, 0.5),
     );
   });
 
