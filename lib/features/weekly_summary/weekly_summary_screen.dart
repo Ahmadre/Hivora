@@ -29,6 +29,17 @@ const _cFocus = Color(0xFFB9831F);
 const _cOverdue = Color(0xFFC0392B);
 const _heroInk = Color(0xF2FFFFFF); // ~95% white — text on navy glass
 
+/// Gap between cards inside a column, between the two sections, and between the
+/// two golden-ratio columns.
+const double _cardGap = 14;
+const double _sectionGap = 26;
+const double _columnGap = 22;
+
+/// How wide the single column may get before the page splits in two. Past this
+/// the summary stops growing as one strand and becomes a φ-proportioned spread —
+/// the hero also switches to its banner arrangement here.
+const double _singleColumnMax = 720;
+
 /// The Weekly Summary page: the team's work over the past week and the caller's
 /// own upcoming to-dos. Reached from the Monday digest notification / e-mail CTA
 /// (`/weekly-summary`) and rendered inside the app shell as a sub-page.
@@ -86,54 +97,130 @@ class _WeeklySummaryViewState extends State<_WeeklySummaryView> {
   }
 
   Widget _content(BuildContext context, WeeklySummary data) {
-    // Constrain the reading column on wide screens (golden-ratio) so the summary
-    // stays a focused, centred narrative instead of stretching edge-to-edge.
-    final maxWidth = context.isExpanded ? 720.0 : double.infinity;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: context.pagePadding,
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Hero(data: data),
-                const SizedBox(height: 22),
-                _SectionLabel(
-                  icon: LucideIcons.history,
-                  label: context.t('weeklySummary.weekBehind'),
-                ),
-                const SizedBox(height: 12),
-                _StatRow(team: data.team),
-                if (data.team.sprint != null) ...[
-                  const SizedBox(height: 14),
-                  _SprintCard(sprint: data.team.sprint!),
-                ],
-                if (data.team.contributors.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  _ContributorsCard(contributors: data.team.contributors),
-                ],
-                if (data.team.highlights.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  _HighlightsCard(issues: data.team.highlights),
-                ],
-                const SizedBox(height: 26),
-                _SectionLabel(
-                  icon: LucideIcons.listTodo,
-                  label: context.t('weeklySummary.weekAhead'),
-                ),
-                const SizedBox(height: 12),
-                _UpcomingCard(upcoming: data.upcoming),
-                const SizedBox(height: 8),
-              ],
-            ),
-          ),
+        // Measure the box we actually got, not the screen: the wide shell already
+        // centres every page inside [Breakpoints.readingWidth], so `screenWidth`
+        // would claim room this page never receives.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Split only once the narrow column can still be a full reading
+            // column (φ : 1 of `mediumMax` ≈ 610 : 377). Below that the second
+            // column would be too cramped for a to-do row, so the page stays one
+            // centred strand — capped, because a 1618px-wide line of text is not
+            // something anyone reads.
+            final split =
+                constraints.maxWidth >= Breakpoints.mediumMax + _columnGap;
+            return split
+                ? _spread(context, data)
+                : Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: _singleColumnMax,
+                      ),
+                      child: _strand(context, data),
+                    ),
+                  );
+          },
         ),
       ],
     );
   }
+
+  /// Phone / tablet: one strand, read top to bottom.
+  Widget _strand(BuildContext context, WeeklySummary data) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _Hero(data: data),
+      const SizedBox(height: 22),
+      _behind(context),
+      const SizedBox(height: 12),
+      _StatRow(team: data.team),
+      if (data.team.sprint != null) ...[
+        const SizedBox(height: _cardGap),
+        _SprintCard(sprint: data.team.sprint!),
+      ],
+      if (data.team.contributors.isNotEmpty) ...[
+        const SizedBox(height: _cardGap),
+        _ContributorsCard(contributors: data.team.contributors),
+      ],
+      if (data.team.highlights.isNotEmpty) ...[
+        const SizedBox(height: _cardGap),
+        _HighlightsCard(issues: data.team.highlights),
+      ],
+      const SizedBox(height: _sectionGap),
+      _ahead(context),
+      const SizedBox(height: 12),
+      _UpcomingCard(upcoming: data.upcoming),
+      const SizedBox(height: 8),
+    ],
+  );
+
+  /// Desktop: the golden-ratio spread — the same 1618 : 1000 flex the dashboard
+  /// uses. The hero spans both columns as a banner; the team's retrospective
+  /// fills the wide column, the personal outlook the narrow one. The leaderboard
+  /// moves over to the narrow side so the two columns end at roughly the same
+  /// height — it carries its own card title, so it still reads correctly there.
+  Widget _spread(BuildContext context, WeeklySummary data) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _Hero(data: data),
+      const SizedBox(height: 22),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 1618,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _behind(context),
+                const SizedBox(height: 12),
+                _StatRow(team: data.team),
+                if (data.team.sprint != null) ...[
+                  const SizedBox(height: _cardGap),
+                  _SprintCard(sprint: data.team.sprint!),
+                ],
+                if (data.team.highlights.isNotEmpty) ...[
+                  const SizedBox(height: _cardGap),
+                  _HighlightsCard(issues: data.team.highlights),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: _columnGap),
+          Expanded(
+            flex: 1000,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ahead(context),
+                const SizedBox(height: 12),
+                _UpcomingCard(upcoming: data.upcoming),
+                if (data.team.contributors.isNotEmpty) ...[
+                  const SizedBox(height: _cardGap),
+                  _ContributorsCard(contributors: data.team.contributors),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+    ],
+  );
+
+  Widget _behind(BuildContext context) => _SectionLabel(
+    icon: LucideIcons.history,
+    label: context.t('weeklySummary.weekBehind'),
+  );
+
+  Widget _ahead(BuildContext context) => _SectionLabel(
+    icon: LucideIcons.listTodo,
+    label: context.t('weeklySummary.weekAhead'),
+  );
 }
 
 // ══════════════════════════ Shared glass card ══════════════════════════════
@@ -252,96 +339,147 @@ class _Hero extends StatelessWidget {
               ),
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: .16),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(LucideIcons.calendarRange,
-                        size: 12, color: Color(0xFFEBCF8F)),
-                    const SizedBox(width: 7),
-                    Text(
-                      range,
-                      style: const TextStyle(
-                        fontFamily: AppTheme.fontMono,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.3,
-                        color: Color(0xFFEBCF8F),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                first.isEmpty
-                    ? context.t('weeklySummary.title')
-                    : context.t('weeklySummary.heroGreeting',
-                        variables: {'name': first}),
-                style: const TextStyle(
-                  fontFamily: AppTheme.fontBrand,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: _heroInk,
-                ),
-              ),
-              const SizedBox(height: 6),
-              // Big headline: what the team accomplished this week.
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    fontFamily: AppTheme.fontBrand,
-                    height: 1.1,
-                    letterSpacing: -0.6,
-                    color: _heroInk,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: '$completed',
-                      style: TextStyle(
-                        fontSize: context.isCompact ? 40 : 48,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFFF0C464),
-                      ),
-                    ),
-                    TextSpan(
-                      text:
-                          '  ${context.t('weeklySummary.heroCompleted', variables: {'count': '$completed'})}',
-                      style: TextStyle(
-                        fontSize: context.isCompact ? 19 : 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Banner arrangement once the hero is wider than a single reading
+              // column: the two "you" chips ride to the right of the headline
+              // instead of under it, so the spread's hero fills its width. They
+              // get the narrow φ share, which is what makes them wrap rather
+              // than run into the headline.
+              final banner = constraints.maxWidth > _singleColumnMax;
+              final text = _heroText(context, first, completed, range);
+              final chips = _heroChips(context, alignEnd: banner);
+              if (!banner) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [text, const SizedBox(height: 14), chips],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _heroChip(LucideIcons.circleCheck,
-                      context.t('weeklySummary.youClosed',
-                          variables: {'count': '${data.team.myCompleted}'})),
-                  _heroChip(LucideIcons.timer,
-                      context.t('weeklySummary.youFocused',
-                          variables: {'time': focusLabel(data.team.focusMinutes)})),
+                  Expanded(flex: 1618, child: text),
+                  const SizedBox(width: 24),
+                  Expanded(flex: 1000, child: chips),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  /// Date-range pill · greeting · the big "N completed" headline.
+  Widget _heroText(
+    BuildContext context,
+    String first,
+    int completed,
+    String range,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: .16),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              LucideIcons.calendarRange,
+              size: 12,
+              color: Color(0xFFEBCF8F),
+            ),
+            const SizedBox(width: 7),
+            Text(
+              range,
+              style: const TextStyle(
+                fontFamily: AppTheme.fontMono,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+                color: Color(0xFFEBCF8F),
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 16),
+      Text(
+        first.isEmpty
+            ? context.t('weeklySummary.title')
+            : context.t(
+                'weeklySummary.heroGreeting',
+                variables: {'name': first},
+              ),
+        style: const TextStyle(
+          fontFamily: AppTheme.fontBrand,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: _heroInk,
+        ),
+      ),
+      const SizedBox(height: 6),
+      // Big headline: what the team accomplished this week.
+      RichText(
+        text: TextSpan(
+          style: const TextStyle(
+            fontFamily: AppTheme.fontBrand,
+            height: 1.1,
+            letterSpacing: -0.6,
+            color: _heroInk,
+          ),
+          children: [
+            TextSpan(
+              text: '$completed',
+              style: TextStyle(
+                fontSize: context.isCompact ? 40 : 48,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFFF0C464),
+              ),
+            ),
+            TextSpan(
+              text:
+                  '  ${context.t('weeklySummary.heroCompleted', variables: {'count': '$completed'})}',
+              style: TextStyle(
+                fontSize: context.isCompact ? 19 : 22,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  /// The caller's own two numbers. [alignEnd] pulls them against the hero's right
+  /// edge for the banner arrangement — stacked under the headline they stay left,
+  /// where the rest of the hero's text starts. Either way the [Wrap] keeps them
+  /// from colliding with anything once the space gets narrow.
+  Widget _heroChips(BuildContext context, {required bool alignEnd}) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    alignment: alignEnd ? WrapAlignment.end : WrapAlignment.start,
+    children: [
+      _heroChip(
+        LucideIcons.circleCheck,
+        context.t(
+          'weeklySummary.youClosed',
+          variables: {'count': '${data.team.myCompleted}'},
+        ),
+      ),
+      _heroChip(
+        LucideIcons.timer,
+        context.t(
+          'weeklySummary.youFocused',
+          variables: {'time': focusLabel(data.team.focusMinutes)},
+        ),
+      ),
+    ],
+  );
 
   Widget _heroChip(IconData icon, String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
@@ -382,14 +520,20 @@ class _SectionLabel extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: AppColors.accentStrong),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: AppTheme.fontBrand,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
-            color: AppColors.ink,
+        // A heading is one line: it truncates rather than shoving its own row
+        // past the column edge when a translation runs long on a narrow screen.
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontBrand,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+              color: AppColors.ink,
+            ),
           ),
         ),
       ],
@@ -821,13 +965,25 @@ class _UpcomingCard extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8, top: 2),
             child: Row(
               children: [
-                if (remaining > 0)
-                  Text(
-                    context.t('weeklySummary.moreCount',
-                        variables: {'count': '$remaining'}),
-                    style: TextStyle(fontSize: 12, color: AppColors.inkFaint),
-                  ),
-                const Spacer(),
+                // Expanded, not Text + Spacer: the count has to give way to the
+                // button when the column is narrow (or the translation long),
+                // instead of pushing the row past the card's edge.
+                Expanded(
+                  child: remaining > 0
+                      ? Text(
+                          context.t(
+                            'weeklySummary.moreCount',
+                            variables: {'count': '$remaining'},
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.inkFaint,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
                 GhostButton(
                   label: context.t('weeklySummary.viewAll'),
                   icon: LucideIcons.arrowRight,
@@ -939,12 +1095,16 @@ class _CardTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: AppColors.accentStrong),
         const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
-            color: AppColors.ink,
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
           ),
         ),
       ],
