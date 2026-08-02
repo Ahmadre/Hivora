@@ -111,6 +111,7 @@ struct SplashState {
   ComPtr<ID2D1PathGeometry> hex_geometry;
   ComPtr<ID2D1PathGeometry> bar_geometry;
 
+  HinataSplash* owner = nullptr;  // wird benachrichtigt, wenn das Fenster geht
   LARGE_INTEGER start_ticks{};
   LARGE_INTEGER frequency{};
   float mark_size = 0.0f;   // Kantenlänge des Logo-Quadrats
@@ -328,6 +329,7 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM wparam,
       return HTTRANSPARENT;  // Klicks gehen an das Flutter-Fenster darunter.
     case WM_DESTROY: {
       if (state) {
+        if (state->owner) state->owner->OnWindowDestroyed();
         SetWindowLongPtr(hwnd, GWLP_USERDATA, 0);
         delete state;
       }
@@ -422,14 +424,15 @@ std::unique_ptr<HinataSplash> HinataSplash::Present(HWND parent) {
   QueryPerformanceFrequency(&state->frequency);
   QueryPerformanceCounter(&state->start_ticks);
 
+  auto splash = std::unique_ptr<HinataSplash>(new HinataSplash());
+  splash->hwnd_ = hwnd;
+  state->owner = splash.get();
+
   SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(
                                             state.release()));
   SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   SetTimer(hwnd, kTimerId, kFrameIntervalMs, nullptr);
-
-  auto splash = std::unique_ptr<HinataSplash>(new HinataSplash());
-  splash->hwnd_ = hwnd;
   return splash;
 }
 

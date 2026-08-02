@@ -22,6 +22,11 @@ class HinataSplash {
   // Auf die neue Client-Größe des Elternfensters ziehen.
   void Resize(int width, int height);
 
+  // Vom Splash-Fenster aufgerufen, wenn es sich nach der Choreografie selbst
+  // zerstört. Ohne das bliebe hier ein toter HWND stehen, den Windows später
+  // an ein fremdes Fenster neu vergeben könnte.
+  void OnWindowDestroyed() { hwnd_ = nullptr; }
+
  private:
   HinataSplash() = default;
 
