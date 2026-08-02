@@ -19,17 +19,21 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
 
 - [ ] Als Windows-App-Entwickler in [Partner Center](https://storedeveloper.microsoft.com/)
       registrieren (einmalige Gebühr, Identitätsprüfung des Publishers).
-- [ ] App-Namen reservieren → daraus ergeben sich **Identity Name**,
+- [x] App-Namen reservieren → daraus ergeben sich **Identity Name**,
       **Publisher** und **Publisher Display Name**.
-- [ ] Diese drei Werte in `pubspec.yaml` → `msix_config` eintragen.
-      **Sie müssen exakt mit Partner Center übereinstimmen**, sonst weist der
-      Store das Paket zurück. Aktuell stehen dort Platzhalter:
+- [x] Diese drei Werte in `pubspec.yaml` → `msix_config` eintragen. **Erledigt**,
+      übernommen aus **App → Produktverwaltung → Produktidentität**:
 
-      identity_name:          com.ahmadre.hinata
-      publisher:              CN=com.ahmadre
-      publisher_display_name: com.ahmadre
+      identity_name:          4hm4dr3.hinata
+      publisher:              CN=0A922060-E40D-4D55-9D1D-83B9594F60E5
+      publisher_display_name: 4hm4dr3
 
-      Die echten Werte stehen unter **App → Produktidentität**.
+      Store ID (= Produkt-ID für die CLI): `9N5NVNPKBBLR` — steht im Fastfile,
+      da öffentlich (Teil der Store-URL). Kein Secret nötig.
+
+      **Der Store prüft zeichengenau.** Weicht auch nur einer ab, kommt beim
+      Upload: „Package acceptance validation error: The PublisherDisplayName
+      element … doesn't match your publisher display name".
 
 ## 2. Erste Submission (manuell, einmalig)
 
@@ -37,6 +41,12 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
       Artefakt `hinata-msix` herunterladen (die CI lädt bei diesem Button
       bewusst nichts hoch).
 - [ ] Partner Center → App → **Neue Übermittlung** → Pakete → MSIX hochladen.
+- [ ] **Gerätefamilien einschränken**: auf derselben Seite unter „Device family
+      availability" **nur „Windows 10/11 Desktop"** angehakt lassen. Das Paket
+      deklariert `TargetDeviceFamily Name="Windows.Desktop"`; bleiben Mobile,
+      Xbox, Team oder Mixed Reality angehakt, blockiert Partner Center mit
+      „You must provide a package that supports each selected device family".
+      „Let Microsoft decide … future device families" kann angehakt bleiben.
 - [ ] **Store-Eintrag** je Sprache pflegen: `en-us` und `de-de` (die App liefert
       beide Locales). Beschreibung, Screenshots, Store-Logos.
 - [ ] **Altersfreigabe (IARC)**-Fragebogen ausfüllen.
@@ -69,7 +79,9 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
       | `AZURE_AD_APPLICATION_CLIENT_ID` | Entra → App registrations → Application (client) ID |
       | `AZURE_AD_APPLICATION_SECRET` | Entra → App registration → Certificates & secrets |
       | `SELLER_ID` | Partner Center → Account settings → Publisher/Seller ID |
-      | `MSSTORE_PRODUCT_ID` | Partner Center → App → Produktidentität → Store-Produkt-ID |
+
+      (`MSSTORE_PRODUCT_ID` ist **kein** Secret — die Store ID steht als Default
+      im Fastfile und lässt sich per Umgebungsvariable überschreiben.)
 
 Danach veröffentlicht **„Publish (button)"** Windows vollautomatisch mit.
 

@@ -21,8 +21,12 @@
 
 default_platform(:windows)
 
-APP_IDENTITY = "com.ahmadre.hinata".freeze
-MSIX_DIR = "../build/windows/x64/runner/Release".freeze
+APP_IDENTITY = "4hm4dr3.hinata".freeze
+
+# Store product ID (Partner Center → Product identity → "Store ID"). It is public
+# — it is the id in https://apps.microsoft.com/detail/9N5NVNPKBBLR — so it lives
+# here instead of in a secret. MSSTORE_PRODUCT_ID overrides it if ever needed.
+STORE_PRODUCT_ID = "9N5NVNPKBBLR".freeze
 
 def repo_root
   File.expand_path("../..", __dir__)
@@ -56,6 +60,11 @@ def msix_path
   File.join(repo_root, "build", "windows", "x64", "runner", "Release", "hinata.msix")
 end
 
+def product_id
+  id = ENV["MSSTORE_PRODUCT_ID"].to_s
+  id.empty? ? STORE_PRODUCT_ID : id
+end
+
 platform :windows do
   desc "Preflight: version format, msix_config, capability register, product id"
   lane :verify do
@@ -78,9 +87,7 @@ platform :windows do
     end
     UI.success("Capabilities registered: #{caps.join(', ')}")
 
-    if ENV["MSSTORE_PRODUCT_ID"].to_s.empty?
-      UI.important("MSSTORE_PRODUCT_ID is not set — `release` can build but not publish.")
-    end
+    UI.success("Store product: #{product_id}")
   end
 
   desc "Build the release binary and package it as a Store MSIX"
@@ -98,18 +105,10 @@ platform :windows do
   lane :release do
     build
 
-    product_id = ENV["MSSTORE_PRODUCT_ID"].to_s
-    if product_id.empty?
-      UI.user_error!(
-        "MSSTORE_PRODUCT_ID is not set.\n" \
-        "It is the Store product ID from Partner Center (app → Product identity).\n" \
-        "The app must already be live in the Store before CI can update it — see\n" \
-        "release/MANUAL_STEPS_WINDOWS.md."
-      )
-    end
-
     # The msstore CLI is installed and authenticated by the workflow
     # (microsoft/microsoft-store-apppublisher + `msstore reconfigure`).
+    # Note: this UPDATES an existing, already-live listing — the first
+    # submission is manual, see release/MANUAL_STEPS_WINDOWS.md.
     sh("msstore", "publish", msix_path, "-id", product_id)
 
     if ENV["SUBMIT"] == "true"

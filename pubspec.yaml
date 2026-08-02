@@ -193,19 +193,18 @@ flutter_launcher_icons:
 
 # --- Microsoft Store package (run: dart run msix:create --store) ---
 #
-# identity_name / publisher / publisher_display_name MUST match the values
-# Partner Center shows under the app's "Product identity" page — the Store
-# rejects the package otherwise. They are placeholders until the app record
-# exists; see release/MANUAL_STEPS_WINDOWS.md.
+# identity_name / publisher / publisher_display_name are copied verbatim from
+# Partner Center → hinata → Product management → Product identity. The Store
+# validates them character-exact and rejects the package on any mismatch.
 #
 # The version is NOT taken from `version:` above: the Store reserves the 4th
 # field (revision) and requires it to be 0, while pubspec encodes the build
 # number there. windows/fastlane passes --version X.Y.Z.0 explicitly.
 msix_config:
   display_name: hinata
-  publisher_display_name: com.ahmadre
-  identity_name: com.ahmadre.hinata
-  publisher: CN=com.ahmadre
+  publisher_display_name: 4hm4dr3
+  identity_name: 4hm4dr3.hinata
+  publisher: CN=0A922060-E40D-4D55-9D1D-83B9594F60E5
   logo_path: assets/branding/app_icon.png
   # Windows' permission model. Every entry is registered in
   # release/permissions.yaml and must match the Store listing's
