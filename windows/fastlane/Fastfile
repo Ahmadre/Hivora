@@ -1,0 +1,122 @@
+# Hinata — Windows (Microsoft Store) release automation.
+#
+# Fastlane has no native Windows/Store actions, so these lanes shell out to the
+# platform tooling (msix pub package + Microsoft Store Developer CLI). They exist
+# anyway so CI has ONE interface across all platforms — `bundle exec fastlane
+# <lane>` — and one place for the preflight checks.
+#
+#   bundle exec fastlane windows verify    # preflight (no build, no upload)
+#   bundle exec fastlane windows build     # flutter build + MSIX package
+#   bundle exec fastlane windows release   # build + publish to Partner Center
+#
+# Store specifics that shape this file:
+#   * The MSIX version's 4th field (revision) is RESERVED by the Store and must
+#     be 0. pubspec's build number (`+72`) therefore cannot go there — the
+#     version is composed as X.Y.Z.0 and uniqueness comes from the version bump
+#     that "Publish (button)" performs on every run.
+#   * The Store signs Store-bound packages itself on ingestion, so CI needs no
+#     code-signing certificate. Only side-loaded MSIX would.
+#   * `msstore publish` UPDATES an existing, already-live listing. The very first
+#     submission is manual — see release/MANUAL_STEPS_WINDOWS.md.
+
+default_platform(:windows)
+
+APP_IDENTITY = "com.ahmadre.hinata".freeze
+MSIX_DIR = "../build/windows/x64/runner/Release".freeze
+
+def repo_root
+  File.expand_path("../..", __dir__)
+end
+
+def flutter(*args)
+  Dir.chdir(repo_root) { sh("flutter", *args) }
+end
+
+def dart(*args)
+  Dir.chdir(repo_root) { sh("dart", *args) }
+end
+
+# pubspec `version: 7.0.0+72` → ["7.0.0", "72"]
+def pubspec_version
+  line = File.readlines(File.join(repo_root, "pubspec.yaml"))
+             .find { |l| l.start_with?("version:") }
+  UI.user_error!("No `version:` in pubspec.yaml") unless line
+  name, code = line.sub("version:", "").strip.split("+")
+  [name, code]
+end
+
+# Store-legal MSIX version: X.Y.Z.0 (revision reserved by the Store).
+def msix_version
+  name, = pubspec_version
+  UI.user_error!("Version '#{name}' is not X.Y.Z") unless name.match?(/\A\d+\.\d+\.\d+\z/)
+  "#{name}.0"
+end
+
+def msix_path
+  File.join(repo_root, "build", "windows", "x64", "runner", "Release", "hinata.msix")
+end
+
+platform :windows do
+  desc "Preflight: version format, msix_config, capability register, product id"
+  lane :verify do
+    pubspec = File.read(File.join(repo_root, "pubspec.yaml"))
+    UI.user_error!("pubspec.yaml has no msix_config block") unless pubspec.include?("msix_config:")
+
+    version = msix_version
+    UI.message("MSIX version will be #{version} (revision field is Store-reserved)")
+
+    # Capabilities declared for packaging must all be in the permission register.
+    register = File.read(File.join(repo_root, "release", "permissions.yaml"))
+    caps = pubspec[/^\s*capabilities:\s*(.+)$/, 1].to_s.split(",").map(&:strip).reject(&:empty?)
+    UI.user_error!("msix_config declares no capabilities") if caps.empty?
+    missing = caps.reject { |c| register.include?(c) }
+    unless missing.empty?
+      UI.user_error!(
+        "Capabilities not in release/permissions.yaml: #{missing.join(', ')}.\n" \
+        "Every capability needs a documented feature + rationale before submission."
+      )
+    end
+    UI.success("Capabilities registered: #{caps.join(', ')}")
+
+    if ENV["MSSTORE_PRODUCT_ID"].to_s.empty?
+      UI.important("MSSTORE_PRODUCT_ID is not set — `release` can build but not publish.")
+    end
+  end
+
+  desc "Build the release binary and package it as a Store MSIX"
+  lane :build do
+    verify
+    # No baked-in backend: the store app must NOT pin a server. A fresh install
+    # asks for the URL on first launch (same rule as the macOS/iOS lanes).
+    flutter("build", "windows", "--release")
+    dart("run", "msix:create", "--store", "--version", msix_version)
+    UI.user_error!("MSIX not found at #{msix_path}") unless File.exist?(msix_path)
+    UI.success("Packaged #{msix_path}")
+  end
+
+  desc "Build + upload to Partner Center. SUBMIT=true also publishes the submission."
+  lane :release do
+    build
+
+    product_id = ENV["MSSTORE_PRODUCT_ID"].to_s
+    if product_id.empty?
+      UI.user_error!(
+        "MSSTORE_PRODUCT_ID is not set.\n" \
+        "It is the Store product ID from Partner Center (app → Product identity).\n" \
+        "The app must already be live in the Store before CI can update it — see\n" \
+        "release/MANUAL_STEPS_WINDOWS.md."
+      )
+    end
+
+    # The msstore CLI is installed and authenticated by the workflow
+    # (microsoft/microsoft-store-apppublisher + `msstore reconfigure`).
+    sh("msstore", "publish", msix_path, "-id", product_id)
+
+    if ENV["SUBMIT"] == "true"
+      sh("msstore", "submission", "publish", product_id)
+      UI.success("Submission published — Partner Center certification starts now.")
+    else
+      UI.success("Package uploaded to the pending submission (not published).")
+    end
+  end
+end

@@ -16,7 +16,8 @@ name: Publish (button)
 #       deterministic Conventional-Commit fallback runs.)
 #   3. Commits + tags vX.Y.Z.
 #   4. Builds & SUBMITS to the stores for review — App Store + Mac App Store
-#      (submit_for_review) and Google Play (production track).
+#      (submit_for_review), Google Play (production track) and the Microsoft
+#      Store (MSIX uploaded to Partner Center + submission published).
 #
 # For a dry/draft run instead (no submission), use the "Release (button)" workflow.
 on:
@@ -102,6 +103,7 @@ jobs:
             echo "## 🚀 Publishing $new_version (tag \`$tag\`)"
             echo "- Android versionCode **$new_code** → Play **production** (review)"
             echo "- iOS + macOS → App Store / Mac App Store, **submitted for review**"
+            echo "- Windows → MSIX **$new_name.0** → Microsoft Store (certification)"
             echo ""
             echo "### Generated release notes (en-US)"
             echo '```'

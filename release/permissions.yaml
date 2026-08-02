@@ -23,6 +23,7 @@ permissions:
   - id: internet
     platforms:
       android: android.permission.INTERNET
+      windows: internetClient            # MSIX capability
     feature: "Connect to your Hinata Server"
     rationale: "The app is a client for a self-hosted server; it needs network access to talk to the server URL you enter."
     requested: first-launch
@@ -55,6 +56,7 @@ permissions:
       android: android.permission.RECORD_AUDIO
       ios: NSMicrophoneUsageDescription
       macos: com.apple.security.device.audio-input   # + NSMicrophoneUsageDescription
+      windows: microphone                            # MSIX capability
     feature: "Voice comments & video attachments"
     rationale: "Records voice comments and captures sound for videos you attach to issues."
     requested: in-context
@@ -153,6 +155,21 @@ permissions:
     usage_description:
       en: "Opens Hinata Connect links directly in the app."
       de: "Öffnet Hinata-Connect-Links direkt in der App."
+
+  - id: run_full_trust
+    platforms:
+      windows: runFullTrust             # rescap — added automatically by msix:create
+    feature: "Run as a desktop application"
+    rationale: "Hinata is a Win32/Flutter desktop app, not a UWP app. Windows requires the restricted capability `runFullTrust` for any packaged desktop app; it is not an extra privilege the app requests, it is what makes a classic desktop binary runnable from an MSIX at all."
+    requested: n/a
+    data_collected: none
+    store_declarations:
+      play_data_safety: "n/a"
+      apple_privacy_label: "n/a"
+      microsoft_store: "Restricted capability — Partner Center may ask for a justification on first submission. Reason: packaged Win32 desktop app."
+    usage_description:
+      en: "Required for Hinata to run as a regular desktop application on Windows."
+      de: "Erforderlich, damit Hinata unter Windows als normale Desktop-Anwendung läuft."
 
   - id: network_client
     platforms:

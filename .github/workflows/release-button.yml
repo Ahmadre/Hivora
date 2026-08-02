@@ -6,7 +6,8 @@ name: Release (button)
 #   (or type an exact version) → Run.
 #
 # It bumps pubspec.yaml on main, commits, creates the vX.Y.Z tag, then calls the
-# "Store Release" workflow (reusable) to build & upload Android + iOS + macOS.
+# "Store Release" workflow (reusable) to build & upload Android + iOS + macOS,
+# and to package the Windows MSIX as a downloadable run artifact.
 # The Android versionCode (build number after "+") is always incremented by 1 so
 # Play never rejects the upload.
 #
@@ -93,6 +94,7 @@ jobs:
             echo "- **$current → $new_version** (tag \`$tag\`)"
             echo "- Android versionCode: **$new_code**"
             echo "- Building Android (Play internal, draft) + iOS + macOS (TestFlight)…"
+            echo "- Windows: MSIX **$new_name.0** packaged as a run artifact (no Store upload)"
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:

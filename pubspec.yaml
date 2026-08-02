@@ -132,6 +132,8 @@ dev_dependencies:
   bloc_test: ^10.0.0
   flutter_native_splash: ^2.4.0
   flutter_launcher_icons: ^0.14.0
+  # Microsoft Store packaging (windows/fastlane → `dart run msix:create --store`)
+  msix: ^3.18.0
 
 flutter:
   uses-material-design: true
@@ -188,3 +190,28 @@ flutter_launcher_icons:
   adaptive_icon_foreground: assets/branding/app_icon_foreground.png
   adaptive_icon_monochrome: assets/branding/app_icon_foreground.png
   remove_alpha_ios: true
+
+# --- Microsoft Store package (run: dart run msix:create --store) ---
+#
+# identity_name / publisher / publisher_display_name MUST match the values
+# Partner Center shows under the app's "Product identity" page — the Store
+# rejects the package otherwise. They are placeholders until the app record
+# exists; see release/MANUAL_STEPS_WINDOWS.md.
+#
+# The version is NOT taken from `version:` above: the Store reserves the 4th
+# field (revision) and requires it to be 0, while pubspec encodes the build
+# number there. windows/fastlane passes --version X.Y.Z.0 explicitly.
+msix_config:
+  display_name: hinata
+  publisher_display_name: com.ahmadre
+  identity_name: com.ahmadre.hinata
+  publisher: CN=com.ahmadre
+  logo_path: assets/branding/app_icon.png
+  # Windows' permission model. Every entry is registered in
+  # release/permissions.yaml and must match the Store listing's
+  # "This app can" section.
+  #   internetClient — talk to the self-hosted Hinata Server
+  #   microphone     — voice comments / audio for attached videos (record_windows)
+  capabilities: internetClient, microphone
+  languages: en-us, de-de
+  store: true

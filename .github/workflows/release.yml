@@ -171,3 +171,56 @@ jobs:
           else
             bundle exec fastlane beta
           fi
+
+  windows:
+    name: Windows → Microsoft Store ${{ inputs.submit == 'true' && '(submitted)' || '(package only)' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: windows
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      # Installs the Microsoft Store Developer CLI (msstore) onto the runner.
+      - name: Set up Microsoft Store CLI
+        if: ${{ inputs.submit == 'true' }}
+        uses: microsoft/microsoft-store-apppublisher@v1.1
+      - name: Authenticate the Store CLI
+        if: ${{ inputs.submit == 'true' }}
+        run: >
+          msstore reconfigure
+          --tenantId ${{ secrets.AZURE_AD_TENANT_ID }}
+          --sellerId ${{ secrets.SELLER_ID }}
+          --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+      - name: Build & package (and upload on publish)
+        shell: bash
+        env:
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
+          SUBMIT: ${{ inputs.submit }}
+        run: |
+          cd windows
+          # Publish → upload to Partner Center and publish the submission.
+          # Release / tag push → package only, so the MSIX can be smoke-tested
+          # from the run's artifacts without touching the live listing.
+          if [ "$SUBMIT" = "true" ]; then
+            bundle exec fastlane windows release
+          else
+            bundle exec fastlane windows build
+          fi
+      - name: Upload the MSIX as a run artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hinata-msix
+          path: build/windows/x64/runner/Release/*.msix
+          if-no-files-found: error
+          retention-days: 30
