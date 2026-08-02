@@ -112,6 +112,7 @@ struct SplashState {
   ComPtr<ID2D1PathGeometry> bar_geometry;
 
   HinataSplash* owner = nullptr;  // wird benachrichtigt, wenn das Fenster geht
+  bool started = false;           // Uhr läuft erst ab dem ersten sichtbaren Tick
   LARGE_INTEGER start_ticks{};
   LARGE_INTEGER frequency{};
   float mark_size = 0.0f;   // Kantenlänge des Logo-Quadrats
@@ -125,6 +126,22 @@ namespace {
 
 SplashState* StateOf(HWND hwnd) {
   return reinterpret_cast<SplashState*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+}
+
+// Das Elternfenster wird erst beim ersten Flutter-Frame gezeigt (siehe
+// FlutterWindow::OnCreate) — je nach Maschine ein bis mehrere Sekunden nach
+// OnCreate. Währenddessen ist der UI-Thread durchgehend beschäftigt, und
+// WM_TIMER ist eine Niedrigprioritäts-Nachricht: sie wird nur bei leerer
+// Warteschlange erzeugt, feuert in dieser Phase also gar nicht. Die Uhr darf
+// deshalb nicht "solange zurücksetzen, bis sichtbar" laufen, sondern startet
+// einmalig beim ersten Tick, der das Fenster sichtbar antrifft.
+bool EnsureStarted(HWND hwnd, SplashState* state) {
+  if (state->started) return true;
+  HWND parent = GetParent(hwnd);
+  if (parent && !IsWindowVisible(parent)) return false;
+  state->started = true;
+  QueryPerformanceCounter(&state->start_ticks);
+  return true;
 }
 
 float ElapsedSeconds(const SplashState& state) {
@@ -296,7 +313,7 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM wparam,
 
   switch (message) {
     case WM_TIMER: {
-      if (!state) break;
+      if (!state || !EnsureStarted(hwnd, state)) return 0;
       const float t = ElapsedSeconds(*state);
       if (t >= kFadeStart) {
         const float fade = (std::min)(1.0f, (t - kFadeStart) / kFadeDuration);
@@ -312,7 +329,7 @@ LRESULT CALLBACK SplashWndProc(HWND hwnd, UINT message, WPARAM wparam,
       return 0;
     }
     case WM_PAINT: {
-      if (state) Render(hwnd, state);
+      if (state && EnsureStarted(hwnd, state)) Render(hwnd, state);
       ValidateRect(hwnd, nullptr);
       return 0;
     }
@@ -377,8 +394,15 @@ std::unique_ptr<HinataSplash> HinataSplash::Present(HWND parent) {
   if (!hwnd) return nullptr;
   SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
 
+  // 96 dpi erzwingen, damit 1 DIP == 1 Pixel ist. Ohne das übernimmt D2D die
+  // Desktop-DPI, während GetClientRect physische Pixel liefert — bei 200 %
+  // Skalierung wird dann alles doppelt so groß gezeichnet und aus dem Fenster
+  // geschoben. Das gesamte Layout unten rechnet bewusst in Pixeln.
   if (FAILED(state->d2d_factory->CreateHwndRenderTarget(
-          D2D1::RenderTargetProperties(),
+          D2D1::RenderTargetProperties(
+              D2D1_RENDER_TARGET_TYPE_DEFAULT,
+              D2D1::PixelFormat(DXGI_FORMAT_UNKNOWN, D2D1_ALPHA_MODE_UNKNOWN),
+              96.0f, 96.0f),
           D2D1::HwndRenderTargetProperties(
               hwnd, D2D1::SizeU((std::max)(1, width), (std::max)(1, height))),
           &state->render_target))) {
