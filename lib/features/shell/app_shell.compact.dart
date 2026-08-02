@@ -327,7 +327,7 @@ class _GlassTopBar extends StatelessWidget {
               GlassAppBar(
                 backgroundColor: Colors.transparent,
                 centerTitle: true,
-                preferredSize: const Size.fromHeight(_kCompactBarHeight),
+                toolbarHeight: _kCompactBarHeight,
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 leading: onBack != null
                     ? Tooltip(
