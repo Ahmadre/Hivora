@@ -36,10 +36,12 @@ abstract final class ShellInsets {
   static final ValueNotifier<double> _top = ValueNotifier<double>(0);
 
   /// How far the mounted shell's bottom chrome — the compact shell's floating
-  /// nav — reaches *above the safe area and the keyboard*, both of which
-  /// overlays read from their own [MediaQuery]. Zero on the routes that hide
-  /// the nav (immersive pages) and on the wide shell, which navigates from a
-  /// rail instead.
+  /// nav — reaches above the *window edge*. Unlike the top bar, the nav floats
+  /// over the safe area instead of above it, so this already spans that inset:
+  /// overlays take whichever of the two reaches higher, never their sum. The
+  /// keyboard, which lifts the nav with it, still stacks on top. Zero on the
+  /// routes that hide the nav (immersive pages) and on the wide shell, which
+  /// navigates from a rail instead.
   static ValueListenable<double> get bottom => _bottom;
   static final ValueNotifier<double> _bottom = ValueNotifier<double>(0);
 

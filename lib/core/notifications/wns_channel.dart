@@ -25,15 +25,12 @@ class WnsChannel {
   /// Same split as the FCM side (`onMessageOpenedApp` vs `getInitialMessage`).
   void listenForDeepLinks(void Function(String link) onLink) {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return;
-    _log('listenForDeepLinks: Handler registriert');
     _channel.setMethodCallHandler((call) async {
-      _log('empfing ${call.method} arg=[${call.arguments}]');
       if (call.method == 'onDeepLink') {
         final link = call.arguments;
         // Only in-app routes are navigable — same guard as the FCM path, so a
         // stray payload cannot throw "no routes for location".
         if (link is String && link.startsWith('/') && link.length > 1) {
-          _log('route -> $link');
           onLink(link);
         }
       }
@@ -41,17 +38,11 @@ class WnsChannel {
     });
   }
 
-  /// TEMP-DIAGNOSE: über den Runner ins gemeinsame Log.
-  void _log(String line) {
-    _channel.invokeMethod<void>('log', line).catchError((_) {});
-  }
-
   /// The link of a notification whose click launched the app, if any.
   Future<String?> initialDeepLink() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return null;
     try {
       final link = await _channel.invokeMethod<String>('getInitialDeepLink');
-      _log('initialDeepLink -> ${link ?? "null"}');
       if (link == null || !link.startsWith('/') || link.length <= 1) return null;
       return link;
     } on MissingPluginException {

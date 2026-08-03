@@ -31,6 +31,12 @@ void InitNotifications();
 // flutter::MethodResult must not be completed from a background thread.
 void RegisterWnsChannel(flutter::FlutterEngine* engine, HWND window);
 
+// Raises the window when a notification click started this process. Call once
+// the window is actually on screen — i.e. after Flutter's first frame; raising
+// it earlier does nothing, because the runner keeps the window hidden until
+// then and a COM-activated process gets no foreground rights of its own.
+void ForegroundIfLaunchedFromNotification(HWND window);
+
 // Forwarded from the runner's window procedure. Returns true when the message
 // belonged to this module and was handled.
 bool HandleWnsChannelMessage(UINT message);

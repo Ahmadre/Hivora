@@ -37,6 +37,9 @@ bool FlutterWindow::OnCreate() {
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
+    // Only now is the window really on screen — a click that launched the app
+    // can raise it from here, not earlier.
+    hinata::ForegroundIfLaunchedFromNotification(GetHandle());
   });
 
   // Flutter can complete the first frame before the "show window" callback is

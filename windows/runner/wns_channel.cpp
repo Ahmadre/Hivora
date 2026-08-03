@@ -51,6 +51,10 @@ std::queue<PendingReply> g_ready;
 HWND g_window = nullptr;
 bool g_registered = false;
 bool g_notifications_registered = false;
+// True when a notification click started this process. The window can only be
+// raised once it actually exists and Flutter has shown it, which is well after
+// the activation is consumed.
+bool g_launched_from_notification = false;
 
 // The deep link of a notification the user clicked. Buffered because a click
 // can *launch* the app: the event then fires long before Dart has a handler,
@@ -59,26 +63,6 @@ bool g_notifications_registered = false;
 std::mutex g_link_mutex;
 std::string g_pending_link;
 std::shared_ptr<flutter::MethodChannel<EncodableValue>> g_channel;
-
-// TEMP-DIAGNOSE Kaltstart: %TEMP%\hinata_wns.log, mit Millisekunden seit
-// Prozessstart — nur die Reihenfolge der Ereignisse erklärt, warum der
-// Kaltstart-Link nicht ankommt.
-void LogLine(const std::string& line) {
-  static const ULONGLONG start = ::GetTickCount64();
-  wchar_t temp[MAX_PATH];
-  DWORD n = ::GetTempPathW(MAX_PATH, temp);
-  if (n == 0) return;
-  std::wstring path(temp, n);
-  path += L"hinata_wns.log";
-  HANDLE h = ::CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ,
-                           nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-  if (h == INVALID_HANDLE_VALUE) return;
-  std::string out = "+" + std::to_string(::GetTickCount64() - start) + "ms  " +
-                    line + "\r\n";
-  DWORD written = 0;
-  ::WriteFile(h, out.data(), static_cast<DWORD>(out.size()), &written, nullptr);
-  ::CloseHandle(h);
-}
 
 std::string ToUtf8(const std::wstring& value) {
   if (value.empty()) return {};
@@ -112,25 +96,30 @@ void Enqueue(std::unique_ptr<MethodResult<EncodableValue>> result,
 // the process the user just interacted with, so this has to be done by hand.
 void BringToForeground(HWND window) {
   if (!window) return;
-  if (::IsIconic(window)) {
-    ::ShowWindow(window, SW_RESTORE);
-  } else {
-    ::ShowWindow(window, SW_SHOW);
-  }
+  ::ShowWindow(window, ::IsIconic(window) ? SW_RESTORE : SW_SHOW);
+
   // SetForegroundWindow is refused unless the calling thread already owns the
   // foreground. Borrowing the current foreground thread's input queue for the
   // call is the long-standing way around that.
   HWND foreground = ::GetForegroundWindow();
   DWORD other = ::GetWindowThreadProcessId(foreground, nullptr);
   DWORD self = ::GetCurrentThreadId();
-  if (other && other != self) {
-    ::AttachThreadInput(other, self, TRUE);
-    ::SetForegroundWindow(window);
-    ::AttachThreadInput(other, self, FALSE);
-  } else {
+  bool attached = other && other != self &&
+                  ::AttachThreadInput(other, self, TRUE);
+  ::SetForegroundWindow(window);
+  ::SetActiveWindow(window);
+  if (attached) ::AttachThreadInput(other, self, FALSE);
+
+  // Even with the input queue attached the request can be refused — a
+  // COM-activated process has no foreground rights of its own. Briefly making
+  // the window topmost forces it in front, then the flag is dropped again so it
+  // behaves like a normal window afterwards.
+  if (::GetForegroundWindow() != window) {
+    constexpr UINT kFlags = SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW;
+    ::SetWindowPos(window, HWND_TOPMOST, 0, 0, 0, 0, kFlags);
+    ::SetWindowPos(window, HWND_NOTOPMOST, 0, 0, 0, 0, kFlags);
     ::SetForegroundWindow(window);
   }
-  ::SetActiveWindow(window);
 }
 
 // Called from the AppNotifications callback, which runs off the platform
@@ -155,22 +144,14 @@ void RegisterNotificationActivation() {
     // key=value pairs and would yield the whole path as a key.
     manager.NotificationInvoked([](auto const&, auto const& args) {
       std::string arg = ToUtf8(args.Argument());
-      LogLine("NotificationInvoked arg=[" + arg + "]");
       OnNotificationInvoked(std::move(arg));
     });
     // Must come after the handler is attached, otherwise a cold-start
     // activation is delivered before anyone is listening.
     manager.Register();
     g_notifications_registered = true;
-    LogLine("AppNotificationManager.Register() ok");
-    // Entscheidend für den Kaltstart: Startet die Shell uns über den
-    // COM-Aktivator (Kommandozeile enthält ----AppNotificationActivated:) oder
-    // ganz normal über die AUMID? Im zweiten Fall greift die Registrierung im
-    // Manifest nicht und NotificationInvoked kann gar nicht feuern.
-    LogLine("CommandLine=[" + ToUtf8(std::wstring(::GetCommandLineW())) + "]");
   } catch (...) {
     // Unpackaged or runtime-less build: clicking a toast just opens the app.
-    LogLine("AppNotificationManager FAILED");
   }
 }
 
@@ -221,16 +202,13 @@ void ConsumeLaunchActivation() {
         AppNotificationActivatedEventArgs;
 
     auto activated = AppInstance::GetCurrent().GetActivatedEventArgs();
-    LogLine("ActivationKind=" +
-            std::to_string(static_cast<int>(activated.Kind())));
     if (activated.Kind() != ExtendedActivationKind::AppNotification) return;
 
     auto args = activated.Data().as<AppNotificationActivatedEventArgs>();
     std::string argument = ToUtf8(args.Argument());
-    LogLine("LaunchActivation arg=[" + argument + "]");
+    g_launched_from_notification = true;
     OnNotificationInvoked(std::move(argument));
   } catch (...) {
-    LogLine("ActivationArgs nicht lesbar");
   }
 }
 
@@ -268,15 +246,6 @@ void RegisterWnsChannel(flutter::FlutterEngine* engine, HWND window) {
           RequestChannel(std::move(result));
           return;
         }
-        // TEMP-DIAGNOSE: Dart meldet Ereignisse über den Runner ins selbe Log,
-        // damit beide Seiten in einer Zeitachse stehen.
-        if (call.method_name() == "log") {
-          if (const auto* text = std::get_if<std::string>(call.arguments())) {
-            LogLine("[dart] " + *text);
-          }
-          result->Success();
-          return;
-        }
         if (call.method_name() == "getInitialDeepLink") {
           // Drains the buffer: a click that launched the app parks its link
           // here before Dart is ready to receive it.
@@ -285,7 +254,6 @@ void RegisterWnsChannel(flutter::FlutterEngine* engine, HWND window) {
             std::lock_guard<std::mutex> lock(g_link_mutex);
             link.swap(g_pending_link);
           }
-          LogLine("getInitialDeepLink -> [" + link + "]");
           if (link.empty()) {
             result->Success(EncodableValue());
           } else {
@@ -309,9 +277,14 @@ void RegisterWnsChannel(flutter::FlutterEngine* engine, HWND window) {
     pending = !g_pending_link.empty();
   }
   if (pending) {
-    LogLine("Kanal bereit, gepufferten Link nachreichen");
     ::PostMessage(window, kWmDeepLink, 0, 0);
   }
+}
+
+void ForegroundIfLaunchedFromNotification(HWND window) {
+  if (!g_launched_from_notification) return;
+  g_launched_from_notification = false;
+  BringToForeground(window);
 }
 
 bool HandleWnsChannelMessage(UINT message) {
@@ -326,8 +299,6 @@ bool HandleWnsChannelMessage(UINT message) {
       std::lock_guard<std::mutex> lock(g_link_mutex);
       link = g_pending_link;
     }
-    LogLine("WM_DEEPLINK link=[" + link + "] channel=" +
-            (g_channel ? "ready" : "null"));
     // The click was a user action on this app — show it, whether this process
     // was started by the click or was already running behind other windows.
     BringToForeground(g_window);
@@ -339,17 +310,14 @@ bool HandleWnsChannelMessage(UINT message) {
           "onDeepLink", std::make_unique<EncodableValue>(link),
           std::make_unique<flutter::MethodResultFunctions<EncodableValue>>(
               [](const EncodableValue*) {
-                LogLine("onDeepLink: von Dart quittiert -> Puffer geleert");
                 std::lock_guard<std::mutex> lock(g_link_mutex);
                 g_pending_link.clear();
               },
-              [](const std::string& code, const std::string&,
-                 const EncodableValue*) {
-                LogLine("onDeepLink: Fehler " + code + " -> Puffer bleibt");
-              },
-              []() {
-                LogLine("onDeepLink: NotImplemented -> Puffer bleibt");
-              }));
+              // Error and "no handler yet": leave the buffer alone so
+              // getInitialDeepLink() still delivers the link.
+              [](const std::string&, const std::string&,
+                 const EncodableValue*) {},
+              []() {}));
     }
     return true;
   }

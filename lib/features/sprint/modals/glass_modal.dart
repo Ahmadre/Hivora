@@ -1508,12 +1508,18 @@ class _GlassToastState extends State<_GlassToast>
         return Positioned(
           left: 16,
           right: 16,
+          // The top bar sits *below* the status bar, so its footprint stacks
+          // on that inset.
           top: atTop ? padding.top + shellInset + 16 : null,
+          // The floating nav, in contrast, hovers *over* the safe area rather
+          // than above it — its published footprint is measured from the
+          // window edge and already spans that inset. Stacking the two would
+          // leave a home-indicator-sized hole between toast and nav, so
+          // whichever reaches higher wins. The keyboard lifts both.
           bottom: atTop
               ? null
-              : padding.bottom +
+              : math.max(shellInset, padding.bottom) +
                     MediaQuery.viewInsetsOf(context).bottom +
-                    shellInset +
                     16,
           child: child!,
         );
