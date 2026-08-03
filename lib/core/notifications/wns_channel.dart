@@ -61,10 +61,12 @@ class WnsChannel {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return null;
     try {
       final uri = await _channel.invokeMethod<String>('getChannelUri');
-      // Logged unconditionally: whether a channel could be minted is the single
-      // most useful datum when Windows push does not work, and it is one line
-      // per app start.
-      debugPrint('WNS channel: ${uri == null || uri.isEmpty ? "none" : uri}');
+      // Whether a channel could be minted is the single most useful datum when
+      // Windows push does not work — but the URI is a device-specific endpoint,
+      // so it stays out of release logs (same rule as the FCM token).
+      if (kDebugMode) {
+        debugPrint('WNS channel: ${uri == null || uri.isEmpty ? "none" : uri}');
+      }
       if (uri == null || uri.isEmpty) return null;
       // Belt and braces: the gateway enforces this too, but a channel that is
       // not on notify.windows.com must never leave the device.
