@@ -32,6 +32,14 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
 
+# C++/WinRT pulls in <experimental/coroutine> when compiled as C++17, and the
+# MSVC 14.5x STL (Visual Studio 2026) turned the deprecation of that header into
+# a hard error (STL1011). Plugins that use WinRT coroutines — just_audio_windows
+# among them — cannot be built without this escape hatch, which Microsoft
+# documents in the error text itself. Set project-wide so it also reaches the
+# plugin targets added by generated_plugins.cmake below.
+add_definitions(-D_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 # Compilation settings that should be applied to most targets.
 #
 # Be cautious about adding new options here, as plugins use this function by

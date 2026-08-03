@@ -16,13 +16,49 @@
 # authenticates against a retired endpoint).
 
 set(WASDK_FOUNDATION_VERSION "2.3.5")
-# MUST match the cppwinrt the Windows SDK ships, because the generated headers
-# are consumed together with the SDK's own winrt/base.h — we generate only the
-# App SDK namespaces, not a full projection, so base.h is never ours. A newer
-# generator produces headers whose static_assert rejects the older base.h with
-# "Mismatched C++/WinRT headers".
-#   Windows Kits 10.0.26100.0 → CPPWINRT_VERSION "2.0.250303.1"
-set(WASDK_CPPWINRT_VERSION "2.0.250303.1")
+
+# The generator MUST match the cppwinrt the Windows SDK ships, because the
+# generated headers are consumed together with the SDK's own winrt/base.h — we
+# generate only the App SDK namespaces, not a full projection, so base.h is
+# never ours. A mismatched generator produces headers whose static_assert
+# rejects that base.h with "Mismatched C++/WinRT headers".
+#
+# Which version that is depends on the machine: a dev box and a CI runner ship
+# different Windows Kits. So it is read out of the SDK's own base.h instead of
+# pinned — a pin only ever matches the machine it was written on. The fallback
+# is this repo's dev baseline (Windows Kits 10.0.26100.0).
+set(WASDK_CPPWINRT_FALLBACK "2.0.250303.1")
+
+set(_wasdk_base_headers "")
+foreach(_kit_root "$ENV{ProgramFiles\(x86\)}/Windows Kits/10" "$ENV{ProgramFiles}/Windows Kits/10")
+  if(EXISTS "${_kit_root}/Include")
+    file(GLOB _found "${_kit_root}/Include/*/cppwinrt/winrt/base.h")
+    list(APPEND _wasdk_base_headers ${_found})
+  endif()
+endforeach()
+# Prefer the kit the build actually targets; otherwise the newest installed one.
+set(_wasdk_base_h "")
+if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
+  foreach(_candidate ${_wasdk_base_headers})
+    if(_candidate MATCHES "/Include/${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION}/")
+      set(_wasdk_base_h "${_candidate}")
+    endif()
+  endforeach()
+endif()
+if(NOT _wasdk_base_h AND _wasdk_base_headers)
+  list(SORT _wasdk_base_headers)
+  list(GET _wasdk_base_headers -1 _wasdk_base_h)
+endif()
+
+set(WASDK_CPPWINRT_VERSION "${WASDK_CPPWINRT_FALLBACK}")
+if(_wasdk_base_h)
+  file(STRINGS "${_wasdk_base_h}" _wasdk_version_line
+       REGEX "^#define[ \t]+CPPWINRT_VERSION[ \t]" LIMIT_COUNT 1)
+  if(_wasdk_version_line MATCHES "\"([0-9][0-9A-Za-z.-]*)\"")
+    set(WASDK_CPPWINRT_VERSION "${CMAKE_MATCH_1}")
+    message(STATUS "Windows App SDK: SDK cppwinrt is ${WASDK_CPPWINRT_VERSION} (${_wasdk_base_h})")
+  endif()
+endif()
 
 set(WASDK_ROOT "${CMAKE_BINARY_DIR}/windows_app_sdk")
 set(WASDK_FOUNDATION_DIR "${WASDK_ROOT}/foundation")
@@ -30,9 +66,19 @@ set(WASDK_CPPWINRT_DIR "${WASDK_ROOT}/cppwinrt")
 set(WASDK_PROJECTION_DIR "${WASDK_ROOT}/projection")
 
 # --- 1. fetch -----------------------------------------------------------------
-function(_wasdk_fetch package version destination)
+# |ok| reports success instead of aborting, so a version that turns out not to
+# exist on nuget.org can be retried with another one.
+function(_wasdk_fetch package version destination ok)
+  set(${ok} TRUE PARENT_SCOPE)
   if(EXISTS "${destination}/.fetched")
-    return()
+    # The marker records the version, so switching versions (a different SDK on
+    # this machine, a bumped pin) actually re-downloads instead of silently
+    # keeping the old package.
+    file(READ "${destination}/.fetched" fetched)
+    if(fetched STREQUAL version)
+      return()
+    endif()
+    file(REMOVE_RECURSE "${destination}")
   endif()
   set(archive "${WASDK_ROOT}/${package}.${version}.zip")
   string(TOLOWER "${package}" lower)
@@ -43,14 +89,37 @@ function(_wasdk_fetch package version destination)
   list(GET status 0 code)
   if(NOT code EQUAL 0)
     list(GET status 1 reason)
-    message(FATAL_ERROR "Could not download ${package} ${version}: ${reason}")
+    message(STATUS "Windows App SDK: ${package} ${version} unavailable — ${reason}")
+    file(REMOVE "${archive}")
+    set(${ok} FALSE PARENT_SCOPE)
+    return()
   endif()
   file(ARCHIVE_EXTRACT INPUT "${archive}" DESTINATION "${destination}")
   file(WRITE "${destination}/.fetched" "${version}")
 endfunction()
 
-_wasdk_fetch("Microsoft.WindowsAppSDK.Foundation" "${WASDK_FOUNDATION_VERSION}" "${WASDK_FOUNDATION_DIR}")
-_wasdk_fetch("Microsoft.Windows.CppWinRT" "${WASDK_CPPWINRT_VERSION}" "${WASDK_CPPWINRT_DIR}")
+_wasdk_fetch("Microsoft.WindowsAppSDK.Foundation" "${WASDK_FOUNDATION_VERSION}"
+             "${WASDK_FOUNDATION_DIR}" _wasdk_ok)
+if(NOT _wasdk_ok)
+  message(FATAL_ERROR
+    "Could not download Microsoft.WindowsAppSDK.Foundation ${WASDK_FOUNDATION_VERSION}")
+endif()
+
+_wasdk_fetch("Microsoft.Windows.CppWinRT" "${WASDK_CPPWINRT_VERSION}"
+             "${WASDK_CPPWINRT_DIR}" _wasdk_ok)
+# Not every SDK's cppwinrt build is published to nuget.org under that exact
+# version. Falling back keeps the build going; a mismatch would then surface as
+# a clear "Mismatched C++/WinRT headers" error rather than a download failure.
+if(NOT _wasdk_ok AND NOT WASDK_CPPWINRT_VERSION STREQUAL WASDK_CPPWINRT_FALLBACK)
+  message(WARNING "Windows App SDK: cppwinrt ${WASDK_CPPWINRT_VERSION} is not on "
+                  "nuget.org — falling back to ${WASDK_CPPWINRT_FALLBACK}")
+  set(WASDK_CPPWINRT_VERSION "${WASDK_CPPWINRT_FALLBACK}")
+  _wasdk_fetch("Microsoft.Windows.CppWinRT" "${WASDK_CPPWINRT_VERSION}"
+               "${WASDK_CPPWINRT_DIR}" _wasdk_ok)
+endif()
+if(NOT _wasdk_ok)
+  message(FATAL_ERROR "Could not download Microsoft.Windows.CppWinRT ${WASDK_CPPWINRT_VERSION}")
+endif()
 
 # --- 2. generate the C++/WinRT projection -------------------------------------
 #

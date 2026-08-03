@@ -174,7 +174,13 @@ jobs:
 
   windows:
     name: Windows → Microsoft Store ${{ inputs.submit == 'true' && '(submitted)' || '(package only)' }}
-    runs-on: windows-latest
+    # Pinned, not `windows-latest`: in June 2026 both that label AND
+    # `windows-2025` were migrated to Visual Studio 2026, whose MSVC 14.5x STL
+    # rejects <experimental/coroutine> outright (STL1011) — which is what broke
+    # this job. `windows-2022` is the remaining VS 2022 image, i.e. the same
+    # compiler generation the app is developed and tested against locally.
+    # The release toolchain must not drift underneath a build.
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
         with:
