@@ -262,12 +262,20 @@ class _ActionPopup extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _row(
-              context,
-              LucideIcons.camera,
-              context.t('comments.actionCamera'),
-              () => onPick(ComposerAttach.camera),
-            ),
+            // Ask the active image_picker implementation instead of testing the
+            // platform: on desktop the camera works only once a
+            // cameraDelegate is installed (see desktop_camera_delegate.dart),
+            // and `supportsImageSource` reports exactly that. Offering the row
+            // unconditionally used to throw a StateError on Windows/Linux and
+            // on any desktop build without the delegate.
+            if (ImagePickerPlatform.instance
+                .supportsImageSource(ImageSource.camera))
+              _row(
+                context,
+                LucideIcons.camera,
+                context.t('comments.actionCamera'),
+                () => onPick(ComposerAttach.camera),
+              ),
             _row(
               context,
               LucideIcons.image,

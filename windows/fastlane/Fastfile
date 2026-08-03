@@ -28,6 +28,11 @@ APP_IDENTITY = "4hm4dr3.hinata".freeze
 # here instead of in a secret. MSSTORE_PRODUCT_ID overrides it if ever needed.
 STORE_PRODUCT_ID = "9N5NVNPKBBLR".freeze
 
+# Entra Application (client) ID of the `hinata-wns` registration. Goes into the
+# manifest's COM activator class id so WNS can activate the app for background
+# push. Public identity, not a credential — the secret lives in the gateway.
+AZURE_APP_ID = "e89a5a67-af01-4c79-98a7-09e609f0c831".freeze
+
 def repo_root
   File.expand_path("../..", __dir__)
 end
@@ -96,7 +101,14 @@ platform :windows do
     # No baked-in backend: the store app must NOT pin a server. A fresh install
     # asks for the URL on first launch (same rule as the macOS/iOS lanes).
     flutter("build", "windows", "--release")
-    dart("run", "msix:create", "--store", "--version", msix_version)
+    # Three steps rather than `msix:create`, because the generated manifest has
+    # to be patched in between: the msix package offers no hook for the COM
+    # activator and framework dependency that Windows App SDK push requires,
+    # but it does split building from packing.
+    dart("run", "msix:build", "--store", "--version", msix_version)
+    dart("run", "tool/patch_msix_manifest.dart",
+         "--app-id=#{AZURE_APP_ID}", "--runtime=2")
+    dart("run", "msix:pack", "--store", "--version", msix_version)
     UI.user_error!("MSIX not found at #{msix_path}") unless File.exist?(msix_path)
     UI.success("Packaged #{msix_path}")
   end

@@ -40,13 +40,15 @@ permissions:
       android: android.permission.POST_NOTIFICATIONS
       ios: aps-environment                # entitlement (+ UIBackgroundModes: remote-notification)
       macos: aps-environment
+      windows: (WNS channel)              # no capability needed; identity-scoped
     feature: "Notifications (assignments, mentions, due dates, comments)"
     rationale: "Shows push notifications for work assigned to you, @mentions, comment replies and due items."
     requested: in-context
-    data_collected: "FCM registration token (device identifier), shared with Firebase Cloud Messaging to route pushes."
+    data_collected: "FCM registration token (device identifier), shared with Firebase Cloud Messaging to route pushes. On Windows instead: a WNS channel URI, shared with Microsoft's Windows Push Notification Services for the same purpose."
     store_declarations:
       play_data_safety: "Device or other IDs — collected & shared with Firebase for app functionality (push). Not used for tracking."
       apple_privacy_label: "Identifiers → Device ID → App Functionality (push delivery). Not linked to identity, not used for tracking."
+      microsoft_store: "Channel URI held only to deliver notifications; no capability is declared for it (WNS is scoped to the package identity). Not used for tracking."
     usage_description:
       en: "Notifies you about assignments, @mentions, comment replies and due dates."
       de: "Benachrichtigt dich über Zuweisungen, @Erwähnungen, Kommentar-Antworten und Fälligkeiten."
@@ -72,6 +74,7 @@ permissions:
     platforms:
       ios: NSCameraUsageDescription
       macos: NSCameraUsageDescription     # gated by files/user-selected capture flow
+      windows: webcam                     # MSIX capability (camera_windows)
     feature: "Attach a photo or video"
     rationale: "Lets you take a photo or record a video on the spot to attach to an issue or comment."
     requested: in-context

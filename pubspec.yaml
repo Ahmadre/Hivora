@@ -88,6 +88,18 @@ dependencies:
   # & camera capture (image_picker drives the gallery/camera source on mobile).
   file_picker: ^8.1.2
   image_picker: ^1.1.2
+  # Desktop camera capture. image_picker_windows/_macos cannot use
+  # ImageSource.camera on their own — they delegate it to an
+  # ImagePickerCameraDelegate, which we implement on top of this plugin
+  # (see lib/core/platform/desktop_camera_delegate.dart).
+  camera: ^0.11.0
+  # camera does NOT endorse its Windows implementation (its own pubspec lists
+  # android/ios/web only), so the platform package has to be depended on
+  # explicitly — otherwise availableCameras() finds nothing on Windows.
+  camera_windows: ^0.2.6
+  # Direct dependency because desktop_camera_delegate.dart implements
+  # ImagePickerCameraDelegate from it (implementation-imports lint).
+  image_picker_platform_interface: ^2.10.0
   desktop_drop: ^0.5.0
   cross_file: ^0.3.4+2
   # Native download: present the OS share sheet on a downloaded attachment so the
@@ -99,6 +111,11 @@ dependencies:
   # Cross-platform (mobile/desktop/web); web plays the audio via a Blob URL.
   record: ^6.1.2
   just_audio: ^0.10.5
+  # just_audio itself declares android/ios/macos/web only — without this the
+  # Windows build registers no playback implementation and every voice comment
+  # fails to play (recording works, `record` supports Windows). Federated
+  # platform package (WinRT MediaPlayer): no code change, just registration.
+  just_audio_windows: ^0.2.2
 
   # Comment reactions: full emoji picker (device emoji font) behind the "…" button
   # on the quick-reactions bar.
@@ -205,12 +222,18 @@ msix_config:
   publisher_display_name: 4hm4dr3
   identity_name: 4hm4dr3.hinata
   publisher: CN=0A922060-E40D-4D55-9D1D-83B9594F60E5
-  logo_path: assets/branding/app_icon.png
+  # Abgerundete Variante (windows/store/round_app_icon.py). Das geteilte
+  # app_icon.png ist randlos quadratisch — richtig für iOS und Androids
+  # adaptive Maske, aber Windows maskiert nichts, sodass Kachel und Taskleiste
+  # ein hartes helles Quadrat zeigen.
+  logo_path: assets/branding/app_icon_windows.png
   # Windows' permission model. Every entry is registered in
   # release/permissions.yaml and must match the Store listing's
   # "This app can" section.
   #   internetClient — talk to the self-hosted Hinata Server
   #   microphone     — voice comments / audio for attached videos (record_windows)
-  capabilities: internetClient, microphone
+  #   webcam         — photo/video capture for attachments (camera_windows,
+  #                    driven by lib/core/platform/desktop_camera_delegate.dart)
+  capabilities: internetClient, microphone, webcam
   languages: en-us, de-de
   store: true

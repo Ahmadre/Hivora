@@ -16,6 +16,8 @@ import 'app.dart';
 import 'core/api/api_client.dart';
 import 'core/repositories/repositories.dart';
 import 'core/notifications/fcm_service.dart';
+import 'core/platform/desktop_camera_delegate.dart';
+import 'core/router/app_router.dart' show rootNavigatorKey;
 import 'core/storage/app_storage.dart';
 import 'firebase_options.dart';
 
@@ -102,6 +104,11 @@ Future<void> main() async {
       DeviceOrientation.landscapeRight,
     ]);
   }
+
+  // Desktop has no OS-provided capture UI, so image_picker's desktop
+  // implementations refuse ImageSource.camera unless we hand them one. No-op on
+  // Android/iOS/web, where the platform handles the camera itself.
+  installDesktopCameraDelegate(rootNavigatorKey);
 
   final apiClient = ApiClient(storage);
   final repositories = HinataRepositories(apiClient);

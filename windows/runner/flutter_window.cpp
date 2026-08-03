@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "wns_channel.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -30,6 +31,9 @@ bool FlutterWindow::OnCreate() {
   // Hinata: Splash NACH SetChildContent einblenden, damit sie in der Z-Order
   // über dem Flutter-View liegt.
   splash_ = HinataSplash::Present(GetHandle());
+
+  // Hinata: WNS-Kanal für Push (FCM hat keine Windows-Implementierung).
+  hinata::RegisterWnsChannel(flutter_controller_->engine(), GetHandle());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -64,6 +68,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     if (result) {
       return *result;
     }
+  }
+
+  // Completed WNS channel requests hop back onto the platform thread through a
+  // WM_APP message — flutter::MethodResult must not be completed off-thread.
+  if (hinata::HandleWnsChannelMessage(message)) {
+    return 0;
   }
 
   switch (message) {

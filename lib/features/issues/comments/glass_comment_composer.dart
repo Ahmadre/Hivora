@@ -10,6 +10,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
         GlassQuality,
         LiquidGlassSettings,
         LiquidRoundedSuperellipse;
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/i18n/i18n.dart';

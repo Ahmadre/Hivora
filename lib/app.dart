@@ -15,6 +15,7 @@ import 'core/blocs/locale_cubit.dart';
 import 'core/blocs/theme_cubit.dart';
 import 'core/i18n/i18n.dart';
 import 'core/notifications/fcm_service.dart';
+import 'core/notifications/wns_channel.dart';
 import 'core/repositories/repositories.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/app_storage.dart';
@@ -113,6 +114,12 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // gate-parking preserves the link until the app is ready + authenticated
     // (mirrors the App Links getInitialLink() cold-start handling below).
     unawaited(_fcm.handleInitialMessage());
+    // Windows toasts activate the app instead of delivering through FCM, so
+    // their deep link arrives over its own channel — same routing target.
+    const WnsChannel().listenForDeepLinks((link) => _router.go(link));
+    unawaited(const WnsChannel().initialDeepLink().then((link) {
+      if (link != null) _router.go(link);
+    }));
     // Record the server the boot-time AuthChecked above runs against, so the
     // listener below doesn't redundantly re-check it on the first `ready`.
     _authServer = widget.storage.serverUrl;

@@ -44,6 +44,11 @@ import '../blocs/app_config_bloc.dart';
 import '../blocs/auth_bloc.dart';
 import '../storage/app_storage.dart';
 
+/// The root navigator, exposed so code that has no [BuildContext] can still
+/// push a route — currently the desktop camera delegate, which image_picker
+/// calls from a plain `Future` with no widget tree in reach.
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
 /// Re-evaluates router redirects whenever one of the given streams emits.
 class _MergedRefresh extends ChangeNotifier {
   _MergedRefresh(List<Stream<dynamic>> streams) {
@@ -87,6 +92,7 @@ GoRouter buildRouter({
   String? pendingDeepLink;
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: storage.screenshotRoute ?? '/dashboard',
     refreshListenable: _MergedRefresh([appConfig.stream, auth.stream]),
     redirect: (context, routerState) {

@@ -85,6 +85,37 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
 
 Danach veröffentlicht **„Publish (button)"** Windows vollautomatisch mit.
 
+## 4. Push-Benachrichtigungen (WNS) scharfschalten
+
+Firebase hat keine Windows-Implementierung, daher registriert die Windows-App
+eine **WNS-Channel-URI** statt eines FCM-Tokens. Der Versand läuft über
+denselben Weg wie bisher — Server → Hinata Connect (Gateway) → Push-Dienst —,
+nur wählt der Gateway anhand der Token-Form zwischen FCM und WNS.
+
+- [ ] Partner Center → App → **Produktverwaltung → WNS/MPNS**: dort stehen
+      **Package SID** (`ms-app://S-1-15-2-…`) und ein **Client Secret**.
+      Das Secret wird nur einmal angezeigt.
+- [ ] Beides im **Gateway** konfigurieren (nicht im selbst gehosteten Server —
+      der besitzt bewusst keine Push-Zugangsdaten):
+
+      gateway.wns.package-sid:    ms-app://S-1-15-2-…
+      gateway.wns.client-secret:  …
+
+      Als Umgebungsvariablen: `GATEWAY_WNS_PACKAGE_SID`,
+      `GATEWAY_WNS_CLIENT_SECRET`. Leere Werte lassen Windows-Push einfach
+      deaktiviert; Android/iOS/macOS bleiben unberührt.
+- [ ] Nach dem Start prüfen: das Gateway loggt `WNS configured; Windows push is
+      active.` — andernfalls `No WNS credentials configured`.
+
+**Push funktioniert nur in der MSIX-Version.** Die Channel-Erzeugung setzt eine
+Paket-Identität voraus; ein `flutter run` ohne Paket bekommt keinen Kanal und
+registriert schlicht keinen — das ist kein Fehler, sondern erwartet.
+
+**Kanäle laufen nach 30 Tagen ab.** Die App holt bei jedem Start einen frischen
+und meldet ihn; abgelaufene Kanäle antworten mit HTTP 410, woraufhin der Server
+sie aus der Geräteliste entfernt (dieselbe Selbstheilung wie bei toten
+FCM-Tokens).
+
 ## Wozu die CI KEIN Zertifikat braucht
 
 Store-gebundene Pakete signiert Microsoft bei der Ingestion selbst. Ein

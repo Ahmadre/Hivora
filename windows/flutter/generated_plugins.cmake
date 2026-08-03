@@ -4,12 +4,14 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  camera_windows
   desktop_drop
   emoji_picker_flutter
   file_selector_windows
   firebase_core
   flutter_secure_storage_windows
   irondash_engine_context
+  just_audio_windows
   printing
   record_windows
   share_plus

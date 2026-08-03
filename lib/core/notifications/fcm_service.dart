@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../api/api_client.dart';
+import 'wns_channel.dart';
 
 /// Background isolate handler. Notification messages are rendered by the OS when
 /// the app is backgrounded/terminated; this entry point exists so data payloads
@@ -40,8 +41,23 @@ class FcmService {
           defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.macOS);
 
+  /// Windows has no Firebase implementation, so it registers a WNS channel URI
+  /// instead of an FCM token. The gateway routes on the shape of that value, so
+  /// nothing else in the pipeline changes.
+  bool get _usesWns =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
   Future<void> start() async {
-    if (_started || !_supported) return;
+    if (_started) return;
+    if (_usesWns) {
+      _started = true;
+      final uri = await const WnsChannel().getChannelUri();
+      // Unpackaged builds have no package identity and therefore no channel —
+      // that is expected, not a failure.
+      if (uri != null) await _register(uri);
+      return;
+    }
+    if (!_supported) return;
     _started = true;
     final messaging = FirebaseMessaging.instance;
     try {
@@ -111,7 +127,9 @@ class FcmService {
     _currentToken = null;
     if (token != null) {
       try {
-        await _api.delete('/api/v1/me/devices/$token');
+        // Body, not a path segment: a Windows registration is a WNS channel URI
+        // (an https URL with `:`, `/` and `?`), which cannot be a path segment.
+        await _api.delete('/api/v1/me/devices', body: {'token': token});
       } catch (_) {
         // Best-effort: the server prunes dead tokens on send anyway.
       }
@@ -149,6 +167,8 @@ class FcmService {
         return 'ios';
       case TargetPlatform.macOS:
         return 'macos';
+      case TargetPlatform.windows:
+        return 'windows';
       default:
         return 'other';
     }

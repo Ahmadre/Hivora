@@ -1,5 +1,9 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.18)   # file(ARCHIVE_EXTRACT) for the App SDK fetch
 project(runner LANGUAGES CXX)
+
+# Windows App SDK — only for push notifications; see the module for why the
+# classic WinRT channel API is not usable any more.
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/WindowsAppSDK.cmake")
 
 # Define the application target. To change its name, change BINARY_NAME in the
 # top-level CMakeLists.txt, not the value here, or `flutter run` will no longer
@@ -12,6 +16,7 @@ add_executable(${BINARY_NAME} WIN32
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"
+  "wns_channel.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
   "Runner.rc"
   "runner.exe.manifest"
@@ -37,6 +42,17 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 # Native Splash-Animation (hinata_splash.cpp): Direct2D + DirectWrite
 target_link_libraries(${BINARY_NAME} PRIVATE "d2d1.lib" "dwrite.lib")
+# WNS-Kanal (wns_channel.cpp): C++/WinRT braucht die WinRT-Aktivierungs-API,
+# der Push-Kanal zusätzlich das Windows App SDK (PushNotificationManager).
+target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE windows_app_sdk)
+
+# Der Bootstrapper lädt die WindowsAppRuntime zur Laufzeit; seine DLL muss neben
+# der exe liegen, sonst schlägt schon die Initialisierung fehl.
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${WASDK_BOOTSTRAP_DLL}" "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+  VERBATIM)
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
