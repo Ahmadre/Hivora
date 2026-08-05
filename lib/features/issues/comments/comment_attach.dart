@@ -35,9 +35,18 @@ Future<void> insertCommentPhoto(
       imageQuality: 85,
       maxWidth: 2400,
     );
-  } catch (_) {
-    shot = null; // permission denied / no camera — nothing to insert.
+  } catch (e) {
+    // A cancelled pick comes back as null, never as a throw, and the desktop
+    // camera delegate reports its own failures — so anything landing here is
+    // unexpected and must not vanish (that is what made the Windows camera
+    // entry look like a dead button).
+    debugPrint('pickImage failed: $e');
+    if (context.mounted) {
+      showGlassErrorToast(context, context.t('camera.failed'));
+    }
+    return;
   }
+  // Null means the user backed out, or the delegate already explained itself.
   if (shot == null) return;
 
   final bytes = await shot.readAsBytes();

@@ -375,6 +375,18 @@
     "deleteSelectedBody": "Er wird dauerhaft für alle entfernt.",
     "deleteSelectedBody_plural": "{{count}} Kommentare werden dauerhaft für alle entfernt."
   },
+  "camera": {
+    "blockedTitle": "Keine Kamera verfügbar",
+    "blockedBody": "Hinata erreicht keine Kamera. Prüfe, ob eine Kamera angeschlossen ist und ob der Kamerazugriff für Hinata in den Systemeinstellungen erlaubt ist, und versuche es erneut.",
+    "unsupported": "Kameraaufnahme wird auf diesem Gerät nicht unterstützt.",
+    "openSettings": "Einstellungen öffnen",
+    "failed": "Die Kamera konnte nicht geöffnet werden.",
+    "close": "Schließen",
+    "switchCamera": "Kamera wechseln",
+    "takePhoto": "Foto aufnehmen",
+    "startRecording": "Aufnahme starten",
+    "stopRecording": "Aufnahme stoppen"
+  },
   "issues": {
     "new": "Neue Aufgabe",
     "edit": "Aufgabe bearbeiten",

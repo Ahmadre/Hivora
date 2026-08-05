@@ -375,6 +375,18 @@
     "deleteSelectedBody": "This permanently removes it for everyone.",
     "deleteSelectedBody_plural": "This permanently removes {{count}} comments for everyone."
   },
+  "camera": {
+    "blockedTitle": "No camera available",
+    "blockedBody": "Hinata can't reach a camera. Check that a camera is connected and that camera access is allowed for Hinata in the system settings, then try again.",
+    "unsupported": "Camera capture isn't supported on this device.",
+    "openSettings": "Open settings",
+    "failed": "The camera couldn't be opened.",
+    "close": "Close",
+    "switchCamera": "Switch camera",
+    "takePhoto": "Take photo",
+    "startRecording": "Start recording",
+    "stopRecording": "Stop recording"
+  },
   "issues": {
     "new": "New issue",
     "edit": "Edit issue",

@@ -147,6 +147,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   bloc_test: ^10.0.0
+  # Tests stub CameraPlatform.instance to drive the desktop capture delegate
+  # through its failure modes. `camera` re-exports the types but not the
+  # platform interface itself, so the test needs the package directly.
+  camera_platform_interface: ^2.13.1
   flutter_native_splash: ^2.4.0
   flutter_launcher_icons: ^0.14.0
   # Microsoft Store packaging (windows/fastlane → `dart run msix:create --store`)
