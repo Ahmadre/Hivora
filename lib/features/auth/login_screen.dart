@@ -26,7 +26,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   final _identifier = TextEditingController();
   final _password = TextEditingController();
@@ -43,17 +43,38 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadProviders();
     _showSsoErrorIfPresent();
   }
 
-  /// The server redirects failed SSO logins to `/login?ssoError=message`.
+  /// Re-enables the SSO buttons when the user comes back without having
+  /// completed the login (they cancelled at the provider, or hit Back). Native
+  /// resets right after handing off to the browser, but on the web the tab
+  /// itself leaves — and if it is restored from the back/forward cache the
+  /// Dart state comes back exactly as it left, buttons still disabled, with no
+  /// way to start another attempt.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _launchingSsoId != null) {
+      setState(() => _launchingSsoId = null);
+    }
+    super.didChangeAppLifecycleState(state);
+  }
+
+  /// A failed SSO login lands back here as `/login?ssoError=<reason>` — either
+  /// a message from the server, or a key from [SsoCallbackScreen] when the
+  /// handoff itself failed. `t()` returns unknown strings unchanged, so both
+  /// render correctly.
   void _showSsoErrorIfPresent() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final error = GoRouterState.of(context).uri.queryParameters['ssoError'];
       if (error != null && error.isNotEmpty) {
-        showGlassErrorToast(context, '${context.t('auth.ssoFailed')}: $error');
+        showGlassErrorToast(
+          context,
+          '${context.t('auth.ssoFailed')}: ${context.t(error)}',
+        );
       }
     });
   }
@@ -69,6 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _identifier.dispose();
     _password.dispose();
     super.dispose();
@@ -393,25 +415,39 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       if (kIsWeb) {
         // Web: tell the server where to return; the whole flow stays in this
-        // tab and ends at <origin>/#/auth-callback with the token pair.
+        // tab and ends at <origin>/auth-callback with the handoff code.
         uri = uri.replace(
           queryParameters: {...uri.queryParameters, 'return': Uri.base.origin},
         );
-        await launchUrl(uri, webOnlyWindowName: '_self');
-        // The tab is on its way to the SSO provider and the flow finishes by
-        // redirecting back. Keep the buttons disabled — re-enabling them lets
-        // the user start a second login while this one completes in the
-        // background, which is exactly the bug we're fixing.
+        final launched = await launchUrl(uri, webOnlyWindowName: '_self');
+        // Only keep the buttons disabled if the tab is genuinely on its way to
+        // the provider — re-enabling them then would let the user start a
+        // second login on top of the first. A refused navigation is the
+        // opposite case: nothing is in flight, so leaving the form disabled
+        // would strand the user on a login screen they cannot use.
+        if (!launched && mounted) {
+          setState(() => _launchingSsoId = null);
+          showGlassErrorToast(context, context.t('auth.ssoLaunchFailed'));
+        }
         return;
       }
       // Native: the server redirects back via hinata://auth-callback.
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
       // The external browser took over; restore the buttons so the user can
       // retry if they return without completing the login.
-      if (mounted) setState(() => _launchingSsoId = null);
+      if (!mounted) return;
+      setState(() => _launchingSsoId = null);
+      if (!launched) {
+        showGlassErrorToast(context, context.t('auth.ssoLaunchFailed'));
+      }
     } catch (_) {
       // Launch failed before the redirect — restore the buttons to try again.
-      if (mounted) setState(() => _launchingSsoId = null);
+      if (!mounted) return;
+      setState(() => _launchingSsoId = null);
+      showGlassErrorToast(context, context.t('auth.ssoLaunchFailed'));
     }
   }
 }

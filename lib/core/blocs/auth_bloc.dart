@@ -107,13 +107,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(const AuthState(status: AuthStatus.unauthenticated));
       return;
     }
+    // This handler MUST always reach an emit. It is the step every sign-in ends
+    // on (SSO handoff included), and the states it runs from — `unknown` at
+    // boot, `authenticating` after tokens arrive — both render as a spinner or
+    // a fully disabled login form. An error that escapes here emits nothing at
+    // all, and the app is left on that spinner permanently. So the failure is
+    // caught in full, not just the ApiFailure the happy path expects: an
+    // unexpected response shape (a cast that throws) hangs the app exactly the
+    // same way a 401 would, and neither may end the turn without a state.
+    AuthUser? user;
+    var rejected = false;
     try {
-      final user = await repository.me();
-      emit(AuthState(status: AuthStatus.authenticated, user: user));
+      user = await repository.me();
     } on ApiFailure {
-      await storage.clearTokens();
-      emit(const AuthState(status: AuthStatus.unauthenticated));
+      // The server refused this token — it is genuinely dead, so drop it.
+      rejected = true;
+    } catch (_) {
+      // Anything else (malformed body, transport oddity): don't destroy the
+      // session over it, just fall back to signed-out so the UI is usable and
+      // the user can retry.
     }
+    if (rejected) await storage.clearTokens();
+    if (emit.isDone) return;
+    emit(
+      user == null
+          ? const AuthState(status: AuthStatus.unauthenticated)
+          : AuthState(status: AuthStatus.authenticated, user: user),
+    );
   }
 
   Future<void> _onLogin(LoginSubmitted event, Emitter<AuthState> emit) async {
@@ -174,10 +194,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SsoTokensReceived event,
     Emitter<AuthState> emit,
   ) async {
-    await storage.setTokens(
-      access: event.accessToken,
-      refresh: event.refreshToken,
-    );
+    try {
+      await storage.setTokens(
+        access: event.accessToken,
+        refresh: event.refreshToken,
+      );
+    } catch (_) {
+      // The keychain refused the write. Rare, but it must not end the turn
+      // without a state: this handler is the last step of an SSO sign-in, and
+      // the callback screen sits on a spinner until the bloc answers.
+      emit(const AuthState(status: AuthStatus.unauthenticated));
+      return;
+    }
     // Emit a transient "authenticating" BEFORE re-checking. _onChecked ends with
     // emit(AuthState(authenticated, user)); if that user equals a previous
     // attempt's, Equatable suppresses the emit, so auth.stream stays silent and
