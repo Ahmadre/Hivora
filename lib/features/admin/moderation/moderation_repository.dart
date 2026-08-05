@@ -66,6 +66,15 @@ class AdminModerationRepository {
     ContentReport.fromJson,
   );
 
+  /// The open backlog and what the image tier is actually doing.
+  ///
+  /// Deliberately not merged into the two page calls: those are paged and
+  /// filtered by whatever the moderator is looking at, while this answers a
+  /// question about the instance that does not change when they switch tabs.
+  Future<ModerationSummary> summary() async => ModerationSummary.fromJson(
+    await _api.get('$_base/summary') as Map<String, dynamic>,
+  );
+
   /// Closes a report, either upholding it ([ContentReportState.actioned]) or
   /// rejecting it ([ContentReportState.dismissed]).
   Future<void> handleReport(

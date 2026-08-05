@@ -1708,7 +1708,14 @@
       "locked": "Nicht konfigurierbar",
       "lockedHint": "Zwei Kategorien laufen mit festen Schwellenwerten und lassen sich hier weder abschwächen noch abschalten.",
       "lockedNote": "Sexualisierte Inhalte mit Minderjährigen und Schadsoftware stehen außerhalb aller Einstellungen oben: sie bekommen keinen Nachlass auf technischen Quellen, sind von „Fortfahren, wenn eine Prüfung nicht laufen kann“ nicht erfasst, und keine Einstellung darf diese Instanz zu einem sicheren Ablageort dafür machen. Ein Treffer friert den Inhalt ein und eskaliert an einen Menschen.",
-      "notConfigurable": "FEST"
+      "notConfigurable": "FEST",
+      "imageTier": {
+        "active": "Bilder werden von einem laufenden Klassifikator geprüft.",
+        "notConfigured": "Es ist kein Bild-Klassifikator installiert, hochgeladene Bilder werden also nicht geprüft. Setze hinata.moderation.image.endpoint auf einen laufenden Moderations-Sidecar — oder schalte das hier ab, damit es bewusst so ist.",
+        "configuredUnavailable": "Ein Bild-Klassifikator ist konfiguriert, meldet sich aber als nicht verfügbar. Bis er wieder läuft, werden hochgeladene Bilder nicht geprüft.",
+        "disabledByPolicy": "Bild-Klassifikation ist abgeschaltet.",
+        "unknown": "Dieser Server meldet einen Zustand, den diese App-Version nicht kennt. Ob Bilder geprüft werden, lässt sich nicht bestätigen."
+      }
     },
     "queue": {
       "title": "Prüf-Warteschlange",

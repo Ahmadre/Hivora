@@ -11,9 +11,17 @@ part of 'admin_moderation_section.dart';
 /// below are the env defaults from `HinataProperties.Moderation`, so an
 /// untouched panel saves exactly what was already in effect.
 class _PolicyPanel extends StatefulWidget {
-  const _PolicyPanel({required this.settings});
+  const _PolicyPanel({required this.settings, this.imageTier});
 
   final Map<String, dynamic> settings;
+
+  /// What the image tier is actually doing, or null while it is still unknown.
+  ///
+  /// Separate from the `imageEnabled` switch below because they answer different
+  /// questions: the switch is an intention, this is the outcome, and on a fresh
+  /// install they disagree — image moderation is on by default and no classifier
+  /// ships with the product.
+  final ImageTierState? imageTier;
 
   @override
   State<_PolicyPanel> createState() => _PolicyPanelState();
@@ -60,6 +68,10 @@ class _PolicyPanelState extends State<_PolicyPanel> {
               value: _boolVal('imageEnabled', def: true),
               onChanged: (v) => setState(() => _moderation['imageEnabled'] = v),
             ),
+            if (widget.imageTier != null) ...[
+              const SizedBox(height: 10),
+              _ImageTierNotice(state: widget.imageTier!),
+            ],
           ],
         ),
         const SizedBox(height: 16),
@@ -190,6 +202,66 @@ class _LockedCategoryRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// One line saying whether images are genuinely being classified.
+///
+/// It sits under the switch it contradicts. Image moderation defaults to on and
+/// Hinata ships no classifier, so on a fresh install the switch reads "on" and
+/// every upload goes unchecked — this is the only place in the product where
+/// those two facts are shown together.
+///
+/// Rendered as an advisory row rather than a warning banner: running without an
+/// image tier is a supported, documented configuration, and a red block on every
+/// visit would teach operators to ignore the panel.
+class _ImageTierNotice extends StatelessWidget {
+  const _ImageTierNotice({required this.state});
+
+  final ImageTierState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final attention = state.warrantsAttention;
+    final color = attention ? AppColors.warning : AppColors.inkFaint;
+    final icon = switch (state) {
+      ImageTierState.active => LucideIcons.circleCheck,
+      ImageTierState.disabledByPolicy => LucideIcons.circleMinus,
+      _ => LucideIcons.triangleAlert,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: attention ? 0.10 : 0.06),
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        border: Border.all(color: color.withValues(alpha: attention ? 0.28 : 0.16)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(width: 10),
+          // Flexible, not fixed: these strings are translations and the panel is
+          // reachable on a phone-width admin screen.
+          Flexible(
+            child: Text(
+              context.t(state.labelKey),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkSoft,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

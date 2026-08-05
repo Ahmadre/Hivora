@@ -370,3 +370,77 @@ class ContentReport {
     note: json['note'] as String?,
   );
 }
+
+/// What the image tier is actually doing, mirroring the server's
+/// `ImageTierState`.
+///
+/// The panel needs this because the switch above it is not evidence. Image
+/// moderation is enabled by default and ships with no classifier, so a toggle
+/// reading "on" was, on a fresh install, a promise nothing kept — the operator
+/// had no way to tell "nobody switched this on" from "this is working".
+enum ImageTierState {
+  /// The operator turned image classification off. Nothing to report.
+  disabledByPolicy('DISABLED_BY_POLICY'),
+
+  /// Policy wants images classified and no classifier is installed — the
+  /// default for a fresh install, and the state that used to be invisible.
+  notConfigured('NOT_CONFIGURED'),
+
+  /// A classifier is installed but reports itself unusable. A different problem
+  /// from [notConfigured] and a different fix: one is "install something", the
+  /// other is "something you installed is broken".
+  configuredUnavailable('CONFIGURED_UNAVAILABLE'),
+
+  /// Images are genuinely being classified.
+  active('ACTIVE'),
+
+  /// A value this build does not know. Treated as "cannot confirm", never as
+  /// working: a newer server teaching us a state we cannot read is not a reason
+  /// to tell the operator everything is fine.
+  unknown('');
+
+  const ImageTierState(this.wire);
+
+  final String wire;
+
+  static ImageTierState fromWire(String? value) => switch (value) {
+    'DISABLED_BY_POLICY' => ImageTierState.disabledByPolicy,
+    'NOT_CONFIGURED' => ImageTierState.notConfigured,
+    'CONFIGURED_UNAVAILABLE' => ImageTierState.configuredUnavailable,
+    'ACTIVE' => ImageTierState.active,
+    _ => ImageTierState.unknown,
+  };
+
+  /// Whether the operator should be nudged. False for [active] (nothing to do)
+  /// and for [disabledByPolicy] (they chose it and do not need reminding).
+  bool get warrantsAttention =>
+      this == ImageTierState.notConfigured ||
+      this == ImageTierState.configuredUnavailable ||
+      this == ImageTierState.unknown;
+
+  /// i18n key for the one-line status shown under the image toggle.
+  String get labelKey => 'moderation.policy.imageTier.$name';
+}
+
+/// The open backlog plus the image tier's real state.
+class ModerationSummary {
+  const ModerationSummary({
+    required this.openRecords,
+    required this.openReports,
+    required this.open,
+    required this.imageTier,
+  });
+
+  factory ModerationSummary.fromJson(Map<String, dynamic> json) =>
+      ModerationSummary(
+        openRecords: (json['openRecords'] as num?)?.toInt() ?? 0,
+        openReports: (json['openReports'] as num?)?.toInt() ?? 0,
+        open: (json['open'] as num?)?.toInt() ?? 0,
+        imageTier: ImageTierState.fromWire(json['imageTier'] as String?),
+      );
+
+  final int openRecords;
+  final int openReports;
+  final int open;
+  final ImageTierState imageTier;
+}

@@ -79,6 +79,13 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
 
   _QueueTab _tab = _QueueTab.flagged;
 
+  /// What the image tier is actually doing, or null until the summary lands.
+  ///
+  /// Null renders nothing rather than an optimistic "active": the entire reason
+  /// this field exists is that the panel used to imply a classifier was running
+  /// when none was, and a hopeful default would reintroduce exactly that.
+  ImageTierState? _imageTier;
+
   // Filters. `null` means "no filter"; both queues open on the backlog, which
   // is the only view a moderator actually works from.
   ModerationReviewState? _recordState = ModerationReviewState.open;
@@ -120,6 +127,21 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
       keyOf: (report) => report.id,
     );
     _scroll.addListener(_onScroll);
+    _loadImageTier();
+  }
+
+  /// Asks once what the image tier is doing.
+  ///
+  /// Failure is swallowed on purpose: this is a status line beside a switch, and
+  /// a moderation panel that refuses to open because one advisory read failed
+  /// would be a worse outcome than the line being absent.
+  Future<void> _loadImageTier() async {
+    try {
+      final summary = await _repo.summary();
+      if (mounted) setState(() => _imageTier = summary.imageTier);
+    } catch (_) {
+      // Leaves the line absent — see the field's comment.
+    }
   }
 
   @override
@@ -487,7 +509,10 @@ class _AdminModerationSectionState extends State<AdminModerationSection> {
               alignment: Alignment.topLeft,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: _kFormMax),
-                child: _PolicyPanel(settings: widget.settings),
+                child: _PolicyPanel(
+                  settings: widget.settings,
+                  imageTier: _imageTier,
+                ),
               ),
             ),
           );

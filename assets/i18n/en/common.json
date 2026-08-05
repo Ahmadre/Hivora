@@ -1708,7 +1708,14 @@
       "locked": "Not configurable",
       "lockedHint": "Two categories run at fixed thresholds and cannot be weakened or switched off from here.",
       "lockedNote": "Child sexual content and malware sit outside every setting above: they get no relief on engineering surfaces, they are not covered by “continue when a check cannot run”, and no tenant setting may make this instance a safe place to put either. A hit freezes the content and escalates it to a human.",
-      "notConfigurable": "FIXED"
+      "notConfigurable": "FIXED",
+      "imageTier": {
+        "active": "Images are being classified by a running classifier.",
+        "notConfigured": "No image classifier is installed, so uploaded images are not being checked. Set hinata.moderation.image.endpoint to a running moderation sidecar, or turn this off to make that explicit.",
+        "configuredUnavailable": "An image classifier is configured but reports itself unavailable, so uploaded images are not being checked until it recovers.",
+        "disabledByPolicy": "Image classification is switched off.",
+        "unknown": "This server reported an image tier state this app does not recognise. Cannot confirm that images are being checked."
+      }
     },
     "queue": {
       "title": "Review queue",
