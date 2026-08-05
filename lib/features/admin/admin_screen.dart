@@ -26,6 +26,7 @@ import 'sections/admin_email_section.dart';
 import 'sections/admin_general_section.dart';
 import 'sections/admin_git_section.dart';
 import 'sections/admin_mcp_section.dart';
+import 'sections/admin_moderation_section.dart';
 import 'sections/admin_security_section.dart';
 
 // ─────────────────────────── Section enum ────────────────────────────────
@@ -39,6 +40,7 @@ enum _AdminSection {
   git,
   mcp,
   security,
+  moderation,
   auditLog,
   users,
 }
@@ -99,6 +101,12 @@ const _navItems = <_SectionMeta>[
     icon: LucideIcons.plug,
     labelKey: 'admin.mcp',
     group: 'navIntegrations',
+  ),
+  (
+    section: _AdminSection.moderation,
+    icon: LucideIcons.shieldAlert,
+    labelKey: 'admin.moderation',
+    group: 'navSystem',
   ),
   (
     section: _AdminSection.auditLog,
@@ -321,6 +329,16 @@ class _AdminScreenState extends State<AdminScreen> {
 bool _sectionHasSave(_AdminSection section) =>
     section != _AdminSection.auditLog && section != _AdminSection.connect;
 
+/// Sections that own their scroll and are handed the pane as-is, instead of
+/// being wrapped in the shared `SingleChildScrollView`. Both paginate: an
+/// infinite list inside a parent scroll view gets unbounded height and never
+/// reaches the bottom that triggers the next page.
+///
+/// Independent of [_sectionHasSave] — moderation scrolls itself *and* carries a
+/// settings draft, so it needs the Save action as much as any form section.
+bool _sectionScrollsItself(_AdminSection section) =>
+    section == _AdminSection.auditLog || section == _AdminSection.moderation;
+
 /// i18n key for an admin section's title (shared by the shell app bar and the
 /// in-pane section header).
 String _sectionTitleKey(_AdminSection section) => switch (section) {
@@ -332,6 +350,7 @@ String _sectionTitleKey(_AdminSection section) => switch (section) {
   _AdminSection.git => 'admin.gitIntegration',
   _AdminSection.mcp => 'admin.mcp',
   _AdminSection.security => 'admin.security',
+  _AdminSection.moderation => 'admin.moderation',
   _AdminSection.auditLog => 'admin.auditLog',
   _AdminSection.users => 'admin.users',
 };
@@ -472,9 +491,9 @@ class _MobileDetailView extends StatelessWidget {
   Widget build(BuildContext context) {
     // Back + title + Save all ride in the shell's glass app bar (via
     // PageChrome). This view is just the scrolling body, cleared of the glass
-    // bar by topGutter. The audit log owns its own scroll + pagination, so it
-    // renders directly; every other section uses the shared scroll wrapper.
-    if (section == _AdminSection.auditLog) return const AdminAuditSection();
+    // bar by topGutter. Paginating sections own their scroll, so they render
+    // directly; every other section uses the shared scroll wrapper.
+    if (_sectionScrollsItself(section)) return _sectionBody(section);
     // The iOS numeric keypad has no Done key, so give the admin forms two ways
     // out of it: tap anywhere outside a field, or drag-scroll the body.
     return GestureDetector(
@@ -502,8 +521,9 @@ class _MobileDetailView extends StatelessWidget {
     _AdminSection.git => AdminGitSection(settings: settings),
     _AdminSection.mcp => AdminMcpSection(settings: settings),
     _AdminSection.security => AdminSecuritySection(settings: settings),
-    // Rendered directly by the shell (self-scrolling); never reached here.
-    _AdminSection.auditLog => const SizedBox.shrink(),
+    _AdminSection.moderation => AdminModerationSection(settings: settings),
+    _AdminSection.auditLog => const AdminAuditSection(),
+    // Opens its own screen; never rendered in the pane.
     _AdminSection.users => const SizedBox.shrink(),
   };
 }
@@ -562,11 +582,11 @@ class _WideAdminShell extends StatelessWidget {
   }
 
   Widget _content(BuildContext context) {
-    // The audit log owns its own scroll + pagination and wants the full pane.
-    if (section == _AdminSection.auditLog) {
+    // The paginating sections own their scroll and want the full pane.
+    if (_sectionScrollsItself(section)) {
       return Padding(
         padding: EdgeInsets.only(top: context.topGutter + 14),
-        child: const AdminAuditSection(),
+        child: _body(),
       );
     }
     // The iOS numeric keypad has no Done key, so — as on the compact path —
@@ -602,8 +622,9 @@ class _WideAdminShell extends StatelessWidget {
     _AdminSection.git => AdminGitSection(settings: settings),
     _AdminSection.mcp => AdminMcpSection(settings: settings),
     _AdminSection.security => AdminSecuritySection(settings: settings),
-    // Rendered directly (self-scrolling); never reached here.
-    _AdminSection.auditLog => const SizedBox.shrink(),
+    _AdminSection.moderation => AdminModerationSection(settings: settings),
+    _AdminSection.auditLog => const AdminAuditSection(),
+    // Opens its own screen; never rendered in the pane.
     _AdminSection.users => const SizedBox.shrink(),
   };
 }

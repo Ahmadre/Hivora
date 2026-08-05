@@ -13,6 +13,11 @@ enum AuditCategory {
   configuration,
   data,
   integration,
+  // Mirrors the server's AuditCategory.MODERATION. Without it every moderation
+  // event — a report filed, a queue item reviewed, a user blocked — falls into
+  // `unknown` and the audit filter cannot select the one category an operator
+  // has a legal reason to review.
+  moderation,
   unknown;
 
   String get wire => this == AuditCategory.unknown ? '' : name.toUpperCase();
@@ -24,6 +29,7 @@ enum AuditCategory {
     'CONFIGURATION' => AuditCategory.configuration,
     'DATA' => AuditCategory.data,
     'INTEGRATION' => AuditCategory.integration,
+    'MODERATION' => AuditCategory.moderation,
     _ => AuditCategory.unknown,
   };
 

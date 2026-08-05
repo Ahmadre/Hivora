@@ -244,6 +244,8 @@ class CommentInteractions {
     required this.onTogglePin,
     required this.onEnterSelection,
     required this.onJumpToComment,
+    required this.onReport,
+    required this.onOpenAuthor,
     required this.threadOf,
     required this.onToggleReplies,
     required this.onLoadMoreReplies,
@@ -266,6 +268,17 @@ class CommentInteractions {
   final void Function(IssueComment comment) onTogglePin;
   final void Function(IssueComment comment) onEnterSelection;
   final void Function(String commentId) onJumpToComment;
+
+  /// Opens the "Report" flow for [comment]. Offered on every comment, including
+  /// the reader's own: a report is about content, and letting someone flag their
+  /// own post is harmless next to a menu whose rows appear and disappear
+  /// depending on who wrote what.
+  final void Function(IssueComment comment) onReport;
+
+  /// Opens the author's actions popover (report / block the person), anchored to
+  /// [anchor] — the avatar's global rect, captured before the tap's async gap so
+  /// the popover has somewhere to point on wide layouts.
+  final void Function(IssueComment comment, Rect anchor) onOpenAuthor;
 
   /// The reply-thread view-state for a root comment (empty if never expanded).
   final ReplyThread Function(String rootId) threadOf;

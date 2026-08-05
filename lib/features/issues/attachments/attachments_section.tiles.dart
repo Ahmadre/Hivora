@@ -11,7 +11,8 @@ class _AttachmentTile extends StatefulWidget {
        imagePath = null,
        onOpen = null,
        onDownload = null,
-       onDelete = null;
+       onDelete = null,
+       onReport = null;
 
   const _AttachmentTile.done({
     required this.attachment,
@@ -20,6 +21,7 @@ class _AttachmentTile extends StatefulWidget {
     required this.onOpen,
     required this.onDownload,
     required this.onDelete,
+    required this.onReport,
   }) : upload = null,
        onRetry = null,
        onCancel = null;
@@ -34,6 +36,11 @@ class _AttachmentTile extends StatefulWidget {
   final VoidCallback? onOpen;
   final VoidCallback? onDownload;
   final VoidCallback? onDelete;
+
+  /// Opens the "Report" flow for this file. Null while the tile is still an
+  /// in-flight upload: those bytes are the user's own and nobody else can see
+  /// them yet, so there is nothing to report.
+  final VoidCallback? onReport;
   final VoidCallback? onRetry;
   final VoidCallback? onCancel;
 
@@ -143,6 +150,12 @@ class _AttachmentTileState extends State<_AttachmentTile> {
                       icon: LucideIcons.download,
                       tooltip: context.t('issues.attachments.download'),
                       onTap: widget.onDownload!,
+                    ),
+                    const SizedBox(width: 6),
+                    _TileAction(
+                      icon: LucideIcons.flag,
+                      tooltip: context.t('moderation.report.action'),
+                      onTap: widget.onReport!,
                     ),
                     const SizedBox(width: 6),
                     _TileAction(

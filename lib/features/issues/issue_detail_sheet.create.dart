@@ -320,6 +320,11 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
       if (mounted) {
         widget.controller.phase = IssueCreatePhase.idle;
         setState(() => _error = failure.message);
+        // A refusal also gets the policy dialog: the inline error alone shows
+        // *what* was wrong but not that a machine decided it or where to take
+        // it. Everything the user typed stays in the form either way — nothing
+        // on this path touches the controllers.
+        handleContentRefusal(context, failure);
       }
     } catch (_) {
       // Any non-ApiFailure must still reset the save button out of its spinner,

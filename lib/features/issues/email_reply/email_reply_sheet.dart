@@ -16,6 +16,7 @@ import '../../../core/repositories/issue_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_loader.dart';
+import '../../moderation/content_refused_dialog.dart';
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, glassWoltSurface, showGlassErrorToast, showGlassToast;
 
@@ -492,6 +493,12 @@ class EmailReplyComposerState extends State<EmailReplyComposer> {
     } on ApiFailure catch (e) {
       if (!mounted) return;
       _set(() => _sending = false);
+      // A reply the moderation gate refuses comes back as a 422 with a statement
+      // of reasons — the one failure here that is a decision about what was
+      // written rather than a transport problem, and the only one that owes the
+      // author a reason and a way to appeal. The sheet stays open either way, so
+      // the typed subject and body are still in their fields.
+      if (handleContentRefusal(context, e)) return;
       showGlassErrorToast(context, context.t(e.message));
     } catch (_) {
       if (!mounted) return;

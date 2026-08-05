@@ -660,12 +660,18 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     }
   }
 
-  Future<void> _patch(Map<String, dynamic> patch) async {
-    if (!mounted) return;
+  /// Applies [patch] to the issue.
+  ///
+  /// Returns whether the server accepted it, so the inline editors can decide
+  /// what to do with the text the user typed. That matters for exactly one
+  /// outcome: a moderation refusal, where the write is rejected but the content
+  /// is still the author's work and must not be dropped on the floor.
+  Future<bool> _patch(Map<String, dynamic> patch) async {
+    if (!mounted) return false;
     setState(() => _busy = true);
     try {
       final updated = await _issueApi.updateIssue(widget.issueId, patch);
-      if (!mounted) return;
+      if (!mounted) return true;
       _issue = updated;
       _publishHeader(updated);
       _notifyChanged();
@@ -681,10 +687,18 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       }
       // A re-parent changes the breadcrumb ancestors — keep them in sync.
       await _reloadHierarchy();
+      return true;
     } on ApiFailure catch (failure) {
-      _toast(failure.message);
+      // A refused write gets the policy dialog instead of a toast: it needs to
+      // say what rule was hit, that a machine decided it, and where to appeal —
+      // none of which fits in a pill that vanishes after five seconds.
+      if (!mounted || !handleContentRefusal(context, failure)) {
+        _toast(failure.message);
+      }
+      return false;
     } catch (_) {
       _toast('errors.unexpected');
+      return false;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -817,7 +831,12 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         await _refreshTopLevelAfterPost();
       }
     } on ApiFailure catch (failure) {
-      _toast(failure.message);
+      // The composer is deliberately NOT cleared here — `_comment.clear()` runs
+      // only on the success path above — so a refused comment stays typed and
+      // the author can edit it and send again.
+      if (!mounted || !handleContentRefusal(context, failure)) {
+        _toast(failure.message);
+      }
     } catch (_) {
       _toast('errors.unexpected');
     } finally {
@@ -922,7 +941,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       }
       return true;
     } on ApiFailure catch (failure) {
-      _toast(failure.message);
+      // Returning false keeps the edit open with the text still loaded, which is
+      // the whole point on a refusal.
+      if (!mounted || !handleContentRefusal(context, failure)) {
+        _toast(failure.message);
+      }
       return false;
     } catch (_) {
       _toast('errors.unexpected');
@@ -1127,6 +1150,29 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     await Clipboard.setData(ClipboardData(text: link));
     if (!mounted) return;
     _toast(context.t('comments.linkCopied'), kind: GlassToastKind.success);
+  }
+
+  /// Opens the "Report" flow for one comment.
+  Future<void> _reportComment(IssueComment comment) => showReportModal(
+    context,
+    ReportTarget.comment(commentId: comment.id, issueId: widget.issueId),
+  );
+
+  /// Opens the comment author's actions popover (report / block the person).
+  ///
+  /// The author is looked up in the same `_names`/`_avatars` maps the feed
+  /// renders from, so the popover names exactly the person whose avatar was
+  /// tapped rather than re-resolving them and possibly disagreeing with the row.
+  Future<void> _openCommentAuthor(IssueComment comment, Rect anchor) {
+    final me = context.read<AuthBloc>().state.user;
+    return showUserActions(
+      context,
+      userId: comment.authorId,
+      displayName: _names[comment.authorId] ?? comment.authorId,
+      avatarUrl: _avatars[comment.authorId],
+      anchorRect: anchor,
+      isSelf: me?.id == comment.authorId,
+    );
   }
 
   void _enterSelection(IssueComment comment) {
@@ -1412,7 +1458,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     final value = _titleCtrl.text.trim();
     setState(() => _editingTitle = false);
     if (value.isEmpty || value == _issue!.title) return;
-    await _patch({'title': value});
+    final saved = await _patch({'title': value});
+    // Refused: reopen the editor with the typed title still in the controller,
+    // so the author edits and retries instead of watching their words vanish
+    // behind a dialog that only says why.
+    if (!saved && mounted) setState(() => _editingTitle = true);
   }
 
   Future<void> _saveDesc() async {
@@ -1421,8 +1471,14 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     // Nothing changed: comparing documents rather than a dirty flag means an
     // edit that was typed and undone does not write.
     if (!_descCtrl.isDirty) return;
+    final saved = await _patch({'descriptionDoc': value});
+    if (!saved) {
+      // Reopen with the document untouched — and crucially do NOT markSaved(),
+      // or the next attempt would see a clean controller and write nothing.
+      if (mounted) setState(() => _editingDesc = true);
+      return;
+    }
     _descCtrl.markSaved();
-    await _patch({'descriptionDoc': value});
     // The edited description may reference new issues — resolve their chips.
     await _syncReferencedIssues();
   }
@@ -1455,6 +1511,25 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   Future<void> confirmDeleteIssue() async {
     final issue = _issue;
     if (issue != null) await _confirmDelete(issue);
+  }
+
+  /// Opens the "Report" flow for this issue (title + description together — the
+  /// issue is the unit a moderator opens and judges).
+  ///
+  /// The readable id rides along as the queue row's label so a moderator can
+  /// tell one report from another without loading either.
+  Future<void> reportIssue() async {
+    final issue = _issue;
+    if (issue == null) return;
+    await showReportModal(
+      context,
+      ReportTarget(
+        type: ReportTargetType.issue,
+        id: issue.id,
+        parentId: issue.projectId,
+        label: issue.readableId,
+      ),
+    );
   }
 
   /// Opens the move-to-another-project wizard for this issue and reloads on
@@ -1534,6 +1609,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                 onMinimize: widget.canMinimize ? _minimizeToModal : null,
                 onDelete: () => _confirmDelete(issue),
                 onMove: () => moveIssue(),
+                onReport: reportIssue,
                 onClose: _closeRoute,
                 onReply: _replyEmailAction(issue),
                 canDelete: _canDelete,
@@ -2626,6 +2702,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               onMinimize: widget.canMinimize ? _minimizeToModal : null,
               onDelete: () => _confirmDelete(issue),
               onMove: () => moveIssue(),
+              onReport: reportIssue,
               onClose: _closeRoute,
               onReply: _replyEmailAction(issue),
               canDelete: _canDelete,
@@ -2904,8 +2981,13 @@ class IssueDetailBodyState extends State<IssueDetailBody>
 
   /// Uploads a recorded voice message as a comment, then refreshes to the newest
   /// page so the playable bubble appears at the bottom of the thread.
-  Future<void> _sendVoiceComment(VoiceRecording recording) async {
-    if (_sendingComment) return;
+  ///
+  /// Answers whether the comment was actually created. The composer keeps the
+  /// audio until it hears "yes" — a false here is what puts the recording back
+  /// in front of the person instead of dropping it, so every failure path has to
+  /// come back through this return value rather than a bare toast.
+  Future<bool> _sendVoiceComment(VoiceRecording recording) async {
+    if (_sendingComment) return false;
     _sendingComment = true;
     try {
       final replyTarget = _replyingTo;
@@ -2917,7 +2999,9 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         peaks: recording.peaks,
         replyToId: replyTarget?.id,
       );
-      if (!mounted) return;
+      // Posted. The thread being gone changes nothing about that, so the
+      // recording is still spent and must not come back as a draft.
+      if (!mounted) return true;
       setState(() => _replyingTo = null);
       _bumpComposer();
       if (created.isReply) {
@@ -2926,9 +3010,20 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         await _refreshTopLevelAfterPost();
       }
       _notifyChanged();
+      return true;
+    } on ApiFailure catch (failure) {
+      // A voice message goes through the same moderation gate as everything
+      // else and comes back refused with a 422 — a statement of reasons the
+      // author is owed, not a "couldn't be sent" that reads like bad signal.
+      if (mounted && !handleContentRefusal(context, failure)) {
+        showGlassErrorToast(context, context.t('comments.voiceFailed'));
+      }
+      return false;
     } catch (_) {
-      if (!mounted) return;
-      showGlassErrorToast(context, context.t('comments.voiceFailed'));
+      if (mounted) {
+        showGlassErrorToast(context, context.t('comments.voiceFailed'));
+      }
+      return false;
     } finally {
       _sendingComment = false;
     }
@@ -2965,6 +3060,8 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       onTogglePin: _togglePin,
       onEnterSelection: _enterSelection,
       onJumpToComment: _jumpToComment,
+      onReport: _reportComment,
+      onOpenAuthor: _openCommentAuthor,
       threadOf: _threadOf,
       onToggleReplies: _toggleReplies,
       onLoadMoreReplies: _loadMoreReplies,

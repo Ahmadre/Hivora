@@ -62,6 +62,9 @@ List<RepositoryProvider> domainRepositoryProviders(BuildContext source) => [
   RepositoryProvider<NotificationRepository>.value(
     value: source.read<NotificationRepository>(),
   ),
+  RepositoryProvider<ModerationRepository>.value(
+    value: source.read<ModerationRepository>(),
+  ),
   RepositoryProvider<AdminRepository>.value(
     value: source.read<AdminRepository>(),
   ),

@@ -15,6 +15,7 @@ import 'git_repository.dart';
 import 'issue_repository.dart';
 import 'media_repository.dart';
 import 'meta_repository.dart';
+import 'moderation_repository.dart';
 import 'notification_repository.dart';
 import 'project_repository.dart';
 import 'search_repository.dart';
@@ -35,6 +36,7 @@ export 'git_repository.dart';
 export 'issue_repository.dart';
 export 'media_repository.dart';
 export 'meta_repository.dart';
+export 'moderation_repository.dart';
 export 'notification_repository.dart';
 export 'project_repository.dart';
 export 'search_repository.dart';
@@ -46,6 +48,10 @@ export 'weekly_summary_repository.dart';
 
 /// Composition root for the domain layer: builds every repository exactly once
 /// over the shared [ApiClient].
+///
+/// [moderation] is separate from [admin] on purpose: reporting and blocking are
+/// capabilities every signed-in member has, while the queue those reports feed
+/// is admin-only.
 class HinataRepositories {
   factory HinataRepositories(ApiClient api) {
     final boards = BoardRepository(api);
@@ -66,6 +72,7 @@ class HinataRepositories {
       dashboard: DashboardRepository(api),
       weeklySummary: WeeklySummaryRepository(api),
       notifications: NotificationRepository(api),
+      moderation: ModerationRepository(api),
       admin: AdminRepository(api),
       teams: TeamRepository(api),
       git: GitRepository(api),
@@ -89,6 +96,7 @@ class HinataRepositories {
     required this.dashboard,
     required this.weeklySummary,
     required this.notifications,
+    required this.moderation,
     required this.admin,
     required this.teams,
     required this.git,
@@ -110,6 +118,7 @@ class HinataRepositories {
   final DashboardRepository dashboard;
   final WeeklySummaryRepository weeklySummary;
   final NotificationRepository notifications;
+  final ModerationRepository moderation;
   final AdminRepository admin;
   final TeamRepository teams;
   final GitRepository git;

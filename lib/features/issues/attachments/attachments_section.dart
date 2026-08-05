@@ -19,9 +19,12 @@ import '../../../core/api/sse_connection.dart';
 import '../../../core/blocs/app_config_bloc.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/models/core_models.dart';
+import '../../../core/models/moderation_models.dart';
 import '../../../core/models/work_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../moderation/content_refused_dialog.dart';
+import '../../moderation/report_modal.dart' show showReportModal;
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassConfirm, showGlassToast;
 import 'attachment_kind.dart';
@@ -371,8 +374,12 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       }
     } on ApiFailure catch (e) {
       if (_disposed || !mounted) return;
+      // The failed tile stays in the list with its retry affordance — a refused
+      // upload must not silently disappear along with the user's file handle.
       setState(() => u.failed = true);
-      _toast(context.t(e.message));
+      if (!handleContentRefusal(context, e)) {
+        _toast(context.t(e.message));
+      }
     } catch (_) {
       if (_disposed) return;
       setState(() => u.failed = true);
@@ -476,6 +483,20 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       _toast(context.t(e.message));
     }
   }
+
+  /// Opens the "Report" flow for one attached file.
+  ///
+  /// Files need their own report action, not just the issue's: an image is the
+  /// payload a text filter cannot read, and it is the one thing on an issue a
+  /// person can look at and know instantly is wrong.
+  Future<void> _report(IssueAttachment a) => showReportModal(
+    context,
+    ReportTarget.attachment(
+      attachmentId: a.id,
+      issueId: widget.issueId,
+      fileName: a.fileName,
+    ),
+  );
 
   Future<void> _open(IssueAttachment tapped) async {
     final kind = kindFromName(tapped.fileName, tapped.contentType);
@@ -705,6 +726,7 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
           onOpen: () => _open(a),
           onDownload: () => _download(a),
           onDelete: () => _delete(a),
+          onReport: () => _report(a),
         );
       },
     );

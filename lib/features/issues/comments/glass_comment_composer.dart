@@ -17,6 +17,7 @@ import '../../../core/i18n/i18n.dart';
 import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/hive_loader.dart';
 import '../../../core/widgets/markdown_toolbar.dart';
 import '../../../core/lexical/hinata_markdown_preview.dart';
 import '../../knowledge/markdown/mention_field.dart';
@@ -99,6 +100,15 @@ double _composerButtonSize(BuildContext context) => context.isCompact ? 52 : 46;
 /// Attachment sources offered by the composer's "+" menu.
 enum ComposerAttach { camera, gallery, file }
 
+/// How the composer obtains a recorder.
+///
+/// A seam, not a setting: a widget test cannot open a microphone, and the one
+/// behaviour here that must never regress — a finished recording surviving a
+/// failed upload — only exists *after* a recording has been captured. Nothing in
+/// the app assigns this.
+@visibleForTesting
+VoiceRecorder Function() voiceRecorderFactory = VoiceRecorder.new;
+
 /// The Liquid-Glass comment composer from the design. Morphs through:
 ///   • idle     → [+] · field · mic
 ///   • typing   → mic becomes the honey-amber send button
@@ -109,6 +119,8 @@ enum ComposerAttach { camera, gallery, file }
 ///                sticky bar or the desktop comment panel's footer), the editor
 ///                expands *upward* with the toolbar staying put.
 ///   • recording → live-waveform voice recorder with cancel / send
+///   • recorded  → a finished recording the upload has not accepted yet: still
+///                 in memory, offering "send again" and a deliberate discard
 ///
 /// It wraps a [MentionField] so `@`-mentions and smart-links keep working, and
 /// drives formatting through the shared [MarkdownEditingActions]. The parent
@@ -137,7 +149,17 @@ class GlassCommentComposer extends StatefulWidget {
   final FocusNode focusNode;
   final MarkdownEditingActions actions;
   final VoidCallback onSubmitText;
-  final void Function(VoiceRecording recording) onSendVoice;
+
+  /// Uploads [recording] and answers whether it was actually posted.
+  ///
+  /// The composer holds the audio until this returns true. A `void` callback
+  /// could not say "that failed", which is why every failure used to take the
+  /// recording with it — there is no file left to retry from once the recorder
+  /// has stopped, so the bytes in flight are the only copy. Errors are the
+  /// parent's to explain (it is the one that knows whether the content was
+  /// refused); the composer only needs the verdict.
+  final Future<bool> Function(VoiceRecording recording) onSendVoice;
+
   final void Function(ComposerAttach kind) onAttach;
 
   /// True while editing an existing comment inline (shows the edit banner).
@@ -156,7 +178,7 @@ class GlassCommentComposer extends StatefulWidget {
   State<GlassCommentComposer> createState() => _GlassCommentComposerState();
 }
 
-enum _Mode { idle, recording, format }
+enum _Mode { idle, recording, recorded, format }
 
 class _GlassCommentComposerState extends State<GlassCommentComposer> {
   _Mode _mode = _Mode.idle;
@@ -169,6 +191,16 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
   Timer? _recTimer;
   Duration _recElapsed = Duration.zero;
   bool _starting = false;
+
+  /// The finished recording, held until an upload confirms it was posted.
+  ///
+  /// The recorder's file is consumed by [VoiceRecorder.stop], so this is the
+  /// only copy of what the person just said. It is cleared on exactly two
+  /// events: a successful send, or a discard the user asked for.
+  VoiceRecording? _recorded;
+
+  /// Whether [_recorded] is being uploaded right now.
+  bool _sendingVoice = false;
 
   bool get _canSend => widget.controller.text.trim().isNotEmpty;
 
@@ -206,7 +238,7 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
   Future<void> _startRecording() async {
     if (_starting) return;
     _starting = true;
-    final recorder = VoiceRecorder();
+    final recorder = voiceRecorderFactory();
     bool ok;
     try {
       ok = await recorder.start();
@@ -251,29 +283,77 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     await r?.dispose();
   }
 
+  /// Stops the recorder and hands the audio to the parent — keeping it here
+  /// until the parent says it was posted.
+  ///
+  /// The composer deliberately does *not* return to idle first. Idle is the
+  /// state that says "there is nothing of yours in here", and until the upload
+  /// is confirmed that is untrue: the recorder's file is already consumed, so
+  /// these bytes are the only copy of what was just said.
   Future<void> _sendRecording() async {
     _recTimer?.cancel();
     final r = _recorder;
     _recorder = null;
-    if (mounted) setState(() => _mode = _Mode.idle);
     if (r == null) return;
     VoiceRecording? recording;
     try {
       recording = await r.stop();
     } catch (_) {
-      // Native stop failure / web blob read failure — fall through to the
-      // error toast below rather than throwing into the void.
+      // Native stop failure / web blob read failure — nothing was captured, so
+      // there is nothing to keep; fall through to the error toast below.
       recording = null;
     } finally {
       await r.dispose();
     }
-    if (recording != null && recording.durationMs > 300) {
-      widget.onSendVoice(recording);
-    } else if (mounted) {
-      // The recording bar already closed; without this the message would just
-      // vanish with no explanation (stop failed, empty bytes, or too short).
-      showGlassErrorToast(context, context.t('comments.voiceFailed'));
+    if (recording == null || recording.durationMs <= 300) {
+      if (mounted) {
+        setState(() => _mode = _Mode.idle);
+        // Without this the bar would just close and the message would vanish
+        // with no explanation (stop failed, empty bytes, or too short to be one).
+        showGlassErrorToast(context, context.t('comments.voiceFailed'));
+      }
+      return;
     }
+    if (!mounted) {
+      // The thread was closed between "send" and the recorder handing the bytes
+      // over. There is no composer left to keep them in, so the upload is still
+      // worth attempting — losing the message would be the worse outcome — but
+      // its verdict has nowhere to go.
+      unawaited(widget.onSendVoice(recording));
+      return;
+    }
+    setState(() {
+      _recorded = recording;
+      _mode = _Mode.recorded;
+    });
+    await _uploadRecorded();
+  }
+
+  /// Uploads [_recorded], clearing it only once the parent confirms the comment
+  /// exists. A refusal or a dropped connection leaves the audio — and the bar
+  /// offering it — exactly where they were.
+  Future<void> _uploadRecorded() async {
+    final recording = _recorded;
+    if (recording == null || _sendingVoice) return;
+    setState(() => _sendingVoice = true);
+    final sent = await widget.onSendVoice(recording);
+    if (!mounted) return;
+    setState(() {
+      _sendingVoice = false;
+      if (sent) {
+        _recorded = null;
+        _mode = _Mode.idle;
+      }
+    });
+  }
+
+  /// Throws the kept recording away. The only path that discards it, and it is
+  /// a button the user pressed — nothing in an error path may do this.
+  void _discardRecorded() {
+    setState(() {
+      _recorded = null;
+      _mode = _Mode.idle;
+    });
   }
 
   @override
@@ -285,6 +365,17 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
         buttonSize: _composerButtonSize(context),
         onCancel: _cancelRecording,
         onSend: _sendRecording,
+      );
+    }
+
+    final recorded = _recorded;
+    if (_mode == _Mode.recorded && recorded != null) {
+      return _RecordedBar(
+        recording: recorded,
+        buttonSize: _composerButtonSize(context),
+        sending: _sendingVoice,
+        onDiscard: _discardRecorded,
+        onSend: _uploadRecorded,
       );
     }
 

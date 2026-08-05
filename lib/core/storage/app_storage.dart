@@ -25,6 +25,7 @@ class AppStorage {
   static const _kRefreshToken = 'refresh_token';
   static const _kOnboardingDone = 'onboarding_done';
   static const _kConnectHintSeen = 'connect_hint_seen';
+  static const _kTermsAccepted = 'content_terms_accepted.v1';
   static const _kLocale = 'locale';
   static const _kRecentSearch = 'hinata.recentSearch.v1';
 
@@ -245,6 +246,35 @@ class AppStorage {
     final url = serverUrl;
     if (url == null) return;
     await _prefs.setBool(_connectHintKey(url), true);
+  }
+
+  // --- content terms acceptance (scoped per server AND per user) -------------
+
+  String _termsKey(String url, String userId) =>
+      '$_kTermsAccepted::$url::$userId';
+
+  /// Whether [userId] has accepted the content terms on the current server.
+  ///
+  /// Scoped by both server and user, unlike [onboardingDone], which is a
+  /// device-wide "you have seen the tour" flag. Acceptance is a statement by a
+  /// *person* about a *service*: the next colleague to sign in on a shared
+  /// tablet has not agreed to anything, and neither has this user against the
+  /// other self-hosted instance they connect to. Returns true (suppressed) when
+  /// no server is selected yet, so the gate never fires mid-boot.
+  ///
+  /// This is a client-side record only. The acceptance an audit would need
+  /// lives nowhere durable yet — `/me` has no field for it — so reinstalling
+  /// the app asks again, and the web client asks per browser.
+  bool termsAcceptedBy(String userId) {
+    final url = serverUrl;
+    if (url == null || userId.isEmpty) return true;
+    return _prefs.getBool(_termsKey(url, userId)) ?? false;
+  }
+
+  Future<void> setTermsAccepted(String userId) async {
+    final url = serverUrl;
+    if (url == null || userId.isEmpty) return;
+    await _prefs.setBool(_termsKey(url, userId), true);
   }
 
   String? get locale => _prefs.getString(_kLocale);

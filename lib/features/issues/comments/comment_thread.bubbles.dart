@@ -48,10 +48,11 @@ class CommentBubbleRow extends StatelessWidget {
                   child: _SelectDot(selected: selected),
                 )
               : SizedBox(width: avatarSize))
-        : HiveAvatar(
+        : _AuthorAvatar(
             name: name,
             imageUrl: _x.avatarFor(_c.authorId),
             size: avatarSize,
+            onOpen: (anchor) => _x.onOpenAuthor(_c, anchor),
           );
 
     final body = _c.isVoice
@@ -160,6 +161,48 @@ class CommentBubbleRow extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
           ),
       ],
+    );
+  }
+}
+
+/// The comment author's avatar, tappable to open their actions popover.
+///
+/// The avatar is the person-shaped thing in the feed, so it is where someone
+/// looks for what they can do *about the person* rather than about the message —
+/// and that distinction is exactly what the store policies ask for: a way to
+/// block an abusive user, not only to report one of their posts.
+class _AuthorAvatar extends StatelessWidget {
+  const _AuthorAvatar({
+    required this.name,
+    required this.imageUrl,
+    required this.size,
+    required this.onOpen,
+  });
+
+  final String name;
+  final String? imageUrl;
+  final double size;
+
+  /// Called with the avatar's global rect so the popover can anchor to it.
+  final void Function(Rect anchor) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: name,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          // The rect has to be read on the frame of the tap: the popover opens
+          // across an await, by which point this render object may be gone.
+          onTap: () {
+            final box = context.findRenderObject() as RenderBox?;
+            if (box == null || !box.hasSize) return;
+            onOpen(box.localToGlobal(Offset.zero) & box.size);
+          },
+          child: HiveAvatar(name: name, imageUrl: imageUrl, size: size),
+        ),
+      ),
     );
   }
 }
@@ -305,6 +348,15 @@ class _CommentActionsState extends State<_CommentActions> {
         _c.pinned ? LucideIcons.pinOff : LucideIcons.pin,
         _c.pinned ? context.t('comments.unpin') : context.t('comments.pin'),
         () => run(() => _x.onTogglePin(_c)),
+      ),
+      // Reporting sits with the other per-comment actions rather than behind a
+      // long-press or a separate affordance: the store requirement is that it be
+      // "readily accessible from within the app" and clearly labelled, and this
+      // menu is where a user already looks for what they can do to a comment.
+      _MenuRowData(
+        LucideIcons.flag,
+        context.t('moderation.report.action'),
+        () => run(() => _x.onReport(_c)),
       ),
       if (widget.canManage)
         _MenuRowData(

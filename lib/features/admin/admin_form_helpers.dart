@@ -283,9 +283,11 @@ class _AdminNumberFieldState extends State<AdminNumberField> {
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() {
-      if (!_focus.hasFocus) _commit();
-    });
+    _focus.addListener(_onFocusChanged);
+  }
+
+  void _onFocusChanged() {
+    if (!_focus.hasFocus) _commit();
   }
 
   @override
@@ -300,6 +302,11 @@ class _AdminNumberFieldState extends State<AdminNumberField> {
 
   @override
   void dispose() {
+    // Drop the blur listener before anything is torn down: disposing a focused
+    // node notifies its listeners, and _commit would then read a controller
+    // that is already gone. Reachable since a section can recycle its form off
+    // a lazy list while a field still holds focus.
+    _focus.removeListener(_onFocusChanged);
     _ctrl.dispose();
     _focus.dispose();
     super.dispose();

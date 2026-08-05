@@ -2,17 +2,21 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/blocs/auth_bloc.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/storage/app_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hex_mark.dart';
+import '../legal/legal_links.dart';
 
 part 'onboarding_screen.chrome.dart';
 part 'onboarding_screen.cards.dart';
+part 'onboarding_screen.terms.dart';
 
 /// One-time feature tour shown after the first successful server connection.
 ///

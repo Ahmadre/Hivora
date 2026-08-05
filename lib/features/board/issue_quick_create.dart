@@ -16,6 +16,7 @@ import '../../core/repositories/user_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_widgets.dart';
+import '../moderation/content_refused_dialog.dart';
 import '../sprint/modals/glass_modal.dart';
 
 /// Issue types the quick composer offers. Mirrors the full create form minus
@@ -241,8 +242,11 @@ class _IssueQuickCreateState extends State<IssueQuickCreate> {
     } on ApiFailure catch (failure) {
       if (!mounted) return;
       setState(() => _saving = false);
-      // The draft stays in the composer — a failed create must not eat it.
-      showGlassErrorToast(context, context.t(failure.message));
+      // The draft stays in the composer — a failed create must not eat it, and
+      // a refused one least of all.
+      if (!handleContentRefusal(context, failure)) {
+        showGlassErrorToast(context, context.t(failure.message));
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);

@@ -3,7 +3,7 @@ part of 'issue_detail_sheet.dart';
 // ─────────────────────────── Top bar ───────────────────────────────────────
 
 /// Actions collapsed into the "…" overflow menu of the issue top bars.
-enum _IssueMenuAction { reply, move, delete }
+enum _IssueMenuAction { reply, move, report, delete }
 
 /// The delete/archive/restore affordance shared by both top bars: label,
 /// icon and tint depend on the archived state and the delete permission.
@@ -27,6 +27,7 @@ class _IssueActionsMenu extends StatelessWidget {
   const _IssueActionsMenu({
     required this.onMove,
     required this.onDelete,
+    required this.onReport,
     required this.canDelete,
     required this.archived,
     this.onReply,
@@ -36,6 +37,11 @@ class _IssueActionsMenu extends StatelessWidget {
   /// normal member action, gated per project by the server.
   final VoidCallback onMove;
   final VoidCallback onDelete;
+
+  /// Opens the "Report" flow for this issue. Always enabled, including on an
+  /// archived issue — reporting is a capability every member has over anything
+  /// they can see, and gating it behind a permission defeats the point.
+  final VoidCallback onReport;
   final bool canDelete;
   final bool archived;
 
@@ -74,11 +80,16 @@ class _IssueActionsMenu extends StatelessWidget {
               : null,
         ),
         GlassMenuItem(
+          value: _IssueMenuAction.report,
+          label: context.t('moderation.report.action'),
+          leading: Icon(LucideIcons.flag, size: 16, color: AppColors.inkSoft),
+          dividerAbove: true,
+        ),
+        GlassMenuItem(
           value: _IssueMenuAction.delete,
           label: context.t(removal.labelKey),
           leading: Icon(removal.icon, size: 16, color: removal.color),
           color: canDelete && !archived ? AppColors.danger : null,
-          dividerAbove: true,
         ),
       ],
       onSelected: (action) {
@@ -87,6 +98,8 @@ class _IssueActionsMenu extends StatelessWidget {
             onReply?.call();
           case _IssueMenuAction.move:
             onMove();
+          case _IssueMenuAction.report:
+            onReport();
           case _IssueMenuAction.delete:
             onDelete();
           case null:
@@ -124,6 +137,7 @@ class _RouteTopBar extends StatelessWidget {
     this.onMinimize,
     required this.onDelete,
     required this.onMove,
+    required this.onReport,
     required this.onClose,
     this.onReply,
     this.canDelete = false,
@@ -141,6 +155,9 @@ class _RouteTopBar extends StatelessWidget {
 
   /// Opens the move-to-another-project wizard.
   final VoidCallback onMove;
+
+  /// Opens the "Report" flow for this issue.
+  final VoidCallback onReport;
   final VoidCallback onClose;
 
   /// Non-null only for email-sourced issues with the `emailReply` flag enabled;
@@ -213,6 +230,7 @@ class _RouteTopBar extends StatelessWidget {
               onReply: onReply,
               onMove: onMove,
               onDelete: onDelete,
+              onReport: onReport,
               canDelete: canDelete,
               archived: issue.archived,
             ),

@@ -23,6 +23,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../../features/knowledge/data/knowledge_models.dart' show lucideIcon;
 import '../../features/knowledge/markdown/smart_link_resolver.dart';
+import '../../features/moderation/content_refused_dialog.dart';
 import '../../features/sprint/modals/glass_modal.dart';
 import 'hinata_editing.dart';
 import 'hinata_editor_controller.dart';
@@ -142,7 +143,11 @@ class _HinataImageButtonState extends State<HinataImageButton> {
         ImageAttributes(src: url, altText: file.name),
       );
     } on ApiFailure catch (failure) {
-      if (mounted) showGlassErrorToast(context, context.t(failure.message));
+      // Nothing is inserted on this path, so the document being written is
+      // untouched — only the picked image is refused, and the dialog says why.
+      if (mounted && !handleContentRefusal(context, failure)) {
+        showGlassErrorToast(context, context.t(failure.message));
+      }
     } on Object {
       if (mounted) showGlassErrorToast(context, context.t('errors.unexpected'));
     } finally {

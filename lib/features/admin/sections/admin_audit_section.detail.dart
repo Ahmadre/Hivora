@@ -430,6 +430,7 @@ IconData _categoryIcon(AuditCategory c) => switch (c) {
   AuditCategory.configuration => LucideIcons.settings,
   AuditCategory.data => LucideIcons.database,
   AuditCategory.integration => LucideIcons.plug,
+  AuditCategory.moderation => LucideIcons.shieldAlert,
   AuditCategory.unknown => LucideIcons.activity,
 };
 

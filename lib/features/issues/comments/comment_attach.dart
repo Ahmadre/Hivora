@@ -10,6 +10,7 @@ import '../../../core/i18n/i18n.dart';
 import '../../../core/widgets/markdown_toolbar.dart';
 import '../../../core/repositories/issue_repository.dart';
 import '../../../core/repositories/media_repository.dart';
+import '../../moderation/content_refused_dialog.dart';
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassErrorToast, showGlassToast;
 
@@ -59,8 +60,12 @@ Future<void> insertCommentPhoto(
     final url = await mediaApi.uploadMedia(multipart);
     actions.completeImageUpload(token, url, name);
   } on ApiFailure catch (e) {
+    // The placeholder is marked failed, not removed, so the comment the user is
+    // writing keeps its shape while the dialog explains the refusal.
     actions.failImageUpload(token);
-    if (context.mounted) showGlassErrorToast(context, context.t(e.message));
+    if (context.mounted && !handleContentRefusal(context, e)) {
+      showGlassErrorToast(context, context.t(e.message));
+    }
   } catch (_) {
     actions.failImageUpload(token);
     if (context.mounted) {
@@ -111,7 +116,10 @@ Future<void> attachFileToIssue(
       );
     }
   } on ApiFailure catch (e) {
-    if (context.mounted) showGlassErrorToast(context, context.t(e.message));
+    // A refused file is a policy decision, not a failed upload — say so.
+    if (context.mounted && !handleContentRefusal(context, e)) {
+      showGlassErrorToast(context, context.t(e.message));
+    }
   } catch (_) {
     if (context.mounted) {
       showGlassErrorToast(context, context.t('errors.unexpected'));

@@ -535,6 +535,165 @@ class _RecordingBar extends StatelessWidget {
   }
 }
 
+/// The bar shown for a finished recording that has not been accepted yet — the
+/// state the composer falls back to when an upload fails.
+///
+/// It exists because the alternative is silence: the recorder's file is gone the
+/// moment it stops, so a failed send used to take the message with it. Here the
+/// audio is still in memory and the bar offers the only two things left to do
+/// with it — send it again, or throw it away on purpose.
+class _RecordedBar extends StatelessWidget {
+  const _RecordedBar({
+    required this.recording,
+    required this.buttonSize,
+    required this.sending,
+    required this.onDiscard,
+    required this.onSend,
+  });
+
+  final VoiceRecording recording;
+  final double buttonSize;
+
+  /// Whether the upload is running right now. Both buttons stand down while it
+  /// is: a second tap would post the message twice, and the trash would delete
+  /// what is being sent.
+  final bool sending;
+
+  final VoidCallback onDiscard;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = AppColors.brightness == Brightness.dark;
+    final seconds = recording.durationMs ~/ 1000;
+    final time =
+        '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Above the bar, not below it: the composer is bottom-anchored, so this
+        // is the edge that faces the feed the person is reading.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+          child: Text(
+            context.t(sending ? 'comments.voiceSending' : 'comments.voiceKept'),
+            style: TextStyle(
+              fontSize: 11.5,
+              height: 1.35,
+              color: AppColors.inkSoft,
+            ),
+          ),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Tooltip(
+              message: context.t('comments.voiceDiscard'),
+              child: _CircleButton(
+                icon: LucideIcons.trash2,
+                size: buttonSize,
+                danger: true,
+                onTap: sending ? null : onDiscard,
+              ),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: _composerSurface(
+                dark: dark,
+                radius: 26,
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Icon(LucideIcons.mic, size: 16, color: AppColors.inkSoft),
+                    const SizedBox(width: 12),
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontMono,
+                        fontSize: 14,
+                        color: AppColors.ink,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: _PeaksWave(peaks: recording.peaks)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 11),
+            if (sending)
+              SizedBox(
+                width: buttonSize,
+                height: buttonSize,
+                child: const Center(child: HiveLoader(size: 26)),
+              )
+            else
+              Tooltip(
+                message: context.t('comments.voiceRetry'),
+                child: _CircleButton(
+                  icon: LucideIcons.send,
+                  size: buttonSize,
+                  send: true,
+                  onTap: onSend,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// The finished recording's stored waveform, drawn from the peaks captured while
+/// it was being spoken — so a message waiting to be re-sent still looks like the
+/// one the person watched themselves record, not like a generic placeholder.
+class _PeaksWave extends StatelessWidget {
+  const _PeaksWave({required this.peaks});
+
+  final List<int> peaks;
+
+  /// Bar width + margins, matching [_LiveWave] so the live and the finished
+  /// waveform read as the same object in two states.
+  static const double _barSlot = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final capacity = constraints.maxWidth.isFinite
+            ? (constraints.maxWidth ~/ _barSlot).clamp(0, peaks.length)
+            : peaks.length;
+        // Sampled across the whole clip rather than truncated to its tail: this
+        // is the finished message, so its shape has to be the shape of all of it.
+        final visible = [
+          for (var i = 0; i < capacity; i++) peaks[i * peaks.length ~/ capacity],
+        ];
+        return SizedBox(
+          height: 30,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              for (final v in visible)
+                Container(
+                  width: 3,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  height: (4 + v / 100 * 24).clamp(4, 28).toDouble(),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot();
 

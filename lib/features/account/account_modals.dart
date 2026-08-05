@@ -8,6 +8,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/models/account_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../moderation/content_refused_dialog.dart';
 import '../sprint/modals/glass_modal.dart'
     show showGlassModal, GlassModalHeader, GlassField, glassInputDecoration;
 import 'account_widgets.dart';
@@ -65,7 +66,13 @@ class _EditProfileModalState extends State<_EditProfileModal> {
       );
       if (mounted) Navigator.of(context).maybePop(saved);
     } on ApiFailure catch (f) {
-      if (mounted) setState(() => _error = f.message);
+      // A display name is a moderated surface too. The modal stays open with
+      // the typed name in it either way; a refusal additionally opens the
+      // policy dialog, because the inline note has no room to explain a rule.
+      if (mounted) {
+        setState(() => _error = context.t(f.message));
+        handleContentRefusal(context, f);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

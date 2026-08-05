@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/i18n/i18n.dart';
+import '../../core/models/moderation_models.dart';
 import '../../core/models/work_models.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
@@ -11,6 +12,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_loader.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../issues/issue_detail_sheet.dart';
+import '../moderation/content_refused_dialog.dart';
+import '../moderation/report_modal.dart' show showReportModal;
 import '../shell/page_chrome.dart';
 import '../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassBottomSheet, showGlassConfirm, showGlassToast;
@@ -288,6 +291,18 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     }
   }
 
+  /// Opens the "Report" flow for [article]. The title rides along as the
+  /// queue row's label — an article id tells a moderator nothing.
+  Future<void> _reportArticle(KbArticle article) => showReportModal(
+    context,
+    ReportTarget(
+      type: ReportTargetType.article,
+      id: article.id,
+      parentId: article.spaceId,
+      label: article.title,
+    ),
+  );
+
   Future<void> _save(EditorResult r) async {
     final title = r.title.trim().isEmpty
         ? context.t('knowledge.untitled')
@@ -321,7 +336,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         _toast(context.t('knowledge.saved'), kind: GlassToastKind.success);
       }
     } on ApiFailure catch (failure) {
-      if (mounted) _toast(failure.message, kind: GlassToastKind.error);
+      // `_mode` is only switched back to a read view on the success paths above,
+      // so a refused article stays open in the editor with the author's document
+      // intact — the dialog explains, it does not confiscate.
+      if (!mounted) return;
+      if (!handleContentRefusal(context, failure)) {
+        _toast(failure.message, kind: GlassToastKind.error);
+      }
     }
   }
 
@@ -480,6 +501,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       asideMode: asideMode,
       onEdit: () => setState(() => _mode = _Mode.edit),
       onDelete: () => _confirmDeleteArticle(_current!.id),
+      onReport: () => _reportArticle(_current!),
     );
 
     if (!showTree) {

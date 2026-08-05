@@ -344,6 +344,10 @@
     "actionFormat": "Textformatierung",
     "micDenied": "Für eine Sprachnachricht wird Zugriff auf das Mikrofon benötigt.",
     "voiceFailed": "Sprachnachricht konnte nicht gesendet werden — versuch es nochmal.",
+    "voiceKept": "Deine Aufnahme ist noch da. Nochmal senden oder löschen.",
+    "voiceSending": "Aufnahme wird gesendet…",
+    "voiceRetry": "Nochmal senden",
+    "voiceDiscard": "Aufnahme löschen",
     "deleteFailed": "Einige Kommentare konnten nicht gelöscht werden.",
     "jumpNotFound": "Dieser Kommentar wurde nicht gefunden – er wurde möglicherweise gelöscht.",
     "recording": "Aufnahme",
@@ -1255,6 +1259,7 @@
     "sessionLifetime": "Sitzungsdauer",
     "hours": "Std.",
     "owaspNote": "Hinata erzwingt standardmäßig OWASP Top 10 Schutzmaßnahmen. Die obigen Einstellungen ermöglichen eine weitere Härtung für deine spezifische Umgebung.",
+    "moderation": "Moderation",
     "auditLog": "Audit-Protokoll",
     "auditLogSoon": "Audit-Protokoll kommt bald",
     "auditLogHint": "Alle Admin-Aktionen und Anmeldeereignisse werden hier mit Zeitstempeln und Akteursdetails aufgelistet.",
@@ -1598,7 +1603,8 @@
       "configuration": "Konfiguration",
       "data": "Daten & Datenschutz",
       "integration": "Integration",
-      "unknown": "Sonstige"
+      "unknown": "Sonstige",
+      "moderation": "Moderation"
     },
     "action": {
       "LOGIN_SUCCESS": "Angemeldet",
@@ -1654,7 +1660,12 @@
       "MCP_SPRINT_COMPLETED": "Sprint per MCP abgeschlossen",
       "MCP_OAUTH_AUTHORIZED": "MCP-OAuth-Autorisierung erteilt",
       "UNKNOWN": "Unbekanntes Ereignis",
-      "ISSUE_MOVED": "Vorgang verschoben"
+      "ISSUE_MOVED": "Vorgang verschoben",
+      "MODERATION_RECORD_REVIEWED": "Moderationsentscheidung",
+      "CONTENT_REPORT_HANDLED": "Meldung bearbeitet",
+      "CONTENT_REPORTED": "Inhalt gemeldet",
+      "USER_BLOCKED": "Nutzer blockiert",
+      "USER_UNBLOCKED": "Blockierung aufgehoben"
     },
     "meta": {
       "oldRole": "Vorherige Rolle",
@@ -1668,7 +1679,260 @@
       "newEmail": "Neue E-Mail",
       "method": "Methode",
       "setting": "Einstellung",
-      "provider": "Anbieter"
+      "provider": "Anbieter",
+      "targetType": "Gemeldetes Objekt"
+    }
+  },
+  "moderation": {
+    "policy": {
+      "title": "Was geprüft wird",
+      "hint": "Welche Inhalte die Prüfkette bewertet, bevor sie gespeichert werden.",
+      "enabled": "Inhaltsmoderation",
+      "enabledHint": "Hauptschalter. Ist er aus, wird nichts geprüft und nichts landet in der Warteschlange unten.",
+      "text": "Texte prüfen",
+      "textHint": "Titel, Beschreibungen, Kommentare, Artikelinhalte, Arbeitszeit-Notizen und eingehende E-Mails. Code, Logs und Bezeichner werden vor der Bewertung entfernt.",
+      "image": "Bilder klassifizieren",
+      "imageHint": "Uploads, eingefügte Bilder, Profilbilder und Anhänge. Setzt einen konfigurierten Bild-Klassifizierer voraus — ohne einen werden Bilder als ungeprüft vermerkt statt als sauber gezählt.",
+      "thresholds": "Schwellenwerte",
+      "thresholdsHint": "Wie sicher der Klassifizierer sein muss, bevor ein Inhalt abgelehnt oder zur Prüfung eingereiht wird.",
+      "blockThreshold": "Ablehnen ab",
+      "flagThreshold": "Zur Prüfung einreihen ab",
+      "score": "Punkte",
+      "thresholdNote": "Die Bewertung reicht von 0 bis 100. Jede Quelle passt sie an: technische Quellen bekommen 25 Punkte Nachlass auf die Gewalt-Kategorien, weil „kill -9“ und „Angriffsvektor“ dort normale Sprache sind, und extern verfasste Inhalte — eingehende Mails, weitergeleitete Bilder, Webhook-Commits — werden 15 Punkte strenger bewertet. Die Ablehnungsschwelle greift nie unterhalb von 50.",
+      "handling": "Was bei einem Treffer passiert",
+      "handlingHint": "Ob ein Inhalt beim Schreiben abgelehnt oder gespeichert und eingereiht wird.",
+      "longFormFlagOnly": "Lange Texte nie ablehnen",
+      "longFormFlagOnlyHint": "Entscheidet, was mit einer Beschreibung, einem Kommentar, einem Artikelinhalt oder einer Arbeitszeit-Notiz passiert, die über der Ablehnungsschwelle liegt: ist die Option an, wird der Text gespeichert und zur Prüfung eingereiht, ist sie aus, wird das Speichern abgelehnt und der Text ist weg. Standardmäßig an, denn ein zu Unrecht abgelehnter Fehlerbericht wird nicht neu geschrieben — er wird aufgegeben oder landet dort, wo ihn niemand moderieren kann. Kurze Felder wie Namen, Titel und Profile sowie alle Uploads bleiben in jedem Fall ablehnbar.",
+      "failOpen": "Fortfahren, wenn eine Prüfung nicht laufen kann",
+      "failOpenHint": "Ist ein optionaler Klassifizierer nicht erreichbar, wird der Inhalt trotzdem gespeichert und das Urteil als eingeschränkt markiert, damit es dennoch in der Warteschlange landet — die Umgehung wird zu einer zählbaren Zeile statt zu einer Logmeldung, die niemand liest. Gilt nie für extern verfasste Inhalte: eingehende Mails und weitergeleitete Bilder werden stattdessen abgelehnt.",
+      "locked": "Nicht konfigurierbar",
+      "lockedHint": "Zwei Kategorien laufen mit festen Schwellenwerten und lassen sich hier weder abschwächen noch abschalten.",
+      "lockedNote": "Sexualisierte Inhalte mit Minderjährigen und Schadsoftware stehen außerhalb aller Einstellungen oben: sie bekommen keinen Nachlass auf technischen Quellen, sind von „Fortfahren, wenn eine Prüfung nicht laufen kann“ nicht erfasst, und keine Einstellung darf diese Instanz zu einem sicheren Ablageort dafür machen. Ein Treffer friert den Inhalt ein und eskaliert an einen Menschen.",
+      "notConfigurable": "FEST"
+    },
+    "queue": {
+      "title": "Prüf-Warteschlange",
+      "hint": "Was die Prüfkette markiert hat und was deine Nutzenden gemeldet haben. Öffne einen Eintrag, um ihn zu beurteilen — eine Zeile enthält nur einen Verweis auf den Inhalt, nie eine Kopie davon.",
+      "count": "{{count}} Einträge",
+      "endOfList": "Ende der Warteschlange",
+      "selectedCount": "{{count}} ausgewählt",
+      "clearSelection": "Auswahl aufheben",
+      "tab": {
+        "flagged": "Markiert",
+        "reports": "Meldungen"
+      },
+      "filter": {
+        "state": "Status",
+        "allStates": "Alle Status",
+        "surface": "Quelle",
+        "allSurfaces": "Alle Quellen",
+        "category": "Kategorie",
+        "allCategories": "Alle Kategorien",
+        "reset": "Filter zurücksetzen"
+      },
+      "empty": {
+        "flagged": {
+          "title": "Nichts markiert",
+          "message": "Inhalte, bei denen sich die Prüfkette nicht sicher ist, landen hier, damit ein Mensch bestätigt oder widerspricht."
+        },
+        "reports": {
+          "title": "Keine offenen Meldungen",
+          "message": "Von Nutzenden gemeldete Inhalte landen hier — mit Melderin oder Melder und Begründung."
+        },
+        "filtered": "Nichts passt zu deinen Filtern."
+      },
+      "row": {
+        "score": "Wie sicher der Klassifizierer war, von 0 bis 100",
+        "degraded": "Eingeschränkt",
+        "degradedHint": "Eine Prüfung konnte bei der Bewertung nicht laufen, das Urteil ist also unvollständig — genau deshalb steht der Eintrag hier.",
+        "unknownAuthor": "Unbekannte Urheberschaft",
+        "noProject": "Kein Projekt",
+        "anonymous": "Anonym",
+        "reportedBy": "Gemeldet von {{name}}"
+      },
+      "action": {
+        "open": "Inhalt öffnen",
+        "openUnavailable": "Dieser Eintrag lässt sich nicht mehr öffnen",
+        "confirm": "Bestätigen",
+        "uphold": "Meldung bestätigen",
+        "dismiss": "Verwerfen"
+      },
+      "note": {
+        "label": "Notiz (optional)",
+        "hint": "Warum du so entschieden hast. Bleibt am Eintrag für andere Admins — die Urheberschaft sieht sie nie."
+      },
+      "confirm": {
+        "title": "Markierung bestätigen",
+        "message": "Hält fest, dass die Maschine richtig lag: der Inhalt bleibt entfernt und die Maßnahme gegen die Urheberschaft bestehen. Gilt für deine Auswahl ({{count}})."
+      },
+      "dismiss": {
+        "title": "Als Fehlalarm verwerfen",
+        "message": "Markiert dies als zu Unrecht markiert. Der Inhalt bleibt unangetastet und der Eintrag verlässt die Warteschlange. Gilt für deine Auswahl ({{count}})."
+      },
+      "uphold": {
+        "title": "Meldung bestätigen",
+        "message": "Hält fest, dass die Meldung berechtigt war und der Inhalt oder die Urheberschaft behandelt wurde. Gilt für deine Auswahl ({{count}})."
+      },
+      "rejectReport": {
+        "title": "Meldung verwerfen",
+        "message": "Markiert die Meldung als unbegründet. Der Inhalt bleibt unangetastet und die Meldung verlässt die Warteschlange. Gilt für deine Auswahl ({{count}})."
+      },
+      "done": {
+        "confirmed": "Bestätigt ({{count}})",
+        "dismissed": "Verworfen ({{count}})",
+        "actioned": "Bestätigt ({{count}})"
+      }
+    },
+    "state": {
+      "open": "Offen",
+      "confirmed": "Bestätigt",
+      "dismissed": "Verworfen",
+      "actioned": "Bestätigt"
+    },
+    "decision": {
+      "allow": "Erlaubt",
+      "flag": "Markiert",
+      "block": "Abgelehnt",
+      "unknown": "—"
+    },
+    "tier": {
+      "disabled": "Aus",
+      "gate": "Eingebaute Prüfung",
+      "localModel": "Lokales Modell",
+      "external": "Externer Anbieter",
+      "human": "Mensch",
+      "unknown": "—"
+    },
+    "category": {
+      "sexual": "Sexuelle Inhalte",
+      "sexualMinors": "Sexualisierte Inhalte mit Minderjährigen",
+      "violence": "Gewalt",
+      "violentThreat": "Gewaltandrohung",
+      "hate": "Hassrede",
+      "harassment": "Belästigung",
+      "selfHarm": "Selbstverletzung",
+      "extremism": "Extremismus",
+      "illegal": "Sonstige illegale Inhalte",
+      "malware": "Schadsoftware",
+      "unknown": "Sonstiges"
+    },
+    "surface": {
+      "issueTitle": "Vorgangstitel",
+      "issueDescription": "Vorgangsbeschreibung",
+      "comment": "Kommentar",
+      "articleTitle": "Artikeltitel",
+      "articleContent": "Artikelinhalt",
+      "worklog": "Arbeitszeit-Notiz",
+      "entityName": "Name",
+      "entityDescription": "Beschreibung",
+      "profile": "Profil",
+      "inviteMessage": "Einladungstext",
+      "attachment": "Anhang",
+      "inlineImage": "Eingebettetes Bild",
+      "avatar": "Profilbild",
+      "organisationLogo": "Organisationslogo",
+      "voice": "Sprachkommentar",
+      "externalImage": "Externes Bild",
+      "emailIngest": "Eingehende E-Mail",
+      "emailAttachment": "E-Mail-Anhang",
+      "emailReply": "E-Mail-Antwort",
+      "gitCommit": "Commit-Nachricht",
+      "mcp": "KI-Agent (MCP)",
+      "unknown": "Unbekannte Quelle"
+    },
+    "report": {
+      "action": "Melden",
+      "title": "Inhalt melden",
+      "received": "Danke — deine Meldung ist bei der Moderation eingegangen.",
+      "reason": "Grund",
+      "reasonHint": "Grund auswählen",
+      "note": "Gibt es noch etwas zu wissen?",
+      "noteHint": "Beschreibe, was nicht in Ordnung ist, damit die Moderation weiß, worauf sie schauen soll.",
+      "optional": "optional",
+      "privacy": "Dein Name wird der Moderation genannt, damit sie nachfragen kann — niemals der gemeldeten Person.",
+      "submit": "Meldung senden",
+      "issue": {
+        "sub": "Die Moderation prüft dieses Ticket und entscheidet, was damit passiert."
+      },
+      "comment": {
+        "sub": "Die Moderation prüft diesen Kommentar und entscheidet, was damit passiert."
+      },
+      "article": {
+        "sub": "Die Moderation prüft diesen Artikel und entscheidet, was damit passiert."
+      },
+      "attachment": {
+        "sub": "Die Moderation prüft diese Datei und entscheidet, was damit passiert."
+      },
+      "user": {
+        "title": "Person melden",
+        "sub": "Melde das Verhalten dieser Person statt einer einzelnen Nachricht. Die Moderation prüft es."
+      }
+    },
+    "reason": {
+      "spam": {
+        "label": "Spam oder Werbung",
+        "hint": "Unerwünschte Werbung, Massenbeiträge oder wiederholt Themenfremdes."
+      },
+      "harassment": {
+        "label": "Belästigung oder Mobbing",
+        "hint": "Gegen eine Person gerichtet: Beleidigungen, Einschüchterung oder eine Kampagne gegen sie."
+      },
+      "hate": {
+        "label": "Hassrede",
+        "hint": "Angriffe oder Schmähungen gegen Menschen wegen dem, was sie sind."
+      },
+      "sexual": {
+        "label": "Sexuelle Inhalte",
+        "hint": "Pornografisches oder sexualisiertes Material."
+      },
+      "sexualMinors": {
+        "label": "Sexualisierte Inhalte mit Minderjährigen",
+        "hint": "Geht sofort an einen Menschen. Wird nie automatisch bearbeitet."
+      },
+      "violence": {
+        "label": "Gewalt oder Drohungen",
+        "hint": "Drastische Gewaltdarstellung oder eine ernst zu nehmende Drohung."
+      },
+      "selfHarm": {
+        "label": "Selbstverletzung oder Suizid",
+        "hint": "Ermutigt zu Selbstverletzung oder erklärt sie."
+      },
+      "illegal": {
+        "label": "Illegale Inhalte",
+        "hint": "Extremistisches Material, Schadsoftware, gestohlene Daten oder anderes Rechtswidriges."
+      },
+      "other": {
+        "label": "Etwas anderes",
+        "hint": "Nichts davon passt — schreib unten, was nicht stimmt."
+      }
+    },
+    "user": {
+      "report": "Nutzer melden",
+      "block": "Nutzer blockieren",
+      "self": "Das bist du."
+    },
+    "block": {
+      "title": "{{name}} blockieren?",
+      "message": "Du siehst die Kommentare dieser Person nicht mehr, und ihre Erwähnungen benachrichtigen dich nicht mehr. Das ändert nur, was du siehst — ihr Zugang bleibt, sie erfährt nichts davon, und für alle anderen ändert sich nichts. Du kannst es jederzeit unter Einstellungen → Blockierte Nutzer rückgängig machen.",
+      "confirm": "Blockieren",
+      "done": "{{name}} ist blockiert."
+    },
+    "blocked": {
+      "title": "Blockierte Nutzer",
+      "subtitle": "Personen, deren Inhalte du für dich ausgeblendet hast",
+      "intro": "Du siehst keine Kommentare dieser Personen, und ihre Erwähnungen benachrichtigen dich nicht. Blockieren ist persönlich: für alle anderen ändert sich nichts, und die Betroffenen erfahren nichts davon.",
+      "unblock": "Blockierung aufheben",
+      "unblocked": "{{name}} ist nicht mehr blockiert.",
+      "emptyTitle": "Niemand blockiert",
+      "emptyMessage": "Du kannst jemanden über das Profilbild blockieren, überall wo sein Name steht."
+    },
+    "refused": {
+      "title": "Inhalt abgelehnt",
+      "automated": "Diese Entscheidung hat eine automatische Prüfung getroffen — niemand hat deinen Inhalt gelesen.",
+      "draftKept": "Was du geschrieben hast, ist noch da. Bearbeite es und versuch es erneut.",
+      "appeal": "Wenn du das für falsch hältst, lass es von der Moderation prüfen.",
+      "contact": "Support kontaktieren",
+      "editContent": "Zurück zum Bearbeiten"
     }
   },
   "sprint": {
@@ -2460,5 +2724,21 @@
       "search_read": "Suchen",
       "notifications_read": "Eigene Benachrichtigungen lesen"
     }
+  },
+  "terms": {
+    "label": "Bevor du loslegst",
+    "title": "Die Regeln für Inhalte hier",
+    "body": "Dieser Arbeitsbereich gehört dir und deinen Kolleginnen und Kollegen. Alles, was du hier schreibst, hochlädst oder aufnimmst, sehen andere — deshalb gibt es ein paar Regeln, und die sind nicht optional.",
+    "rule": {
+      "respect": "Schreib Kolleginnen und Kollegen so, wie du mit ihnen sprechen würdest. Keine Belästigung, keine Beleidigungen, keine Hassrede, keine Drohungen.",
+      "illegal": "Nichts Illegales, nichts Sexuelles, nichts Gewaltverherrlichendes, keine Schadsoftware. Sexualisierte Inhalte mit Minderjährigen werden immer gemeldet.",
+      "privacy": "Lade nur hoch, was du teilen darfst. Personenbezogene Daten anderer gehören ihnen, nicht dir.",
+      "report": "Wenn dir etwas auffällt, das gegen diese Regeln verstößt, melde es. Jedes Ticket, jeder Kommentar, jeder Artikel und jede Datei hat eine Melden-Aktion."
+    },
+    "zeroTolerance": "Für beleidigende Inhalte und beleidigendes Verhalten gilt Null Toleranz. Inhalte, die gegen diese Regeln verstoßen, werden entfernt; Konten, die wiederholt verstoßen, verlieren den Zugang.",
+    "consent": "Ich habe die",
+    "and": "und die",
+    "accept": "Akzeptieren und weiter",
+    "decline": "Ich akzeptiere nicht — abmelden"
   }
 }

@@ -342,6 +342,9 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
         RepositoryProvider<NotificationRepository>.value(
           value: domains.notifications,
         ),
+        RepositoryProvider<ModerationRepository>.value(
+          value: domains.moderation,
+        ),
         RepositoryProvider<AdminRepository>.value(value: domains.admin),
         RepositoryProvider<TeamRepository>.value(value: domains.teams),
         RepositoryProvider<GitRepository>.value(value: domains.git),

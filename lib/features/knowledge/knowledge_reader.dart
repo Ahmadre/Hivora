@@ -28,12 +28,18 @@ class KnowledgeReader extends StatefulWidget {
     required this.asideMode,
     required this.onEdit,
     required this.onDelete,
+    required this.onReport,
   });
 
   final KbArticle article;
   final AsideMode asideMode;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Opens the "Report" flow for this article. Sits beside edit/delete rather
+  /// than behind a menu, because a knowledge-base page is visible org-wide and
+  /// this is the only handle a reader who cannot edit it has on its content.
+  final VoidCallback onReport;
 
   @override
   State<KnowledgeReader> createState() => _KnowledgeReaderState();
@@ -289,6 +295,21 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
                       ),
                     ),
                   ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: context.t('moderation.report.action'),
+                  child: OutlinedButton(
+                    onPressed: widget.onReport,
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(38, 38),
+                      foregroundColor: AppColors.inkSoft,
+                      side: BorderSide(color: AppColors.hairline),
+                    ),
+                    child: Icon(lucideIcon('flag'), size: 16),
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Tooltip(
                   message: context.t('knowledge.delete'),

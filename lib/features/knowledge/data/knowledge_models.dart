@@ -327,6 +327,8 @@ IconData lucideIcon(String? name) {
       return LucideIcons.ellipsis;
     case 'trash-2':
       return LucideIcons.trash2;
+    case 'flag':
+      return LucideIcons.flag;
     case 'folder-plus':
       return LucideIcons.folderPlus;
     case 'file-text':

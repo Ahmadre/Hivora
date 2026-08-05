@@ -34,6 +34,7 @@ import '../../core/lexical/hinata_lexical.dart';
 import '../../core/lexical/hinata_markdown_preview.dart';
 import '../../core/lexical/hinata_outline.dart';
 import '../../core/models/core_models.dart';
+import '../../core/models/moderation_models.dart';
 import '../../core/responsive/responsive.dart';
 import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -58,6 +59,9 @@ import '../knowledge/data/knowledge_repository.dart';
 import '../knowledge/knowledge_tokens.dart';
 import '../knowledge/markdown/mention_field.dart';
 import '../knowledge/markdown/smart_link_resolver.dart';
+import '../moderation/content_refused_dialog.dart';
+import '../moderation/report_modal.dart' show showReportModal;
+import '../moderation/user_actions.dart' show showUserActions;
 import '../sprint/modals/estimate_dialog.dart' show showStoryPointsDialog;
 import '../sprint/modals/glass_modal.dart'
     show
@@ -227,6 +231,7 @@ Future<void> showIssueDetailSheet(
             },
             onDelete: () => bodyKey.currentState?.confirmDeleteIssue(),
             onMove: () => bodyKey.currentState?.moveIssue(),
+            onReport: () => bodyKey.currentState?.reportIssue(),
             onClose: () => Navigator.of(modalContext).maybePop(),
             canDelete: bodyKey.currentState?.canDelete ?? false,
             archived: issue?.archived ?? false,
@@ -336,6 +341,7 @@ class _SheetActions extends StatelessWidget {
     required this.onDelete,
     required this.onClose,
     required this.onMove,
+    required this.onReport,
     this.onReply,
     this.canDelete = false,
     this.archived = false,
@@ -346,6 +352,10 @@ class _SheetActions extends StatelessWidget {
 
   /// Opens the move-to-another-project wizard.
   final VoidCallback onMove;
+
+  /// Opens the "Report" flow for this issue — available to every member, not
+  /// only to whoever may delete it.
+  final VoidCallback onReport;
   final VoidCallback onClose;
 
   /// Non-null only for email-sourced issues with the `emailReply` flag enabled;
@@ -373,6 +383,7 @@ class _SheetActions extends StatelessWidget {
           onReply: onReply,
           onMove: onMove,
           onDelete: onDelete,
+          onReport: onReport,
           canDelete: canDelete,
           archived: archived,
         ),

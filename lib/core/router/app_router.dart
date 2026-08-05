@@ -28,6 +28,7 @@ import '../../features/issues/issue_detail_sheet.dart' show IssueRouteArgs;
 import '../../features/issues/issue_filter.dart' show IssuesInitialView;
 import '../../features/issues/issues_screen.dart';
 import '../../features/knowledge/knowledge_screen.dart';
+import '../../features/moderation/blocked_users_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/oauth/oauth_consent_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
@@ -82,6 +83,7 @@ GoRouter buildRouter({
     '/connecting',
     '/setup',
     '/onboarding',
+    '/terms',
     '/login',
     '/update',
     '/auth-callback',
@@ -171,6 +173,17 @@ GoRouter buildRouter({
         parkIfDeepLink();
         return '/login';
       }
+      // Content terms: signed in, but has not accepted the rules for creating
+      // content on THIS server. A gate rather than a check at the first
+      // composer, because the store requirement is that the step cannot be
+      // skipped — see [TermsGateScreen]. Parking the deep link means a link
+      // followed before acceptance still lands after it.
+      final userId = auth.state.user?.id;
+      if (userId != null && !storage.termsAcceptedBy(userId)) {
+        if (location == '/terms') return null;
+        parkIfDeepLink();
+        return '/terms';
+      }
       // Authenticated and ready: send the user to their parked deep link (if
       // any), otherwise keep them away from the gate screens.
       if (gates.contains(location)) {
@@ -201,6 +214,23 @@ GoRouter buildRouter({
                 ? '/dashboard'
                 : '/login',
           ),
+        ),
+      ),
+      GoRoute(
+        path: '/terms',
+        builder: (context, _) => TermsGateScreen(
+          storage: storage,
+          userId: auth.state.user?.id ?? '',
+          // Route through the router rather than popping: the gate is a
+          // redirect target with nothing underneath it. The parked deep link is
+          // consumed here rather than left to the `gates` branch below, which
+          // never sees it — that branch only fires for a location that IS a
+          // gate, and we are navigating straight to a real destination.
+          onAccepted: () {
+            final target = pendingDeepLink;
+            pendingDeepLink = null;
+            GoRouter.of(context).go(target ?? '/dashboard');
+          },
         ),
       ),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
@@ -422,6 +452,11 @@ GoRouter buildRouter({
               state,
               AccountScreen(section: state.uri.queryParameters['section']),
             ),
+          ),
+          GoRoute(
+            path: '/settings/blocked',
+            pageBuilder: (_, state) =>
+                _transition(state, const BlockedUsersScreen()),
           ),
           GoRoute(
             path: '/admin',

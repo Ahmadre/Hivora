@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/api/api_client.dart' show ApiFailure;
 import '../../core/repositories/account_repository.dart';
 import '../../core/blocs/app_config_bloc.dart';
 import '../../core/blocs/auth_bloc.dart';
@@ -28,6 +29,7 @@ import '../../core/widgets/hive_widgets.dart' show HiveSwitch;
 import '../../core/widgets/honeycomb_background.dart';
 import '../connect/server_switcher.dart';
 import '../legal/legal_links.dart';
+import '../moderation/content_refused_dialog.dart';
 import '../sprint/modals/glass_modal.dart' show showGlassToast, GlassToastKind;
 import '../shell/page_chrome.dart';
 import 'account_modals.dart';
@@ -223,6 +225,14 @@ class _AccountScreenState extends State<AccountScreen> {
       setState(() => _me = _me!.copyWith(avatarUrl: url));
       authBloc.add(const AuthChecked());
       _toast(updated);
+    } on ApiFailure catch (failure) {
+      // A refused avatar gets the policy dialog rather than the generic "upload
+      // failed": a picture rejected for what it shows is not a network problem,
+      // and telling the user it was one just makes them try again.
+      if (!mounted) return;
+      if (!handleContentRefusal(context, failure)) {
+        _toast(failed, kind: GlassToastKind.error);
+      }
     } catch (_) {
       if (mounted) _toast(failed, kind: GlassToastKind.error);
     } finally {
@@ -426,6 +436,8 @@ class _AccountScreenState extends State<AccountScreen> {
     final right = <Widget>[
       _accessSection(),
       const SizedBox(height: 16),
+      _blockedSection(),
+      const SizedBox(height: 16),
       _appearanceSection(),
       if (_mcpEnabled) ...[const SizedBox(height: 16), const PatSection()],
       // Admin area is its own top-level entry here, not buried in Appearance.
@@ -519,6 +531,18 @@ class _AccountScreenState extends State<AccountScreen> {
           onTap: () => context.go('/settings?section=${item.section.name}'),
         ),
       );
+      // Blocked users is a route of its own (a paginated list), so it sits in
+      // the index as a navigation row rather than as an in-page section.
+      if (item.section == _SettingsSection.access) {
+        tiles.add(
+          _navTile(
+            icon: LucideIcons.userX,
+            title: context.t('moderation.blocked.title'),
+            subtitle: context.t('moderation.blocked.subtitle'),
+            onTap: () => context.push('/settings/blocked'),
+          ),
+        );
+      }
       if (item.section == _SettingsSection.appearance && isAdmin) {
         tiles.add(
           _navTile(
@@ -1595,6 +1619,32 @@ class _AccountScreenState extends State<AccountScreen> {
         title: context.t('settings.adminArea'),
         subtitle: context.t('settings.adminAreaDesc'),
         onTap: () => context.go('/admin'),
+      ),
+    );
+  }
+
+  // --- blocked users (top-level nav) ----------------------------------------
+
+  /// A standalone nav card that opens the block list.
+  ///
+  /// Its own entry rather than a row inside another section, and labelled with
+  /// the literal word "blocked", because this is one of the surfaces a store
+  /// reviewer goes looking for — and because a block a user cannot find again is
+  /// a block they cannot undo. The list is a route of its own (it paginates), so
+  /// this is a navigation tile like the Admin area, not an in-page section.
+  Widget _blockedSection() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppColors.hairline),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _navTile(
+        icon: LucideIcons.userX,
+        title: context.t('moderation.blocked.title'),
+        subtitle: context.t('moderation.blocked.subtitle'),
+        onTap: () => context.push('/settings/blocked'),
       ),
     );
   }
