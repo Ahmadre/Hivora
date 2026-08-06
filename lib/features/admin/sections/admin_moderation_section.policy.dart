@@ -37,6 +37,12 @@ class _PolicyPanelState extends State<_PolicyPanel> {
   bool _boolVal(String key, {required bool def}) =>
       (_moderation[key] as bool?) ?? def;
 
+  String _strVal(String key) => (_moderation[key] as String?) ?? '';
+
+  /// A budget the server sends as an ISO-8601 `Duration`, shown as whole seconds.
+  int _secondsVal(String key, int def) =>
+      parseIsoSeconds(_moderation[key]) ?? def;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -72,6 +78,40 @@ class _PolicyPanelState extends State<_PolicyPanel> {
               const SizedBox(height: 10),
               _ImageTierNotice(state: widget.imageTier!),
             ],
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // ─── The sidecar that does the classifying ────────────────
+        // Directly under the status line it answers. Until this panel existed
+        // the operator was told "no image classifier is installed" and given
+        // nowhere to say where one was — the fix meant editing the container's
+        // environment and restarting it.
+        AdminSectionCard(
+          icon: LucideIcons.scanEye,
+          title: context.t('moderation.policy.classifier'),
+          subtitle: context.t('moderation.policy.classifierHint'),
+          children: [
+            AdminField(
+              label: context.t('moderation.policy.imageEndpoint'),
+              initialValue: _strVal('imageEndpoint'),
+              hint: 'http://hinata-moderation:8081',
+              keyboardType: TextInputType.url,
+              onChanged: (v) => _moderation['imageEndpoint'] = v,
+            ),
+            AdminNumberField(
+              label: context.t('moderation.policy.imageTimeout'),
+              value: _secondsVal('imageTimeout', 5),
+              min: 1,
+              max: 120,
+              suffix: context.t('moderation.policy.seconds'),
+              onChanged: (v) => _moderation['imageTimeout'] = isoSeconds(v),
+            ),
+            AdminNote(
+              text: context.t('moderation.policy.classifierNote'),
+              icon: LucideIcons.server,
+              tone: AdminNoteTone.info,
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -153,10 +193,104 @@ class _PolicyPanelState extends State<_PolicyPanel> {
             ),
           ],
         ),
+        const SizedBox(height: 16),
+
+        // ─── Who gets told when one of them fires ─────────────────
+        // Placed under the locked categories because it is what happens next:
+        // a hit there freezes the content and hands it to a human outside the
+        // product, and this is the only place that hand-off is configured.
+        AdminSectionCard(
+          icon: LucideIcons.siren,
+          title: context.t('moderation.policy.escalation'),
+          subtitle: context.t('moderation.policy.escalationHint'),
+          children: [
+            AdminField(
+              label: context.t('moderation.policy.escalationUrl'),
+              initialValue: _strVal('escalationUrl'),
+              hint: 'https://alerts.example.com/hinata',
+              keyboardType: TextInputType.url,
+              onChanged: (v) => _moderation['escalationUrl'] = v,
+            ),
+            AdminField(
+              label: context.t('moderation.policy.escalationSecret'),
+              // Always empty: the server never echoes it, so a pre-filled box
+              // would be showing the admin a value that is not the stored one.
+              // Leaving it blank keeps whatever is saved.
+              initialValue: '',
+              isSecret: true,
+              onChanged: (v) => _moderation['escalationSecret'] = v,
+            ),
+            _SecretStatus(
+              configured: _moderation['escalationSecretConfigured'] == true,
+            ),
+            const SizedBox(height: 12),
+            AdminNumberField(
+              label: context.t('moderation.policy.escalationTimeout'),
+              value: _secondsVal('escalationTimeout', 5),
+              min: 1,
+              max: 120,
+              suffix: context.t('moderation.policy.seconds'),
+              onChanged: (v) => _moderation['escalationTimeout'] = isoSeconds(v),
+            ),
+            AdminNumberField(
+              label: context.t('moderation.policy.escalationMaxAttempts'),
+              value: _intVal('escalationMaxAttempts', 3),
+              min: 1,
+              max: 10,
+              suffix: context.t('moderation.policy.attempts'),
+              onChanged: (v) =>
+                  setState(() => _moderation['escalationMaxAttempts'] = v),
+            ),
+            AdminNote(
+              text: context.t('moderation.policy.escalationNote'),
+              icon: LucideIcons.fileSignature,
+              tone: AdminNoteTone.warning,
+            ),
+          ],
+        ),
       ],
     );
   }
 }
+
+/// Whether a signing secret is in force, from either source.
+///
+/// The only thing the panel can learn about it — the value is write-only and is
+/// never sent back. Without this row a blank secret box is ambiguous in the
+/// worst possible direction: it looks identical whether one is stored, and an
+/// admin who "helpfully" typed a new one would break every signature the
+/// recipient is verifying.
+class _SecretStatus extends StatelessWidget {
+  const _SecretStatus({required this.configured});
+
+  final bool configured;
+
+  @override
+  Widget build(BuildContext context) {
+    final hue = configured ? 155 : 45;
+    return Row(
+      children: [
+        Icon(
+          configured ? LucideIcons.circleCheck : LucideIcons.circleAlert,
+          size: 14,
+          color: hueInk(hue),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            context.t(
+              configured
+                  ? 'moderation.policy.escalationSecretSet'
+                  : 'moderation.policy.escalationSecretMissing',
+            ),
+            style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 /// A read-only row for a category the settings above deliberately do not reach.
 class _LockedCategoryRow extends StatelessWidget {
@@ -180,6 +314,7 @@ class _LockedCategoryRow extends StatelessWidget {
             Icon(LucideIcons.lock, size: 15, color: AppColors.inkFaint),
             const SizedBox(width: 10),
             Expanded(
+              flex: 4,
               child: Text(
                 context.t(category.labelKey),
                 style: TextStyle(
@@ -190,14 +325,28 @@ class _LockedCategoryRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Text(
-              context.t('moderation.policy.notConfigurable'),
-              style: TextStyle(
-                fontFamily: AppTheme.fontMono,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.4,
-                color: AppColors.inkFaint,
+            // The badge is one short word today ("FIXED" / "FEST") and takes
+            // its natural width — but it is a translation, so it is capped at a
+            // fifth of the row rather than laid out unbounded. Without a flex
+            // factor a longer word sizes itself first and squeezes the label to
+            // nothing, which is how this feature has overflowed before; the
+            // Align keeps the badge on the right edge either way.
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  context.t('moderation.policy.notConfigurable'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontMono,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                    color: AppColors.inkFaint,
+                  ),
+                ),
               ),
             ),
           ],
