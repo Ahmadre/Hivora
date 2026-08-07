@@ -182,6 +182,42 @@ jobs:
     # The release toolchain must not drift underneath a build.
     runs-on: windows-2022
     steps:
+      # Before anything expensive: the store credentials are the one thing this
+      # job cannot recover from, and the msstore CLI reports their absence as an
+      # unreadable argument-parser dump — an empty value simply vanishes from the
+      # command line, so the CLI reads the NEXT flag as the previous flag's
+      # value ("Cannot parse argument '--sellerId' for option '--tenantId'").
+      # Say it in plain words instead, and say it in seconds rather than after a
+      # six-minute build.
+      - name: Check Store credentials
+        if: ${{ inputs.submit == 'true' }}
+        shell: bash
+        env:
+          AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+        run: |
+          missing=()
+          for name in AZURE_AD_TENANT_ID SELLER_ID \
+                      AZURE_AD_APPLICATION_CLIENT_ID AZURE_AD_APPLICATION_SECRET; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "All four Microsoft Store secrets are present."
+            exit 0
+          fi
+          echo "Missing repository secrets: ${missing[*]}"
+          echo
+          echo "Settings → Secrets and variables → Actions. Where each value comes"
+          echo "from is listed in release/MANUAL_STEPS_WINDOWS.md (section 3)."
+          echo "Publishing also requires the app to be live in the Store already:"
+          echo "msstore updates an existing listing, so the FIRST submission is"
+          echo "manual (section 2). Windows is the only store affected — the other"
+          echo "platforms in this run are unaffected, and the MSIX is still built"
+          echo "and attached to the run when submit is off."
+          echo "::error title=Microsoft Store credentials missing::${missing[*]} — see release/MANUAL_STEPS_WINDOWS.md section 3"
+          exit 1
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
@@ -200,14 +236,23 @@ jobs:
       - name: Set up Microsoft Store CLI
         if: ${{ inputs.submit == 'true' }}
         uses: microsoft/microsoft-store-apppublisher@v1.1
+      # Values go through the environment, never spliced into the command line:
+      # an interpolated secret that is empty (or carries a space) rewrites the
+      # argument list itself. Quoted `$env:` expansion keeps one value one
+      # argument. PowerShell here on purpose — msstore resolves on that PATH.
       - name: Authenticate the Store CLI
         if: ${{ inputs.submit == 'true' }}
+        env:
+          TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          SELLER_ID: ${{ secrets.SELLER_ID }}
+          CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
         run: >
           msstore reconfigure
-          --tenantId ${{ secrets.AZURE_AD_TENANT_ID }}
-          --sellerId ${{ secrets.SELLER_ID }}
-          --clientId ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
-          --clientSecret ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          --tenantId "$env:TENANT_ID"
+          --sellerId "$env:SELLER_ID"
+          --clientId "$env:CLIENT_ID"
+          --clientSecret "$env:CLIENT_SECRET"
       - name: Build & package (and upload on publish)
         shell: bash
         env:
