@@ -72,7 +72,7 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
       → **Microsoft-Entra-Anwendungen**: die App hinzufügen und ihr die Rolle
       **Manager** geben.
 - [x] Client Secret erzeugen (**Wert sofort kopieren**, er wird nur einmal gezeigt).
-- [ ] Folgende GitHub-Repository-Secrets anlegen
+- [x] Folgende GitHub-Repository-Secrets anlegen
       (Settings → Secrets and variables → Actions):
 
       | Secret | Woher (Direktlink) |
@@ -94,10 +94,10 @@ eine **WNS-Channel-URI** statt eines FCM-Tokens. Der Versand läuft über
 denselben Weg wie bisher — Server → Hinata Connect (Gateway) → Push-Dienst —,
 nur wählt der Gateway anhand der Token-Form zwischen FCM und WNS.
 
-- [ ] Partner Center → App → **Produktverwaltung → WNS/MPNS**: dort stehen
+- [x] Partner Center → App → **Produktverwaltung → WNS/MPNS**: dort stehen
       **Package SID** (`ms-app://S-1-15-2-…`) und ein **Client Secret**.
       Das Secret wird nur einmal angezeigt.
-- [ ] Beides im **Gateway** konfigurieren (nicht im selbst gehosteten Server —
+- [x] Beides im **Gateway** konfigurieren (nicht im selbst gehosteten Server —
       der besitzt bewusst keine Push-Zugangsdaten):
 
       gateway.wns.package-sid:    ms-app://S-1-15-2-…
@@ -106,7 +106,7 @@ nur wählt der Gateway anhand der Token-Form zwischen FCM und WNS.
       Als Umgebungsvariablen: `GATEWAY_WNS_PACKAGE_SID`,
       `GATEWAY_WNS_CLIENT_SECRET`. Leere Werte lassen Windows-Push einfach
       deaktiviert; Android/iOS/macOS bleiben unberührt.
-- [ ] Nach dem Start prüfen: das Gateway loggt `WNS configured; Windows push is
+- [x] Nach dem Start prüfen: das Gateway loggt `WNS configured; Windows push is
       active.` — andernfalls `No WNS credentials configured`.
 
 **Push funktioniert nur in der MSIX-Version.** Die Channel-Erzeugung setzt eine

@@ -290,6 +290,17 @@ jobs:
           --sellerId="$env:SELLER_ID"
           --clientId="$env:CLIENT_ID"
           --clientSecret="$env:CLIENT_SECRET"
+      # `reconfigure` only writes a config file — it never contacts the Store —
+      # so the first call that proves the credentials is the publish, six
+      # minutes of build later, and its "Could not retrieve your application"
+      # cannot tell a wrong product id from an account that has no access to it.
+      # Listing the account's apps up front answers that: the product appears,
+      # or the credentials are pointed at the wrong account. Non-fatal, so it
+      # only ever adds information.
+      - name: List the apps these credentials can see
+        if: ${{ inputs.submit == 'true' }}
+        continue-on-error: true
+        run: msstore apps list
       - name: Build & package (and upload on publish)
         shell: bash
         env:
@@ -305,10 +316,18 @@ jobs:
           else
             bundle exec fastlane windows build
           fi
+      # Also on failure: packaging finishes long before the upload is attempted,
+      # so a rejected `msstore publish` still leaves a perfectly good MSIX — and
+      # that is exactly the file needed to fall back to a manual Partner Center
+      # upload. Throwing it away because the last step failed helps nobody.
       - name: Upload the MSIX as a run artifact
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: hinata-msix
           path: build/windows/x64/runner/Release/*.msix
-          if-no-files-found: error
+          # warn, not error: the build step is the authority on whether this run
+          # failed. If packaging never got that far, this step must not pile a
+          # second, misleading failure on top of the real one.
+          if-no-files-found: warn
           retention-days: 30
