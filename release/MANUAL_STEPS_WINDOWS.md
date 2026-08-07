@@ -17,7 +17,7 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
 
 ## 1. Partner Center einrichten
 
-- [ ] Als Windows-App-Entwickler in [Partner Center](https://storedeveloper.microsoft.com/)
+- [x] Als Windows-App-Entwickler in [Partner Center](https://storedeveloper.microsoft.com/)
       registrieren (einmalige Gebühr, Identitätsprüfung des Publishers).
 - [x] App-Namen reservieren → daraus ergeben sich **Identity Name**,
       **Publisher** und **Publisher Display Name**.
@@ -37,48 +37,50 @@ läuft jede weitere Veröffentlichung über **Actions → „Publish (button)"**
 
 ## 2. Erste Submission (manuell, einmalig)
 
-- [ ] MSIX bauen lassen: **Actions → „Release (button)"** ausführen und das
+- [x] MSIX bauen lassen: **Actions → „Release (button)"** ausführen und das
       Artefakt `hinata-msix` herunterladen (die CI lädt bei diesem Button
       bewusst nichts hoch).
-- [ ] Partner Center → App → **Neue Übermittlung** → Pakete → MSIX hochladen.
-- [ ] **Gerätefamilien einschränken**: auf derselben Seite unter „Device family
+- [x] Partner Center → App → **Neue Übermittlung** → Pakete → MSIX hochladen.
+- [x] **Gerätefamilien einschränken**: auf derselben Seite unter „Device family
       availability" **nur „Windows 10/11 Desktop"** angehakt lassen. Das Paket
       deklariert `TargetDeviceFamily Name="Windows.Desktop"`; bleiben Mobile,
       Xbox, Team oder Mixed Reality angehakt, blockiert Partner Center mit
       „You must provide a package that supports each selected device family".
       „Let Microsoft decide … future device families" kann angehakt bleiben.
-- [ ] **Store-Eintrag** je Sprache pflegen: `en-us` und `de-de` (die App liefert
+- [x] **Store-Eintrag** je Sprache pflegen: `en-us` und `de-de` (die App liefert
       beide Locales). Beschreibung, Screenshots, Store-Logos.
-- [ ] **Altersfreigabe (IARC)**-Fragebogen ausfüllen.
-- [ ] **Datenschutz-URL** hinterlegen — Pflicht, sobald die App auf das Netz
+- [x] **Altersfreigabe (IARC)**-Fragebogen ausfüllen.
+- [x] **Datenschutz-URL** hinterlegen — Pflicht, sobald die App auf das Netz
       zugreift.
-- [ ] **Deklarierte Capabilities erklären**: Der Store zeigt Nutzern
+- [x] **Deklarierte Capabilities erklären**: Der Store zeigt Nutzern
       `internetClient` und `microphone` an. Begründungen stehen in
       `release/permissions.yaml` und gehören in die Store-Beschreibung.
-- [ ] **`runFullTrust` begründen, falls Partner Center danach fragt.** Das MSIX
+- [x] **`runFullTrust` begründen, falls Partner Center danach fragt.** Das MSIX
       deklariert diese *restricted capability* automatisch — jede
       Win32-Flutter-App braucht sie, um überhaupt aus einem MSIX startbar zu
       sein. Begründung: „Packaged Win32 desktop application (Flutter), not UWP."
       Verifiziert im generierten `AppxManifest.xml`.
-- [ ] Einreichen und Zertifizierung abwarten, bis die App **live** ist.
+- [x] Einreichen und Zertifizierung abwarten, bis die App **live** ist.
 
 ## 3. Automatisierung freischalten
 
-- [ ] Microsoft-Entra-Tenant mit dem Partner-Center-Konto verknüpfen (bestehenden
+- [x] Microsoft-Entra-Tenant mit dem Partner-Center-Konto verknüpfen (bestehenden
       verknüpfen oder neu anlegen).
-- [ ] In Microsoft Entra ID eine **Anwendung registrieren**.
-- [ ] Partner Center → Kontoeinstellungen → Benutzerverwaltung → **Microsoft-Entra-
-      Anwendungen**: die App hinzufügen und ihr die Rolle **Manager** geben.
-- [ ] Client Secret erzeugen (**Wert sofort kopieren**, er wird nur einmal gezeigt).
+- [x] In Microsoft Entra ID eine **Anwendung registrieren**
+      ([App registrations → New registration](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade)).
+- [x] [Partner Center → Kontoeinstellungen → Benutzerverwaltung](https://partner.microsoft.com/dashboard/account/v3/usermanagement)
+      → **Microsoft-Entra-Anwendungen**: die App hinzufügen und ihr die Rolle
+      **Manager** geben.
+- [x] Client Secret erzeugen (**Wert sofort kopieren**, er wird nur einmal gezeigt).
 - [ ] Folgende GitHub-Repository-Secrets anlegen
       (Settings → Secrets and variables → Actions):
 
-      | Secret | Woher |
+      | Secret | Woher (Direktlink) |
       |---|---|
-      | `AZURE_AD_TENANT_ID` | Entra → Identity → Overview → Tenant ID |
-      | `AZURE_AD_APPLICATION_CLIENT_ID` | Entra → App registrations → Application (client) ID |
-      | `AZURE_AD_APPLICATION_SECRET` | Entra → App registration → Certificates & secrets |
-      | `SELLER_ID` | Partner Center → Account settings → Publisher/Seller ID |
+      | `AZURE_AD_TENANT_ID` | [Entra → Overview](https://entra.microsoft.com/#view/Microsoft_AAD_IAM/TenantOverview.ReactView) → Kachel **Tenant ID** (auch unter *Properties*) |
+      | `AZURE_AD_APPLICATION_CLIENT_ID` | [Entra → App registrations](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → die App → **Application (client) ID** |
+      | `AZURE_AD_APPLICATION_SECRET` | [Entra → App → Certificates & secrets](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationMenuBlade/~/Credentials/appId/CLIENT_ID) — `CLIENT_ID` am Ende durch die Client-ID von oben ersetzen → **New client secret** |
+      | `SELLER_ID` | [Partner Center → Kontoeinstellungen](https://partner.microsoft.com/dashboard/account/v3/settings/accountsettings) → **Publisher IDs** → *Seller ID* (Fallback: Zahnrad ↗ → Kontoeinstellungen) |
 
       (`MSSTORE_PRODUCT_ID` ist **kein** Secret — die Store ID steht als Default
       im Fastfile und lässt sich per Umgebungsvariable überschreiben.)
