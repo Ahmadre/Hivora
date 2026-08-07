@@ -113,7 +113,7 @@ platform :windows do
     UI.success("Packaged #{msix_path}")
   end
 
-  desc "Build + upload to Partner Center. SUBMIT=true also publishes the submission."
+  desc "Build + upload to Partner Center. SUBMIT=true also commits the submission."
   lane :release do
     build
 
@@ -121,13 +121,20 @@ platform :windows do
     # (microsoft/microsoft-store-apppublisher + `msstore reconfigure`).
     # Note: this UPDATES an existing, already-live listing — the first
     # submission is manual, see release/MANUAL_STEPS_WINDOWS.md.
-    sh("msstore", "publish", msix_path, "-id", product_id)
+    #
+    # `publish` COMMITS the submission on its own; --noCommit is what leaves it
+    # a draft. So this single call already starts certification, and the
+    # `submission publish` that used to follow it was not a second stage — it
+    # tried to commit an already-committed submission and died on "This
+    # submission is in certification", painting a successful release red.
+    args = ["publish", msix_path, "-id", product_id]
+    args << "--noCommit" unless ENV["SUBMIT"] == "true"
+    sh("msstore", *args)
 
     if ENV["SUBMIT"] == "true"
-      sh("msstore", "submission", "publish", product_id)
-      UI.success("Submission published — Partner Center certification starts now.")
+      UI.success("Submission committed — Partner Center certification starts now.")
     else
-      UI.success("Package uploaded to the pending submission (not published).")
+      UI.success("Package uploaded as a draft submission (not committed).")
     end
   end
 end
