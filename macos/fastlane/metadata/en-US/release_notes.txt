@@ -1,7 +1,2 @@
-• Add Hinata selection toolbar for quick actions and link editing
-• Add rich text fixtures for various content types
-• Take lexical_history 1.7.5
-• Update lexical packages to 1.7.4
-• Update lexical_editor_flutter and lexical_markdown to version 1.7.3
-• Improve layout handling in Hinata editor and add test for toolbar control height
-• Enhance editor with block alignment options and update localization strings
+• Harden SSO callback to always exit the spinner
+• Surface camera access failures on desktop instead of silently returning null
