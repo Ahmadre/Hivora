@@ -35,9 +35,37 @@ on:
         type: string
         required: false
         default: "false"
+      platforms:
+        description: >-
+          "all", or a single platform (android|ios|macos|windows) to run just
+          that store.
+        type: string
+        required: false
+        default: all
+  # Re-running one store on its own. A failed job can only be re-run with the
+  # workflow file of its ORIGINAL run, so a fix to this file never reaches it —
+  # dispatching against the same tag does, and rebuilds the identical version.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git tag to build, e.g. v10.0.3.
+        type: string
+        required: true
+      platforms:
+        description: Which store to run.
+        type: choice
+        options: [all, android, ios, macos, windows]
+        default: all
+      submit:
+        description: Submit to the store for review (not just upload a draft).
+        type: choice
+        options: ["false", "true"]
+        default: "false"
 
 jobs:
   android:
+    # Empty on a tag push, where `inputs` does not exist — that path runs all.
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'android' }}
     name: Android → Play ${{ inputs.submit == 'true' && 'production (review)' || 'internal track' }}
     runs-on: ubuntu-latest
     steps:
@@ -100,6 +128,7 @@ jobs:
           bundle exec fastlane internal
 
   ios:
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'ios' }}
     name: iOS → ${{ inputs.submit == 'true' && 'App Store (review)' || 'TestFlight' }}
     runs-on: macos-26
     steps:
@@ -137,6 +166,7 @@ jobs:
           fi
 
   macos:
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'macos' }}
     name: macOS → ${{ inputs.submit == 'true' && 'Mac App Store (review)' || 'TestFlight' }}
     runs-on: macos-26
     steps:
@@ -173,6 +203,7 @@ jobs:
           fi
 
   windows:
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'windows' }}
     name: Windows → Microsoft Store ${{ inputs.submit == 'true' && '(submitted)' || '(package only)' }}
     # Pinned, not `windows-latest`: in June 2026 both that label AND
     # `windows-2025` were migrated to Visual Studio 2026, whose MSVC 14.5x STL
@@ -238,8 +269,14 @@ jobs:
         uses: microsoft/microsoft-store-apppublisher@v1.1
       # Values go through the environment, never spliced into the command line:
       # an interpolated secret that is empty (or carries a space) rewrites the
-      # argument list itself. Quoted `$env:` expansion keeps one value one
-      # argument. PowerShell here on purpose — msstore resolves on that PATH.
+      # argument list itself. PowerShell here on purpose — msstore resolves on
+      # that PATH.
+      #
+      # `--option=value`, not `--option value`: an Entra client secret can start
+      # with "-" (they do, routinely). As a separate token the parser then reads
+      # it as an option name and splits it at the "." — the real failure was
+      # "Unrecognized command or argument '.zvYZcS8'". Glued to the option with
+      # "=" and quoted, the whole secret stays one argument whatever it contains.
       - name: Authenticate the Store CLI
         if: ${{ inputs.submit == 'true' }}
         env:
@@ -249,10 +286,10 @@ jobs:
           CLIENT_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
         run: >
           msstore reconfigure
-          --tenantId "$env:TENANT_ID"
-          --sellerId "$env:SELLER_ID"
-          --clientId "$env:CLIENT_ID"
-          --clientSecret "$env:CLIENT_SECRET"
+          --tenantId="$env:TENANT_ID"
+          --sellerId="$env:SELLER_ID"
+          --clientId="$env:CLIENT_ID"
+          --clientSecret="$env:CLIENT_SECRET"
       - name: Build & package (and upload on publish)
         shell: bash
         env:
