@@ -263,6 +263,12 @@ class _GlassPopupMenuDialog<T> extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final content = Stack(
       children: [
+        // The menu's own base, under its rows. The lens alone is a light wash,
+        // and a menu opens over whatever its button happens to sit on — see
+        // the same base in the anchored popover panel.
+        Positioned.fill(
+          child: IgnorePointer(child: ColoredBox(color: tokens.tint)),
+        ),
         Material(
           type: MaterialType.transparency,
           child: ListView.builder(

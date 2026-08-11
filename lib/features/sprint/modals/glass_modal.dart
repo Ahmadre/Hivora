@@ -447,13 +447,58 @@ class _AnchoredPanel extends StatelessWidget {
             glassFill: tokens.glassFill,
             dark: dark,
           ),
-          child: Material(type: MaterialType.transparency, child: child),
+          child: Stack(
+            children: [
+              // The panel's own base, under everything it shows.
+              //
+              // The lens alone is a light wash — 0.42 — which is legible over
+              // a page and not over what a dropdown actually lands on: the
+              // dark hero card, a coloured chip, an image. Whatever was behind
+              // came through at half strength and the ink sat on a mid-tone
+              // that changed from row to row. The base tint is the token that
+              // exists for this, and it leaves the refraction and the rim,
+              // which is where the glass reads from, untouched at the edges.
+              Positioned.fill(
+                child: IgnorePointer(child: ColoredBox(color: tokens.tint)),
+              ),
+              Material(type: MaterialType.transparency, child: child),
+              // The specular rim: the edge that separates the panel from what
+              // it floats over. Every other glass surface in the app draws one
+              // — this one never did, so it ended where its shadow did.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: GlassRimPainter(
+                      radius: _radius,
+                      edge: tokens.edge,
+                      edgeSoft: tokens.edgeSoft,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
 
     return Stack(
       children: [
+        // A dropdown is an inline editor, not a modal, so this is a fraction
+        // of the palette's dim: enough to settle the page behind the panel,
+        // not enough to read as "the rest of the screen is gone".
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: anim,
+              builder: (_, _) => ColoredBox(
+                color: tokens.popoverScrim.withValues(
+                  alpha: tokens.popoverScrim.a * anim.value.clamp(0.0, 1.0),
+                ),
+              ),
+            ),
+          ),
+        ),
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,

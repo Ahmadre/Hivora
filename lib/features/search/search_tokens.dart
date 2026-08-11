@@ -22,6 +22,7 @@ class SearchTokens {
     required this.selEdge,
     required this.glare,
     required this.scrim,
+    required this.popoverScrim,
     required this.field,
     required this.markBg,
     required this.panelShadow,
@@ -54,6 +55,16 @@ class SearchTokens {
   final Color selEdge; // selected-row inset highlight
   final Color glare; // pointer-tracked sheen
   final Color scrim; // dim layer behind the panel
+
+  /// Dim layer behind an *anchored* panel — a dropdown or field picker.
+  ///
+  /// Much lighter than [scrim]: a palette takes over the screen and dims it
+  /// like a modal, while a dropdown is an inline editor that has to leave its
+  /// page readable. It exists at all because glass is only legible against
+  /// what it floats over, and a dropdown lands wherever its field happens to
+  /// be — over a dark hero card, over an image, over a coloured chip.
+  final Color popoverScrim;
+
   final Color field; // inset field / kbd / icon tile fill
   final Color markBg; // matched-substring highlight background
 
@@ -80,6 +91,7 @@ class SearchTokens {
     selEdge: Color.fromRGBO(255, 255, 255, 0.95),
     glare: Color.fromRGBO(255, 255, 255, 0.55),
     scrim: Color.fromRGBO(22, 20, 45, 0.30),
+    popoverScrim: Color.fromRGBO(22, 20, 45, 0.12),
     field: Color.fromRGBO(255, 255, 255, 0.55),
     // oklch(0.92 0.10 70 / 0.6) ≈ a pale honey wash.
     markBg: Color.fromRGBO(247, 224, 150, 0.65),
@@ -118,6 +130,7 @@ class SearchTokens {
     selEdge: Color.fromRGBO(255, 255, 255, 0.22),
     glare: Color.fromRGBO(255, 255, 255, 0.16),
     scrim: Color.fromRGBO(8, 7, 20, 0.52),
+    popoverScrim: Color.fromRGBO(8, 7, 20, 0.24),
     field: Color.fromRGBO(255, 255, 255, 0.06),
     // oklch(0.55 0.13 70 / 0.45) ≈ a muted amber wash.
     markBg: Color.fromRGBO(150, 110, 40, 0.55),

@@ -149,11 +149,20 @@ class GlassModalHeader extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.actions = const [],
+    this.subtitleMaxLines = 2,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+
+  /// How many lines the subtitle may take before it is cut off.
+  ///
+  /// Two is right for a 420–540 wide modal. A header reused inside an anchored
+  /// dropdown has a third of that width, where the same sentence ran out
+  /// mid-word — a description that stops at "ein/aus u…" is worse than no
+  /// description at all.
+  final int subtitleMaxLines;
 
   /// Extra trailing action buttons rendered to the left of the close (X)
   /// button — e.g. a maximize/minimize toggle on the email composer.
@@ -194,7 +203,7 @@ class GlassModalHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  maxLines: 2,
+                  maxLines: subtitleMaxLines,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
                 ),

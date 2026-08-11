@@ -489,6 +489,8 @@ class _BoardPickerSheet extends StatelessWidget {
           icon: LucideIcons.layoutDashboard,
           title: context.t('dashboard.heroBoard'),
           subtitle: context.t('dashboard.editHint'),
+          // A third of a modal's width: the hint needs the extra line.
+          subtitleMaxLines: 3,
         ),
         Flexible(
           child: ListView(
@@ -550,6 +552,7 @@ class _ScopePickerSheetState extends State<_ScopePickerSheet> {
           icon: widget.icon,
           title: widget.title,
           subtitle: context.t('dashboard.editHint'),
+          subtitleMaxLines: 3,
         ),
         Flexible(
           child: ListView(
