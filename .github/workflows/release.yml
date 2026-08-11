@@ -71,7 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -134,7 +134,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -172,7 +172,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -251,7 +251,7 @@ jobs:
           exit 1
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -303,7 +303,7 @@ jobs:
         run: |
           msstore apps list
           if ($LASTEXITCODE -ne 0) {
-            Write-Output "::warning title=Store account exposes no apps::The credentials authenticate, but Partner Center returns no managed applications for them. Check that the Entra app registration is listed under Account settings -> User management -> Microsoft Entra applications with the Manager role, and that SELLER_ID belongs to the account owning the product. See release/MANUAL_STEPS_WINDOWS.md section 3."
+            Write-Output "::warning title=Store account exposes no apps::The credentials authenticate, but Partner Center returns no managed applications for them. Check that the Entra app regist[...]
           }
       - name: Build & package (and upload on publish)
         shell: bash
