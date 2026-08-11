@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/widgets/hive_empty_state.dart';
@@ -9,6 +11,7 @@ import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 import '../../core/api/api_client.dart';
 import '../../core/blocs/auth_bloc.dart';
 import '../../core/blocs/fetch_cubit.dart';
+import '../../core/events/board_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/team_models.dart';
 import '../../core/models/work_models.dart';
@@ -43,6 +46,10 @@ typedef _BoardsData = ({List<AgileBoard> boards, bool canManageProject});
 class _ProjectBoardsScreenState extends State<ProjectBoardsScreen> {
   late final FetchCubit<_BoardsData> _cubit;
 
+  /// Re-fetch when the set of boards changes anywhere in the app — a board
+  /// created or deleted from the overview belongs in this project's list too.
+  StreamSubscription<void>? _boardSub;
+
   @override
   void initState() {
     super.initState();
@@ -69,17 +76,19 @@ class _ProjectBoardsScreenState extends State<ProjectBoardsScreen> {
               ));
       return (boards: boards, canManageProject: canManageProject);
     })..load();
+    _boardSub = BoardEvents.instance.changes.listen((_) => _cubit.load());
   }
 
   @override
   void dispose() {
+    _boardSub?.cancel();
     _cubit.close();
     super.dispose();
   }
 
   Future<void> _showCreate() async {
     final boards = context.read<BoardRepository>();
-    final created = await WoltModalSheet.show<AgileBoard?>(
+    await WoltModalSheet.show<AgileBoard?>(
       context: context,
       pageContentDecorator: glassWoltSurface,
       pageListBuilder: (modalContext) => [
@@ -97,11 +106,14 @@ class _ProjectBoardsScreenState extends State<ProjectBoardsScreen> {
         ),
       ],
     );
-    if (created != null) _cubit.load();
+    // Nothing to do with `created`: createBoard broadcasts on BoardEvents and
+    // this screen reloads from that, whichever screen the board was made on.
   }
 
+  // No onChanged: every board mutation broadcasts on BoardEvents, which this
+  // screen already listens to. Passing both would fetch the list twice.
   Future<void> _openBoardMenu(BuildContext anchor, AgileBoard board) =>
-      openBoardManageMenu(anchor, board: board, onChanged: _cubit.load);
+      openBoardManageMenu(anchor, board: board);
 
   @override
   Widget build(BuildContext context) {

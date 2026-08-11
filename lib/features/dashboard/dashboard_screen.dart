@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/blocs/auth_bloc.dart';
 import '../../core/blocs/fetch_cubit.dart';
+import '../../core/events/board_events.dart';
 import '../../core/events/issue_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/content_models.dart';
@@ -103,6 +104,11 @@ class _DashboardViewState extends State<_DashboardView> {
   /// nav-rail "new issue" button, which can't reach this screen's cubit).
   StreamSubscription<void>? _issueSub;
 
+  /// Same, for boards: the hero board and the board the tiles are drawn from
+  /// are chosen out of the set the payload carries, so a board created
+  /// elsewhere has to reach the picker without a reload.
+  StreamSubscription<void>? _boardSub;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +116,7 @@ class _DashboardViewState extends State<_DashboardView> {
       () => _dashboardApi.dashboard(override: _editing ? _draft : null),
     )..load();
     _issueSub = IssueEvents.instance.changes.listen((_) => _cubit.load());
+    _boardSub = BoardEvents.instance.changes.listen((_) => _cubit.load());
     _loadPickerData();
     // One-time nudge for admins on a not-yet-connected self-hosted instance.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -134,6 +141,7 @@ class _DashboardViewState extends State<_DashboardView> {
   @override
   void dispose() {
     _issueSub?.cancel();
+    _boardSub?.cancel();
     _cubit.close();
     super.dispose();
   }

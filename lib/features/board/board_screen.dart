@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/blocs/auth_bloc.dart';
+import '../../core/events/board_events.dart';
 import '../../core/events/issue_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/team_models.dart';
@@ -64,6 +65,13 @@ class _BoardScreenState extends State<BoardScreen> {
   bool _loading = true;
   String? _error;
 
+  /// Re-fetch when the set of boards changes anywhere in the app.
+  ///
+  /// Including from this very screen: creating a board opens it on top of this
+  /// list, so the list is still mounted and behind — and without this it was
+  /// still showing the boards from before the one that had just been made.
+  StreamSubscription<void>? _boardSub;
+
   /// Owner / project-lead / team-lead / platform-admin may manage a board.
   bool _canManageBoard(AgileBoard board) {
     final me = context.read<AuthBloc>().state.user;
@@ -85,7 +93,14 @@ class _BoardScreenState extends State<BoardScreen> {
   @override
   void initState() {
     super.initState();
+    _boardSub = BoardEvents.instance.changes.listen((_) => _load());
     _load();
+  }
+
+  @override
+  void dispose() {
+    _boardSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -227,7 +242,6 @@ class _BoardScreenState extends State<BoardScreen> {
                   index: index,
                   projects: _projects,
                   canManage: _canManageBoard(_boards[index]),
-                  onChanged: _load,
                 ),
                 childCount: _boards.length,
               ),

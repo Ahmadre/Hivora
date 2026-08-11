@@ -1,11 +1,17 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_client.dart';
+import '../events/board_events.dart';
 import '../models/deletion_models.dart';
 import '../models/work_models.dart';
 
 /// Agile boards: listing, creation, the column view aggregate, and cascading
 /// deletion.
+///
+/// The mutations that change what a *list* of boards shows announce themselves
+/// on [BoardEvents], so every screen that renders boards re-fetches without the
+/// screen that made the change having to know who else is on screen. See
+/// [BoardEvents] for why that lives here rather than at each call site.
 class BoardRepository {
   BoardRepository(this._api);
 
@@ -21,24 +27,31 @@ class BoardRepository {
     String name,
     List<String> projectIds, {
     BoardType type = BoardType.kanban,
-  }) async => AgileBoard.fromJson(
-    await _api.post(
-          '/api/v1/boards',
-          body: {
-            'name': name,
-            'projectIds': projectIds,
-            'type': type == BoardType.scrum ? 'SCRUM' : 'KANBAN',
-          },
-        )
-        as Map<String, dynamic>,
-  );
+  }) async {
+    final board = AgileBoard.fromJson(
+      await _api.post(
+            '/api/v1/boards',
+            body: {
+              'name': name,
+              'projectIds': projectIds,
+              'type': type == BoardType.scrum ? 'SCRUM' : 'KANBAN',
+            },
+          )
+          as Map<String, dynamic>,
+    );
+    BoardEvents.instance.notifyChanged();
+    return board;
+  }
 
   /// Renames a board (management action — server enforces owner/lead/admin).
-  Future<AgileBoard> renameBoard(String boardId, String name) async =>
-      AgileBoard.fromJson(
-        await _api.patch('/api/v1/boards/$boardId', body: {'name': name})
-            as Map<String, dynamic>,
-      );
+  Future<AgileBoard> renameBoard(String boardId, String name) async {
+    final board = AgileBoard.fromJson(
+      await _api.patch('/api/v1/boards/$boardId', body: {'name': name})
+          as Map<String, dynamic>,
+    );
+    BoardEvents.instance.notifyChanged();
+    return board;
+  }
 
   /// Changes which projects a board spans (management action — the server also
   /// re-checks membership on every project in the new set, so widening a board
@@ -46,13 +59,17 @@ class BoardRepository {
   Future<AgileBoard> updateBoardProjects(
     String boardId,
     List<String> projectIds,
-  ) async => AgileBoard.fromJson(
-    await _api.patch(
-          '/api/v1/boards/$boardId',
-          body: {'projectIds': projectIds},
-        )
-        as Map<String, dynamic>,
-  );
+  ) async {
+    final board = AgileBoard.fromJson(
+      await _api.patch(
+            '/api/v1/boards/$boardId',
+            body: {'projectIds': projectIds},
+          )
+          as Map<String, dynamic>,
+    );
+    BoardEvents.instance.notifyChanged();
+    return board;
+  }
 
   /// Stores a hand-made column layout. The server validates it as a whole: every
   /// status of every spanned project needs exactly one column, and no column may

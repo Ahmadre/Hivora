@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/api/sse.dart';
+import '../../core/events/board_events.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/deletion_models.dart';
 import '../../core/theme/app_colors.dart';
@@ -30,8 +31,8 @@ Future<bool?> showDeleteBoardFlow(
   BuildContext context, {
   required String boardId,
   required String boardName,
-}) {
-  return _show(
+}) async {
+  final deleted = await _show(
     context,
     _DeleteFlow(
       icon: LucideIcons.squareKanban,
@@ -47,6 +48,11 @@ Future<bool?> showDeleteBoardFlow(
           .boardDeleteStream(boardId, cancelToken: cancel),
     ),
   );
+  // Announced here rather than in the repository, as the other board mutations
+  // are: a delete is a *stream* the server writes as it cascades, and only the
+  // flow that reads it to the end knows the board is really gone.
+  if (deleted == true) BoardEvents.instance.notifyChanged();
+  return deleted;
 }
 
 /// Deletes a project, cascading to its boards/sprints/articles and (per the

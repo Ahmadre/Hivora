@@ -8,14 +8,12 @@ class _BoardListCard extends StatelessWidget {
     required this.index,
     required this.projects,
     required this.canManage,
-    required this.onChanged,
   });
 
   final AgileBoard board;
   final int index;
   final List<Project> projects;
   final bool canManage;
-  final Future<void> Function() onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -80,11 +78,11 @@ class _BoardListCard extends StatelessWidget {
                       minWidth: 28,
                       minHeight: 28,
                     ),
-                    onPressed: () => openBoardManageMenu(
-                      btnContext,
-                      board: board,
-                      onChanged: onChanged,
-                    ),
+                    // No onChanged: renaming, re-scoping and deleting all
+                    // broadcast on BoardEvents, which the list this card sits
+                    // in listens to.
+                    onPressed: () =>
+                        openBoardManageMenu(btnContext, board: board),
                     icon: Icon(
                       LucideIcons.ellipsisVertical,
                       size: 16,

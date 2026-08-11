@@ -15,14 +15,19 @@ import 'board_columns_editor.dart';
 
 /// Opens the board management menu (Rename · Delete) as an anchored popover at
 /// the trigger and runs the chosen action. Shared by the board overview and the
-/// project-boards list so gating, design and flows stay identical. Calls
-/// [onChanged] after a rename (or delete, unless [onDeleted] is given). Pass the
+/// project-boards list so gating, design and flows stay identical. Pass the
 /// triggering widget's own [context] (e.g. via a Builder) so the popover anchors
 /// to it. Only call when the user may manage the board — the server re-checks.
+///
+/// A list showing the board does **not** need to be told: renaming, re-scoping
+/// and deleting all announce themselves on `BoardEvents`, which every list of
+/// boards listens to. [onChanged] is for a caller that has to do something
+/// *else* afterwards — re-fetch the one board it is showing, say — and
+/// [onDeleted] for one that has to leave the page the board was on.
 Future<void> openBoardManageMenu(
   BuildContext context, {
   required AgileBoard board,
-  required Future<void> Function() onChanged,
+  Future<void> Function()? onChanged,
   Future<void> Function()? onDeleted,
 }) async {
   final action = await _showAnchoredMenu<String>(
@@ -33,20 +38,22 @@ Future<void> openBoardManageMenu(
   if (!context.mounted || action == null) return;
   if (action == 'rename') {
     final renamed = await _showRenameBoardModal(context, board);
-    if (renamed == true) await onChanged();
+    if (renamed == true) await onChanged?.call();
   } else if (action == 'projects') {
     final changed = await _editBoardProjects(context, board);
-    if (changed) await onChanged();
+    if (changed) await onChanged?.call();
   } else if (action == 'columns') {
     final changed = await showBoardColumnsEditor(context, board);
-    if (changed == true) await onChanged();
+    // The one action no list can see, so no broadcast carries it: only the
+    // caller showing this board knows its columns moved.
+    if (changed == true) await onChanged?.call();
   } else if (action == 'delete') {
     final deleted = await showDeleteBoardFlow(
       context,
       boardId: board.id,
       boardName: board.name,
     );
-    if (deleted == true) await (onDeleted ?? onChanged)();
+    if (deleted == true) await (onDeleted ?? onChanged)?.call();
   }
 }
 
