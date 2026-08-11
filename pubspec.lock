@@ -1008,10 +1008,10 @@ packages:
     dependency: transitive
     description:
       name: lexical_flutter
-      sha256: "41d39b367ee2ec4b4ae75d943d67bee6984345f34a507d732c692705c0d61bec"
+      sha256: "09effe02ae497af7a48cd67c0c31bb937f82ddc231f34894166eae46eb89312b"
       url: "https://pub.dev"
     source: hosted
-    version: "1.7.4"
+    version: "1.7.6"
   lexical_hashtag:
     dependency: transitive
     description:

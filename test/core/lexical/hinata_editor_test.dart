@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -754,6 +755,144 @@ void main() {
       expect(find.byType(SmartLinkChip), findsWidgets);
       expect(find.text('Handbuch'), findsOneWidget);
       expect(find.text(_OneDocResolver.docId), findsNothing);
+    });
+  });
+
+  group('selecting with the mouse', () {
+    /// Hands the editing value back the way a platform with no notion of
+    /// direction does — iOS and macOS carry the selection as a location and a
+    /// length, so what comes back has its ends in document order.
+    ///
+    /// The package is what fixes this; the test is here because hinata's
+    /// editor is the editable plus a floating toolbar that rebuilds on every
+    /// commit of the drag, and that combination is what the writer meets.
+    void echoWithoutDirection(WidgetTester tester) {
+      final state = tester.testTextInput.editingState;
+      if (state == null) return;
+      final base = state['selectionBase'] as int;
+      final extent = state['selectionExtent'] as int;
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: state['text'] as String,
+          selection: TextSelection(
+            baseOffset: base < extent ? base : extent,
+            extentOffset: base < extent ? extent : base,
+          ),
+        ),
+      );
+    }
+
+    Future<HinataEditorController> pumpEditor(WidgetTester tester) async {
+      tester.view
+        ..physicalSize = const Size(900, 700)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      final controller = HinataEditorController();
+      addTearDown(controller.dispose);
+      controller.editor.update(() {
+        $getRoot()
+          ..clear()
+          ..append(
+            $createParagraphNode()
+              ..append($createTextNode('Hallo schoene weite Welt')),
+          );
+      }, discrete: true);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: HinataEditor(controller: controller, autofocus: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return controller;
+    }
+
+    /// Drags with the mouse and reports the anchor after every move.
+    Future<List<int>> drag(
+      WidgetTester tester,
+      LexicalEditor editor,
+      Offset from,
+      Offset to,
+    ) async {
+      final anchors = <int>[];
+      final gesture = await tester.startGesture(
+        from,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 30));
+      for (var step = 1; step <= 8; step++) {
+        await gesture.moveTo(Offset.lerp(from, to, step / 8)!);
+        await tester.pump(const Duration(milliseconds: 16));
+        echoWithoutDirection(tester);
+        await tester.pump();
+        anchors.add(
+          editor.editorState.read(
+            () => ($getSelection()! as RangeSelection).anchor.offset,
+          ),
+        );
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+      return anchors;
+    }
+
+    testWidgets('a drag from right to left selects what it crossed', (
+      tester,
+    ) async {
+      final controller = await pumpEditor(tester);
+      final field = tester.renderObject<RenderBox>(
+        find.byType(LexicalEditorField),
+      );
+      final origin = field.localToGlobal(Offset.zero);
+
+      final anchors = await drag(
+        tester,
+        controller.editor,
+        origin + const Offset(180, 22),
+        origin + const Offset(24, 22),
+      );
+
+      // One anchor for the whole drag: it stays where the press landed
+      // instead of being dragged along one character at a time.
+      expect(anchors.toSet(), hasLength(1));
+      final (anchor, focus) = controller.editor.editorState.read(() {
+        final selection = $getSelection()! as RangeSelection;
+        return (selection.anchor.offset, selection.focus.offset);
+      });
+      expect(focus, lessThan(anchor));
+      expect(anchor - focus, greaterThan(4));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a drag from left to right still selects what it crossed', (
+      tester,
+    ) async {
+      final controller = await pumpEditor(tester);
+      final field = tester.renderObject<RenderBox>(
+        find.byType(LexicalEditorField),
+      );
+      final origin = field.localToGlobal(Offset.zero);
+
+      final anchors = await drag(
+        tester,
+        controller.editor,
+        origin + const Offset(24, 22),
+        origin + const Offset(180, 22),
+      );
+
+      expect(anchors.toSet(), hasLength(1));
+      final (anchor, focus) = controller.editor.editorState.read(() {
+        final selection = $getSelection()! as RangeSelection;
+        return (selection.anchor.offset, selection.focus.offset);
+      });
+      expect(anchor, lessThan(focus));
+      expect(focus - anchor, greaterThan(4));
+      expect(tester.takeException(), isNull);
     });
   });
 }
