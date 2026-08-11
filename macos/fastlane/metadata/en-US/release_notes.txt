@@ -1,2 +1,3 @@
-• Harden SSO callback to always exit the spinner
-• Surface camera access failures on desktop instead of silently returning null
+• Add base tint, rim, and popover scrim to anchored dropdowns
+• Open launch notification deep link once per notification, ever
+• Broadcast board mutations via BoardEvents for cross-screen sync
