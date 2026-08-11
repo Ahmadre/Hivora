@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../api/api_client.dart';
+import '../storage/app_storage.dart';
 import 'wns_channel.dart';
 
 /// Background isolate handler. Notification messages are rendered by the OS when
@@ -23,11 +24,14 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 class FcmService {
   FcmService({
     required ApiClient apiClient,
+    required AppStorage storage,
     required void Function(String link) onDeepLink,
   }) : _api = apiClient,
+       _storage = storage,
        _onDeepLink = onDeepLink;
 
   final ApiClient _api;
+  final AppStorage _storage;
   final void Function(String link) _onDeepLink;
 
   StreamSubscription<String>? _tokenRefreshSub;
@@ -93,7 +97,9 @@ class FcmService {
     // slow/hanging APNs+token resolution can't defer (or drop) the launch deep
     // link, which used to land the user on /dashboard instead of the target.
     try {
-      _openedSub = FirebaseMessaging.onMessageOpenedApp.listen(_route);
+      _openedSub = FirebaseMessaging.onMessageOpenedApp.listen(
+        (message) => unawaited(openNotification(message)),
+      );
     } catch (e) {
       debugPrint('FCM onMessageOpenedApp subscription failed: $e');
     }
@@ -110,10 +116,45 @@ class FcmService {
     if (!_supported) return;
     try {
       final initial = await FirebaseMessaging.instance.getInitialMessage();
-      if (initial != null) _route(initial);
+      if (initial != null) await openNotification(initial);
     } catch (e) {
       debugPrint('FCM getInitialMessage routing failed: $e');
     }
+  }
+
+  /// Follows [message]'s deep link — once per notification, ever.
+  ///
+  /// **Why once.** A tap is a single instruction to go somewhere, and the OS
+  /// is entitled to keep repeating it. On macOS a notification that is still
+  /// sitting in Notification Center comes back as the one the app was
+  /// "launched from" on every later start, whether or not that start had
+  /// anything to do with it: the App Store build opened on a months-old
+  /// comment — long since deleted, so on "this comment no longer exists" —
+  /// instead of on the dashboard, every time it was started. Both doors the
+  /// OS can deliver a tap through go through here, so it does not matter
+  /// which one a given platform repeats itself on.
+  ///
+  /// A second *genuine* tap on the same notification is not a thing to lose:
+  /// tapping one takes it out of Notification Center.
+  ///
+  /// The id is recorded *before* the link is followed, so a launch that dies
+  /// on the way to the route is not repeated by every launch after it — the
+  /// same loop, only harder to get out of. A message with no id is followed
+  /// every time it arrives: there is nothing to recognize it by, and a link
+  /// that arrives once too often is a smaller failure than a notification tap
+  /// that does nothing.
+  ///
+  /// Called by [handleInitialMessage] and by the `onMessageOpenedApp`
+  /// subscription in [start]; visible so a test can drive it, since the OS
+  /// half of both is exactly what a test cannot.
+  @visibleForTesting
+  Future<void> openNotification(RemoteMessage message) async {
+    final id = message.messageId;
+    if (id != null && id.isNotEmpty) {
+      if (_storage.launchNotificationId == id) return;
+      await _storage.setLaunchNotificationId(id);
+    }
+    _route(message);
   }
 
   Future<void> stop() async {

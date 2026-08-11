@@ -27,6 +27,7 @@ class AppStorage {
   static const _kConnectHintSeen = 'connect_hint_seen';
   static const _kLocale = 'locale';
   static const _kRecentSearch = 'hinata.recentSearch.v1';
+  static const _kLaunchNotification = 'hinata.launchNotification.v1';
 
   /// Maximum number of recent global-search queries kept on device.
   static const recentSearchMax = 6;
@@ -249,6 +250,18 @@ class AppStorage {
 
   String? get locale => _prefs.getString(_kLocale);
   Future<void> setLocale(String code) => _prefs.setString(_kLocale, code);
+
+  /// The id of the notification whose deep link was already opened at launch.
+  ///
+  /// A notification tap that starts the app is handed to it by the OS as the
+  /// "launch notification", and on macOS the same one comes back on later
+  /// launches the app was never told to make — which reopened a months-old
+  /// comment every time the app was started. Written before the link is
+  /// followed, so a launch link is followed at most once per notification, ever.
+  String? get launchNotificationId => _prefs.getString(_kLaunchNotification);
+
+  Future<void> setLaunchNotificationId(String id) =>
+      _prefs.setString(_kLaunchNotification, id);
 
   /// Tooling-only: lets the screenshot harness force the boot route via a
   /// pre-seeded pref (no effect in normal use, where the key is absent).
