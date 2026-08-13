@@ -427,6 +427,8 @@ class ProviderTile extends StatefulWidget {
     required this.onChanged,
     this.subtitle,
     this.initiallyExpanded = false,
+    this.toggles = const [],
+    this.note,
   });
 
   final String title;
@@ -435,6 +437,12 @@ class ProviderTile extends StatefulWidget {
 
   /// (jsonKey, label, isSecret)
   final List<(String, String, bool)> fields;
+
+  /// Boolean provider options rendered below the fields — (jsonKey, label).
+  final List<(String, String)> toggles;
+
+  /// Explanatory callout shown above the fields (e.g. the mapping syntax).
+  final String? note;
   final VoidCallback onChanged;
   final bool initiallyExpanded;
 
@@ -522,6 +530,11 @@ class _ProviderTileState extends State<ProviderTile> {
               ],
             ),
             children: [
+              if (widget.note != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: AdminNote(text: widget.note!),
+                ),
               for (final (key, label, secret) in widget.fields)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -538,6 +551,17 @@ class _ProviderTileState extends State<ProviderTile> {
                     ),
                     onChanged: (value) => widget.section[key] = value,
                   ),
+                ),
+              for (final (key, label) in widget.toggles)
+                AdminToggle(
+                  label: label,
+                  // Absent in a settings document written before the option
+                  // existed — the server defaults it to on, so mirror that here.
+                  value: widget.section[key] != false,
+                  onChanged: (value) {
+                    setState(() => widget.section[key] = value);
+                    widget.onChanged();
+                  },
                 ),
             ],
           ),

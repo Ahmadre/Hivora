@@ -18,6 +18,23 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
   Map<String, dynamic> _section(String name) =>
       (widget.settings[name] ??= <String, dynamic>{}) as Map<String, dynamic>;
 
+  /// Which attribute of the directory carries which profile field. Shared by
+  /// every provider so an account arrives with a real name and position instead
+  /// of just an address — see [ProviderTile.note] for the syntax.
+  List<(String, String, bool)> get _mappingFields => [
+    ('emailAttribute', context.t('admin.ssoField.emailAttribute'), false),
+    (
+      'displayNameAttribute',
+      context.t('admin.ssoField.displayNameAttribute'),
+      false,
+    ),
+    ('titleAttribute', context.t('admin.ssoField.titleAttribute'), false),
+  ];
+
+  List<(String, String)> get _mappingToggles => [
+    ('syncProfileOnLogin', context.t('admin.ssoField.syncProfileOnLogin')),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -32,6 +49,7 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
               title: 'OpenID Connect',
               subtitle: context.t('admin.oidcSubtitle'),
               section: _section('oidc'),
+              note: context.t('admin.ssoMappingHint'),
               fields: [
                 ('displayName', context.t('admin.displayName'), false),
                 ('issuerUri', context.t('admin.ssoField.issuerUri'), false),
@@ -42,6 +60,11 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
                   true,
                 ),
                 ('scopes', context.t('admin.ssoField.scopes'), false),
+                ..._mappingFields,
+              ],
+              toggles: [
+                ..._mappingToggles,
+                ('pkceEnabled', context.t('admin.ssoField.pkce')),
               ],
               onChanged: () => setState(() {}),
             ),
@@ -49,6 +72,7 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
               title: 'OAuth 2.0',
               subtitle: context.t('admin.oauth2Subtitle'),
               section: _section('oauth2'),
+              note: context.t('admin.ssoMappingHint'),
               fields: [
                 ('displayName', context.t('admin.displayName'), false),
                 (
@@ -64,13 +88,16 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
                   context.t('admin.ssoField.clientSecret'),
                   true,
                 ),
+                ..._mappingFields,
               ],
+              toggles: _mappingToggles,
               onChanged: () => setState(() {}),
             ),
             ProviderTile(
               title: 'SAML 2.0',
               subtitle: context.t('admin.samlSubtitle'),
               section: _section('saml'),
+              note: context.t('admin.ssoMappingHint'),
               fields: [
                 ('displayName', context.t('admin.displayName'), false),
                 (
@@ -79,13 +106,16 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
                   false,
                 ),
                 ('entityId', context.t('admin.ssoField.entityId'), false),
+                ..._mappingFields,
               ],
+              toggles: _mappingToggles,
               onChanged: () => setState(() {}),
             ),
             ProviderTile(
               title: 'LDAP / Active Directory',
               subtitle: context.t('admin.ldapSubtitle'),
               section: _section('ldap'),
+              note: context.t('admin.ssoMappingHint'),
               fields: [
                 ('url', context.t('admin.ssoField.ldapUrl'), false),
                 ('baseDn', context.t('admin.ssoField.baseDn'), false),
@@ -105,7 +135,9 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
                   context.t('admin.ssoField.userSearchFilter'),
                   false,
                 ),
+                ..._mappingFields,
               ],
+              toggles: _mappingToggles,
               onChanged: () => setState(() {}),
             ),
             ProviderTile(
