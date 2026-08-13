@@ -9,6 +9,7 @@ import '../responsive/responsive.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../theme/hue_colors.dart';
+import 'preview_image.dart' show blurHashProviderFor;
 import 'app_avatar.dart';
 
 /// App-wide toggle — Cupertino style (the product's switch convention), tinted
@@ -396,7 +397,9 @@ class HiveAvatar extends StatelessWidget {
           key: ValueKey(url),
           path: url,
           api: api,
-          placeholder: _circle(null),
+          // The picture's BlurHash rides in its URL, so the circle is a blurred
+          // version of the actual photo while the bytes are on their way.
+          placeholder: _circle(blurHashProviderFor(url)),
           builder: _circle,
         );
       }

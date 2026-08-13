@@ -30,6 +30,12 @@ bool kindIsImage(String kind) => kind == 'image';
 
 bool kindIsPdf(String kind) => kind == 'pdf';
 
+/// Whether the server can render a thumbnail for this kind: pictures, and PDFs
+/// (of which it rasterizes the first page). Everything else — Office documents,
+/// archives, plain text — has no page to draw and keeps its file-type glyph, so
+/// asking for a preview would only cost a request that answers 404.
+bool kindHasPreview(String kind) => kindIsImage(kind) || kindIsPdf(kind);
+
 /// Extensions we can render inline as plain text in the lightbox. These are a
 /// superset of what the server actually accepts (text/plain, text/csv,
 /// application/json) so previews keep working if the whitelist grows.

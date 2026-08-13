@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../api/api_client.dart';
 import '../theme/app_colors.dart';
+import 'preview_image.dart' show blurHashProviderFor;
 
 /// Process-wide cache of fetched avatar bytes, keyed by the (cache-busted)
 /// avatar URL. `null` marks a URL that failed / 404'd so we don't refetch it on
@@ -82,7 +83,7 @@ class AppAvatar extends StatelessWidget {
       key: ValueKey(url),
       path: url,
       api: api,
-      placeholder: _circle(null),
+      placeholder: _circle(blurHashProviderFor(url)),
       builder: _circle,
     );
   }

@@ -133,13 +133,19 @@ class _HinataImageButtonState extends State<HinataImageButton> {
 
     setState(() => _busy = true);
     try {
-      final url = await repo.uploadMedia(multipart);
+      final upload = await repo.uploadMedia(multipart);
       // The package's own insert: it puts the image where the caret is and
       // wraps it in a paragraph when that turns out to be the root, which is
       // the shape every other Lexical client writes.
       widget.controller.editor.dispatchCommand(
         insertImageCommand,
-        ImageAttributes(src: url, altText: file.name),
+        ImageAttributes(
+          src: upload.url,
+          altText: file.name,
+          // Stored in the document, so every later reader paints a blurred
+          // stand-in in its first frame instead of an empty box.
+          blurHash: upload.blurHash ?? '',
+        ),
       );
     } on ApiFailure catch (failure) {
       if (mounted) showGlassErrorToast(context, context.t(failure.message));

@@ -585,10 +585,18 @@ class _PdfPageState extends State<_PdfPage> {
           ),
         ],
       ),
-      loadingWidget: const Padding(
-        padding: EdgeInsets.all(40),
-        child: HiveLoader(),
-      ),
+      // Rasterizing a PDF locally takes a moment; the server already rendered
+      // its first page once, so the blur of that page stands in meanwhile.
+      loadingWidget: (widget.item.blurHash?.isNotEmpty ?? false)
+          ? Image(
+              image: BlurHashImage(widget.item.blurHash!),
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const Padding(
+                padding: EdgeInsets.all(40),
+                child: HiveLoader(),
+              ),
+            )
+          : const Padding(padding: EdgeInsets.all(40), child: HiveLoader()),
       onError: (context, error) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() => _failed = true);

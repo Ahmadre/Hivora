@@ -614,8 +614,9 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       kind: kind,
       size: a.size,
       url: url,
-      // Only pictures have a preview to show while the original downloads.
-      thumbnailUrl: kindIsImage(kind) ? _thumbnailPath(a.id) : null,
+      // Pictures and PDFs have a server-rendered preview to show while the
+      // original downloads; nothing else does.
+      thumbnailUrl: kindHasPreview(kind) ? _thumbnailPath(a.id) : null,
       blurHash: a.blurHash,
       mime: a.contentType,
       subtitle: _subtitle(a),

@@ -3,6 +3,19 @@ import 'package:flutter_blurhash/flutter_blurhash.dart' show BlurHashImage;
 
 import '../theme/app_colors.dart';
 
+/// The BlurHash an avatar URL carries, as an [ImageProvider], or null.
+///
+/// A person's picture is addressed by a URL that already travels in every
+/// response mentioning them — the directory, a board card, a search hit — so
+/// the server appends the hash to that URL as `bh=…` instead of adding a field
+/// to a dozen DTOs and threading it through every widget that draws a circle.
+/// See `AvatarService.withBlurHash` on the server side.
+ImageProvider<Object>? blurHashProviderFor(String url) {
+  final hash = Uri.tryParse(url)?.queryParameters['bh'];
+  if (hash == null || hash.isEmpty) return null;
+  return BlurHashImage(hash);
+}
+
 /// An image that is never an empty box while it loads.
 ///
 /// Three layers, each taking over from the one below as it becomes available:

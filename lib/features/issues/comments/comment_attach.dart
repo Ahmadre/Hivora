@@ -56,8 +56,8 @@ Future<void> insertCommentPhoto(
 
   final token = actions.beginImageUpload(name);
   try {
-    final url = await mediaApi.uploadMedia(multipart);
-    actions.completeImageUpload(token, url, name);
+    final upload = await mediaApi.uploadMedia(multipart);
+    actions.completeImageUpload(token, upload.url, name);
   } on ApiFailure catch (e) {
     actions.failImageUpload(token);
     if (context.mounted) showGlassErrorToast(context, context.t(e.message));

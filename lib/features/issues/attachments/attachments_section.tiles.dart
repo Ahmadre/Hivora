@@ -175,12 +175,13 @@ class _AttachmentTileState extends State<_AttachmentTile> {
         ),
       ),
     );
-    if (att == null || !kindIsImage(kind) || widget.imagePath == null) {
+    if (att == null || !kindHasPreview(kind) || widget.imagePath == null) {
       return glyph;
     }
-    // The server-side thumbnail, fetched authenticated (the object store is
-    // internal-only). Until it arrives the tile shows the attachment's BlurHash
-    // — a blurred version of this very picture — instead of an empty box.
+    // The server-side thumbnail — the picture itself, or a PDF's first page —
+    // fetched authenticated (the object store is internal-only). Until it
+    // arrives the tile shows the attachment's BlurHash, a blurred version of
+    // that very preview, instead of an empty box.
     final path = widget.imagePath!(att.id);
     // Decode at (roughly) the tile's on-screen pixel size, never the source's
     // full resolution: a legacy attachment with no stored thumbnail still serves

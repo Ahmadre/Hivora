@@ -50,8 +50,10 @@ Future<void> pickAndInsertMarkdownImage(
 
   final token = actions.beginImageUpload(name);
   try {
-    final url = await repo.uploadMedia(multipart);
-    actions.completeImageUpload(token, url, name);
+    // The markdown path stores `![alt](url)`, which has no room for a
+    // BlurHash; those images still load thumbnail-first through ApiImage.
+    final upload = await repo.uploadMedia(multipart);
+    actions.completeImageUpload(token, upload.url, name);
   } on ApiFailure catch (e) {
     actions.failImageUpload(token);
     if (context.mounted) showGlassErrorToast(context, context.t(e.message));
