@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
+import 'package:flutter_blurhash/flutter_blurhash.dart' show BlurHashImage;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 import 'package:printing/printing.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/api/api_image.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
@@ -33,6 +35,8 @@ class LightboxItem {
     required this.kind,
     required this.size,
     this.url,
+    this.thumbnailUrl,
+    this.blurHash,
     this.mime,
     this.subtitle,
   });
@@ -42,6 +46,15 @@ class LightboxItem {
   final String kind;
   final int size;
   final String? url;
+
+  /// API path of the small server-side preview. Shown — sharp, at the right
+  /// aspect ratio — while the full-resolution bytes are still downloading.
+  final String? thumbnailUrl;
+
+  /// BlurHash of the picture: what fills the stage in the very first frame,
+  /// before either the thumbnail or the original has been requested.
+  final String? blurHash;
+
   final String? mime;
   final String? subtitle;
 
@@ -453,40 +466,76 @@ class _ImagePageState extends State<_ImagePage> {
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    // Never decode wider than the physical screen: a full-res photo rendered
+    // here would otherwise decode into a bitmap far larger than any device
+    // could show, spiking memory for no visible gain.
+    final cacheW =
+        (MediaQuery.sizeOf(context).width *
+                MediaQuery.devicePixelRatioOf(context))
+            .round();
     return Padding(
       padding: const EdgeInsets.all(18),
-      child: Center(
-        child: FutureBuilder<Uint8List>(
-          future: _bytes,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Padding(
-                padding: EdgeInsets.all(40),
-                child: HiveLoader(),
-              );
-            }
-            final bytes = snap.data;
-            if (bytes == null || bytes.isEmpty) {
-              return _FileCard(item: widget.item);
-            }
-            // Never decode wider than the physical screen: a full-res photo
-            // rendered here would otherwise decode into a bitmap far larger
-            // than any device could show, spiking memory for no visible gain.
-            final cacheW =
-                (MediaQuery.sizeOf(context).width *
-                        MediaQuery.devicePixelRatioOf(context))
-                    .round();
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.memory(
-                bytes,
-                fit: BoxFit.contain,
-                cacheWidth: cacheW,
-                errorBuilder: (_, _, _) => _FileCard(item: widget.item),
+      child: FutureBuilder<Uint8List>(
+        future: _bytes,
+        builder: (context, snap) {
+          final done = snap.connectionState == ConnectionState.done;
+          final bytes = snap.data;
+          final hasFull = bytes != null && bytes.isNotEmpty;
+          if (done && !hasFull) return Center(child: _FileCard(item: item));
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // The blurred stand-in fills the stage from the first frame and
+              // retires the moment the real picture is up.
+              AnimatedOpacity(
+                opacity: hasFull ? 0 : 1,
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOut,
+                child: (item.blurHash?.isNotEmpty ?? false)
+                    ? Image(
+                        image: BlurHashImage(item.blurHash!),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      )
+                    : const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40),
+                          child: HiveLoader(),
+                        ),
+                      ),
               ),
-            );
-          },
-        ),
+              // The thumbnail lands in a fraction of the bytes and already has
+              // the final geometry, so the swap to the original is invisible.
+              if (!hasFull && item.thumbnailUrl != null)
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image(
+                      image: ApiImage(
+                        item.thumbnailUrl!,
+                        api: context.read<ApiClient>(),
+                      ),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+              if (hasFull)
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(
+                      bytes,
+                      fit: BoxFit.contain,
+                      cacheWidth: cacheW,
+                      errorBuilder: (_, _, _) => _FileCard(item: item),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

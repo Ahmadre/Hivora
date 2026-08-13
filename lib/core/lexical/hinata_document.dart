@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
 import '../api/api_image.dart';
+import '../repositories/media_repository.dart' show mediaThumbnailPath;
 import '../i18n/i18n.dart';
 import '../theme/app_colors.dart';
 import '../../features/knowledge/markdown/smart_link_chip.dart';
@@ -280,7 +281,16 @@ ImageResolver hinataImageResolverFor(ApiClient? api) => (src) {
   // always loads is the bug being chased here. There is one client per process,
   // so taking it directly cannot pick the wrong one.
   final client = api ?? ApiClient.instance;
-  if (client != null) return ApiImage(trimmed, api: client);
+  if (client != null) {
+    // With a thumbnail behind it the picture appears as soon as ~20 KB have
+    // arrived and sharpens when the original does, instead of holding an empty
+    // box for the whole download.
+    return ApiImage(
+      trimmed,
+      api: client,
+      previewPath: mediaThumbnailPath(trimmed),
+    );
+  }
   // Before `main` has built one — a test, a preview. Handing the path to
   // [hinataImageResolver] would read it as an asset name and produce a provider
   // guaranteed to fail, with no request and so no status code to explain it.

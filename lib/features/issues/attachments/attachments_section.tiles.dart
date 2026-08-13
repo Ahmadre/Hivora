@@ -178,27 +178,26 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     if (att == null || !kindIsImage(kind) || widget.imagePath == null) {
       return glyph;
     }
-    // Thumbnails are fetched authenticated from the server's /download endpoint
-    // (the object store is internal-only); falls back to the type glyph on
-    // load/decode failure.
+    // The server-side thumbnail, fetched authenticated (the object store is
+    // internal-only). Until it arrives the tile shows the attachment's BlurHash
+    // — a blurred version of this very picture — instead of an empty box.
     final path = widget.imagePath!(att.id);
-    // Decode the thumbnail at (roughly) the tile's on-screen pixel size, never
-    // the source's full resolution: a 48 MP photo drawn in a ~168 px tile would
-    // otherwise decode into a ~200 MB bitmap and OOM-crash a photo-dense grid.
-    // ResizeImage is a no-op when the source is already smaller. 168 dp is the
-    // widest tile extent; ×dpr covers the densest screens.
+    // Decode at (roughly) the tile's on-screen pixel size, never the source's
+    // full resolution: a legacy attachment with no stored thumbnail still serves
+    // the original, and a 48 MP photo drawn in a ~168 px tile would otherwise
+    // decode into a ~200 MB bitmap and OOM-crash a photo-dense grid. ResizeImage
+    // is a no-op when the source is already smaller. 168 dp is the widest tile
+    // extent; ×dpr covers the densest screens.
     final cacheW = (168 * MediaQuery.devicePixelRatioOf(context)).round();
-    return ApiImageAvatar(
+    return HivePreviewImage(
       key: ValueKey(path),
-      path: path,
-      api: context.read<ApiClient>(),
-      placeholder: glyph,
-      builder: (img) => img == null
-          ? glyph
-          : Image(
-              image: ResizeImage(img, width: cacheW),
-              fit: BoxFit.cover,
-            ),
+      image: ResizeImage(
+        ApiImage(path, api: context.read<ApiClient>()),
+        width: cacheW,
+        allowUpscaling: false,
+      ),
+      blurHash: att.blurHash,
+      fallback: glyph,
     );
   }
 

@@ -11,10 +11,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/api/api_image.dart';
 import '../../../core/util/file_download.dart';
-import '../../../core/widgets/app_avatar.dart';
 import '../../../core/widgets/glass_popup_menu.dart';
 import '../../../core/widgets/hive_loader.dart';
+import '../../../core/widgets/preview_image.dart';
 import '../../../core/repositories/issue_repository.dart';
 import '../../../core/api/sse.dart';
 import '../../../core/api/sse_connection.dart';
@@ -422,6 +423,12 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
   String _downloadPath(String id) =>
       '/api/v1/issues/${widget.issueId}/attachments/$id/download';
 
+  /// Relative API path of an image attachment's small server-side preview. A
+  /// grid of tiles costs one downscaled picture each instead of the originals;
+  /// the endpoint falls back to the full image when no thumbnail exists.
+  String _thumbnailPath(String id) =>
+      '/api/v1/issues/${widget.issueId}/attachments/$id/thumbnail';
+
   Future<void> _download(IssueAttachment a) =>
       _fetchAndSave(_downloadPath(a.id), a.fileName);
 
@@ -607,6 +614,9 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       kind: kind,
       size: a.size,
       url: url,
+      // Only pictures have a preview to show while the original downloads.
+      thumbnailUrl: kindIsImage(kind) ? _thumbnailPath(a.id) : null,
+      blurHash: a.blurHash,
       mime: a.contentType,
       subtitle: _subtitle(a),
     );
@@ -794,7 +804,7 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
         return _AttachmentTile.done(
           attachment: a,
           subtitle: _subtitle(a),
-          imagePath: _downloadPath,
+          imagePath: _thumbnailPath,
           onOpen: () => _open(a),
           onDownload: () => _download(a),
           onDelete: () => _delete(a),

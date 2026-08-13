@@ -379,6 +379,7 @@ class IssueAttachment extends Equatable {
     this.contentType,
     this.uploaderId,
     this.uploadedAt,
+    this.blurHash,
   });
 
   final String id;
@@ -388,6 +389,11 @@ class IssueAttachment extends Equatable {
   final String? uploaderId;
   final DateTime? uploadedAt;
 
+  /// BlurHash of the picture — a ~30 character stand-in the client can paint
+  /// before requesting any image bytes. Null for non-images and for uploads the
+  /// server could not decode (e.g. webp).
+  final String? blurHash;
+
   factory IssueAttachment.fromJson(Map<String, dynamic> json) =>
       IssueAttachment(
         id: json['id'] as String,
@@ -396,6 +402,7 @@ class IssueAttachment extends Equatable {
         contentType: json['contentType'] as String?,
         uploaderId: json['uploaderId'] as String?,
         uploadedAt: _instant(json['uploadedAt']),
+        blurHash: json['blurHash'] as String?,
       );
 
   @override

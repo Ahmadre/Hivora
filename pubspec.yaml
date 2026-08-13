@@ -137,6 +137,11 @@ dependencies:
   # `flutter build web --wasm --release` succeeds.
   firebase_core: 4.11.0
   firebase_messaging: 16.4.1
+  # BlurHash *decoding* only (the ~100-line reference algorithm, plus an
+  # ImageProvider that turns a hash into a picture). Encoding happens on the
+  # server, which is the only place that has the original bytes — see
+  # `BlurHash.java`. Used through [HivePreviewImage].
+  flutter_blurhash: ^0.9.1
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,20 @@ import 'package:dio/dio.dart';
 
 import '../api/api_client.dart';
 
+/// The API path of an inline image's small server-side preview, or null when
+/// [path] is not an inline media path (an external URL, an asset, a data: URI).
+///
+/// The server derives the thumbnail's storage key from the media id, so this is
+/// a pure string transform — no lookup, and it stays valid for images uploaded
+/// before thumbnails existed (that endpoint generates the missing one on first
+/// view and falls back to the original when it cannot).
+String? mediaThumbnailPath(String path) {
+  final match = RegExp(
+    r'^/api/v1/media/([0-9a-fA-F-]{36})$',
+  ).firstMatch(path.trim());
+  return match == null ? null : '${match.group(0)}/thumbnail';
+}
+
 /// Free-standing media objects (inline Markdown images in issue descriptions,
 /// comments, and knowledge-base articles), served through the authenticated
 /// media proxy.
