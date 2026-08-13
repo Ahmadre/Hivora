@@ -1888,6 +1888,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   Widget _attachmentsSection(Issue issue) => AttachmentsSection(
     key: _attachmentsKey,
     issueId: widget.issueId,
+    issueKey: issue.readableId,
     initial: issue.attachments,
     userNames: _names,
     onChanged: _notifyChanged,

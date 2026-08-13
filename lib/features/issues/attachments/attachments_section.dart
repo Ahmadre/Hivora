@@ -13,6 +13,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/util/file_download.dart';
 import '../../../core/widgets/app_avatar.dart';
+import '../../../core/widgets/glass_popup_menu.dart';
+import '../../../core/widgets/hive_loader.dart';
 import '../../../core/repositories/issue_repository.dart';
 import '../../../core/api/sse.dart';
 import '../../../core/api/sse_connection.dart';
@@ -60,11 +62,17 @@ class AttachmentsSection extends StatefulWidget {
     super.key,
     required this.issueId,
     required this.initial,
+    this.issueKey,
     this.userNames = const {},
     this.onChanged,
   });
 
   final String issueId;
+
+  /// Readable issue id (e.g. `HIN-42`), used to name the "download all"
+  /// archive. Falls back to a generic name when absent.
+  final String? issueKey;
+
   final List<IssueAttachment> initial;
   final Map<String, String> userNames;
   final VoidCallback? onChanged;
@@ -79,6 +87,10 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
 
   bool _dragging = false;
   bool _disposed = false;
+
+  /// True while the "download all" archive is being built + fetched — the bulk
+  /// menu shows a loader and stays inert so the request can't be fired twice.
+  bool _archiving = false;
 
   // Live sync over the shared resilient SSE connection: heartbeat-driven
   // liveness detection + reconnect-with-catch-up (see [_reconcile]).
@@ -410,28 +422,34 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
   String _downloadPath(String id) =>
       '/api/v1/issues/${widget.issueId}/attachments/$id/download';
 
-  Future<void> _download(IssueAttachment a) async {
+  Future<void> _download(IssueAttachment a) =>
+      _fetchAndSave(_downloadPath(a.id), a.fileName);
+
+  /// Fetches [path] through the authenticated client and hands the bytes to the
+  /// browser / OS share sheet as [fileName]. The bytes go through the server
+  /// endpoint because the object store is internal-only — its presigned URLs
+  /// aren't reachable from a client.
+  Future<void> _fetchAndSave(
+    String path,
+    String fileName, {
+    String? fallbackMime,
+  }) async {
     // Capture the iPad share-popover anchor before any async gap (the render
     // object is only valid on the current frame's context).
     final box = context.findRenderObject() as RenderBox?;
     final origin = (box != null && box.hasSize)
         ? box.localToGlobal(Offset.zero) & box.size
         : null;
-    // Stream the bytes through the authenticated server endpoint (the object
-    // store is internal-only; its presigned URLs aren't reachable from a
-    // client), then save/share them via the browser / OS share sheet.
     try {
-      final res = await context.read<ApiClient>().getBytes(
-        '/api/v1/issues/${widget.issueId}/attachments/${a.id}/download',
-      );
+      final res = await context.read<ApiClient>().getBytes(path);
       if (res == null) {
         if (mounted) _toast(context.t('errors.unexpected'));
         return;
       }
       final outcome = await downloadBytes(
-        a.fileName,
+        fileName,
         Uint8List.fromList(res.bytes),
-        res.contentType,
+        res.contentType.isEmpty ? (fallbackMime ?? '') : res.contentType,
         sharePositionOrigin: origin,
       );
       if (!mounted) return;
@@ -451,6 +469,70 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       }
     } catch (_) {
       if (mounted) _toast(context.t('errors.unexpected'));
+    }
+  }
+
+  /// "Download all": the server zips every attachment of the issue in one
+  /// streamed response, so this stays a single authenticated request instead of
+  /// N downloads the browser would block or the share sheet would queue.
+  Future<void> _downloadAll() async {
+    if (_archiving || _server.isEmpty) return;
+    setState(() => _archiving = true);
+    _toast(
+      context.t('issues.attachments.archivePreparing'),
+      kind: GlassToastKind.info,
+    );
+    // Mirrors the name the server puts in Content-Disposition (the byte fetch
+    // doesn't surface response headers).
+    final key = widget.issueKey?.trim();
+    final archiveName =
+        '${key == null || key.isEmpty ? 'issue' : key}'
+        '-attachments.zip';
+    try {
+      await _fetchAndSave(
+        _repo.attachmentsArchivePath(widget.issueId),
+        archiveName,
+        fallbackMime: 'application/zip',
+      );
+    } finally {
+      if (mounted) setState(() => _archiving = false);
+    }
+  }
+
+  /// "Delete all": one bulk call carrying exactly the ids currently on screen,
+  /// so an attachment that arrived meanwhile (SSE) is not swept away with them.
+  Future<void> _deleteAll() async {
+    final targets = List.of(_server);
+    if (targets.isEmpty) return;
+    final confirmed = await showGlassConfirm(
+      context,
+      icon: LucideIcons.trash2,
+      title: context.t(
+        'issues.attachments.deleteAllTitle',
+        count: targets.length,
+      ),
+      message: context.t(
+        'issues.attachments.deleteAllBody',
+        count: targets.length,
+      ),
+      confirmLabel: context.t('issues.attachments.remove'),
+      confirmIcon: LucideIcons.trash2,
+      destructive: true,
+    );
+    if (confirmed != true || _disposed || !mounted) return;
+    final prev = _server;
+    final ids = targets.map((a) => a.id).toSet();
+    setState(
+      () => _server = _server.where((a) => !ids.contains(a.id)).toList(),
+    );
+    widget.onChanged?.call();
+    try {
+      await _repo.deleteAttachments(widget.issueId, ids.toList());
+    } on ApiFailure catch (e) {
+      if (_disposed || !mounted) return;
+      setState(() => _server = prev);
+      widget.onChanged?.call();
+      _toast(context.t(e.message));
     }
   }
 
@@ -611,6 +693,17 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
         // there are no attachments yet).
         if (count > 0)
           _AddButton(onTap: _add, label: context.t('issues.attachments.add')),
+        // Bulk actions apply to the uploaded files only — in-flight uploads have
+        // nothing to download or delete yet.
+        if (_server.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          _BulkMenuButton(
+            count: _server.length,
+            busy: _archiving,
+            onDownloadAll: _downloadAll,
+            onDeleteAll: _deleteAll,
+          ),
+        ],
       ],
     );
   }

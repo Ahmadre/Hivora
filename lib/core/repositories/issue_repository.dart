@@ -388,6 +388,20 @@ class IssueRepository {
   Future<void> deleteAttachment(String issueId, String attachmentId) =>
       _api.delete('/api/v1/issues/$issueId/attachments/$attachmentId');
 
+  /// Bulk delete. [ids] are the attachments the caller currently sees — the
+  /// server removes only those, so a file someone else uploaded in the meantime
+  /// is not swept away with them.
+  Future<void> deleteAttachments(String issueId, List<String> ids) =>
+      _api.delete(
+        '/api/v1/issues/$issueId/attachments'
+        '?ids=${ids.map(Uri.encodeQueryComponent).join(',')}',
+      );
+
+  /// Relative path of the ZIP archive holding every attachment of an issue
+  /// (fetched through the authenticated client, like the single download).
+  String attachmentsArchivePath(String issueId) =>
+      '/api/v1/issues/$issueId/attachments/archive';
+
   /// Raw SSE byte stream of attachment changes for an issue (parse with
   /// [parseSse]). Cancel via [cancelToken] when the view is disposed.
   Future<Stream<List<int>>> attachmentEventStream(

@@ -386,6 +386,94 @@ class _AddButton extends StatelessWidget {
   }
 }
 
+/// The bulk actions of the section header, in the same "…" overflow spot the
+/// rest of the app uses. Sits next to the add button and applies to every
+/// uploaded file at once.
+enum _BulkAction { downloadAll, deleteAll }
+
+class _BulkMenuButton extends StatelessWidget {
+  const _BulkMenuButton({
+    required this.count,
+    required this.busy,
+    required this.onDownloadAll,
+    required this.onDeleteAll,
+  });
+
+  /// Number of uploaded files the actions would touch (shown in the labels).
+  final int count;
+
+  /// While the archive is being prepared the button shows a loader and the menu
+  /// stays closed — a second request would just re-zip the same files.
+  final bool busy;
+
+  final VoidCallback onDownloadAll;
+  final VoidCallback onDeleteAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = Material(
+      color: AppColors.canvas2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        side: BorderSide(color: AppColors.hairline),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: busy
+              ? const Center(child: HiveLoader(size: 14, strokeWidth: 2))
+              : Icon(LucideIcons.ellipsis, size: 16, color: AppColors.inkSoft),
+        ),
+      ),
+    );
+    if (busy) return button;
+
+    return Tooltip(
+      message: context.t('issues.attachments.bulkActions'),
+      child: GlassPopupMenu<_BulkAction?>(
+        value: null,
+        width: 260,
+        onSelected: (action) => switch (action) {
+          _BulkAction.downloadAll => onDownloadAll(),
+          _BulkAction.deleteAll => onDeleteAll(),
+          null => null,
+        },
+        items: [
+          GlassMenuItem(
+            value: _BulkAction.downloadAll,
+            label: context.t(
+              'issues.attachments.downloadAll',
+              variables: {'count': count},
+            ),
+            leading: Icon(
+              LucideIcons.download,
+              size: 16,
+              color: AppColors.inkSoft,
+            ),
+          ),
+          GlassMenuItem(
+            value: _BulkAction.deleteAll,
+            dividerAbove: true,
+            color: AppColors.danger,
+            label: context.t(
+              'issues.attachments.deleteAll',
+              variables: {'count': count},
+            ),
+            leading: const Icon(
+              LucideIcons.trash2,
+              size: 16,
+              color: AppColors.danger,
+            ),
+          ),
+        ],
+        child: button,
+      ),
+    );
+  }
+}
+
 class _DropOverlay extends StatelessWidget {
   const _DropOverlay();
 
