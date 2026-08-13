@@ -1198,8 +1198,7 @@
       "emailAttribute": "E-Mail-Attribut",
       "displayNameAttribute": "Attribut für den Anzeigenamen",
       "titleAttribute": "Attribut für die Position",
-      "syncProfileOnLogin": "Profil bei jeder Anmeldung abgleichen",
-      "pkce": "PKCE — anlassen, außer der Provider kündigt es an und lehnt die Anmeldung dann ab"
+      "syncProfileOnLogin": "Profil bei jeder Anmeldung abgleichen"
     },
     "ssoMappingHint": "Welches Attribut welches Profilfeld liefert. Komma = Alternativen (das erste vorhandene gewinnt), Leerzeichen = zusammensetzen (z. B. \"given_name family_name\"). Ein Attribut, das dein Provider nicht sendet, überschreibt nie einen gespeicherten Wert.",
     "email": "E-Mail",

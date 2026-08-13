@@ -1198,8 +1198,7 @@
       "emailAttribute": "E-mail attribute",
       "displayNameAttribute": "Display name attribute",
       "titleAttribute": "Position attribute",
-      "syncProfileOnLogin": "Keep profile in sync on every sign-in",
-      "pkce": "PKCE — leave on unless your provider announces it and then rejects the sign-in"
+      "syncProfileOnLogin": "Keep profile in sync on every sign-in"
     },
     "ssoMappingHint": "Which attribute carries which profile field. Comma = alternatives (the first one present wins), space = join (e.g. \"given_name family_name\"). An attribute your provider does not send never overwrites a stored value.",
     "email": "Email",

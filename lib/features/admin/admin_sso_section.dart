@@ -62,10 +62,7 @@ class _AdminSsoSectionState extends State<AdminSsoSection> {
                 ('scopes', context.t('admin.ssoField.scopes'), false),
                 ..._mappingFields,
               ],
-              toggles: [
-                ..._mappingToggles,
-                ('pkceEnabled', context.t('admin.ssoField.pkce')),
-              ],
+              toggles: _mappingToggles,
               onChanged: () => setState(() {}),
             ),
             ProviderTile(
