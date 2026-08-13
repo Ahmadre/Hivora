@@ -40,7 +40,6 @@ class _EditProfileModalState extends State<_EditProfileModal> {
   // Read-only username field — a single State-owned controller, not one
   // reconstructed every build (which leaked an undisposed controller per rebuild).
   late final _username = TextEditingController(text: widget.me.username);
-  late String _locale = widget.me.locale;
   bool _busy = false;
   String? _error;
 
@@ -58,10 +57,12 @@ class _EditProfileModalState extends State<_EditProfileModal> {
       _error = null;
     });
     try {
+      // No locale here: the language lives in Settings → Sprache, which applies
+      // it to the UI *and* persists it (and `GET /me` re-syncs the stored locale
+      // from Accept-Language on every start-up anyway).
       final saved = await widget.repo.updateMyProfile(
         displayName: _name.text.trim(),
         title: _title.text.trim(),
-        locale: _locale,
       );
       if (mounted) Navigator.of(context).maybePop(saved);
     } on ApiFailure catch (f) {
@@ -125,14 +126,6 @@ class _EditProfileModalState extends State<_EditProfileModal> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                GlassField(
-                  label: context.t('account.editModal.language'),
-                  child: _LocaleDropdown(
-                    value: _locale,
-                    onChanged: (v) => setState(() => _locale = v),
-                  ),
-                ),
                 if (_error != null) ...[
                   const SizedBox(height: 14),
                   AccountNote(
@@ -152,44 +145,6 @@ class _EditProfileModalState extends State<_EditProfileModal> {
           onConfirm: _save,
         ),
       ],
-    );
-  }
-}
-
-class _LocaleDropdown extends StatelessWidget {
-  const _LocaleDropdown({required this.value, required this.onChanged});
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  static const _names = {
-    'en': 'English',
-    'de': 'Deutsch',
-    'fr': 'Français',
-    'es': 'Español',
-    'ku': 'Kurdî',
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _names.containsKey(value) ? value : 'en',
-          isExpanded: true,
-          borderRadius: BorderRadius.circular(14),
-          items: [
-            for (final e in _names.entries)
-              DropdownMenuItem(value: e.key, child: Text(e.value)),
-          ],
-          onChanged: (v) => v == null ? null : onChanged(v),
-        ),
-      ),
     );
   }
 }

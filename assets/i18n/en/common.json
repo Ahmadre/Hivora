@@ -2119,7 +2119,6 @@
       "username": "Username",
       "jobTitle": "Job title",
       "jobTitleHint": "e.g. Maintainer",
-      "language": "Language",
       "save": "Save changes"
     },
     "emailModal": {
