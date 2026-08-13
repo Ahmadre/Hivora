@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../api/api_client.dart';
 import '../theme/app_colors.dart';
-import 'preview_image.dart' show blurHashProviderFor;
+import 'preview_image.dart' show FadeInOver, blurHashProviderFor;
 
 /// Process-wide cache of fetched avatar bytes, keyed by the (cache-busted)
 /// avatar URL. `null` marks a URL that failed / 404'd so we don't refetch it on
@@ -150,6 +150,12 @@ class ApiImageAvatar extends StatefulWidget {
 class ApiImageAvatarState extends State<ApiImageAvatar> {
   Uint8List? _bytes;
 
+  /// Whether the picture was already there on the first build.
+  ///
+  /// A cached avatar is not "arriving", it is simply present, and fading it in
+  /// on every rebuild would make scrolling a list of people flicker.
+  bool _immediate = false;
+
   @override
   void initState() {
     super.initState();
@@ -164,6 +170,7 @@ class ApiImageAvatarState extends State<ApiImageAvatar> {
       // evicted when the cache is under memory pressure.
       if (cached != null) _avatarCachePut(path, cached);
       _bytes = cached;
+      _immediate = true;
       return;
     }
     // Coalesce concurrent loads of the same URL (e.g. avatar shown twice).
@@ -190,7 +197,13 @@ class ApiImageAvatarState extends State<ApiImageAvatar> {
   Widget build(BuildContext context) {
     final bytes = _bytes;
     if (bytes == null) return widget.placeholder;
-    return widget.builder(MemoryImage(bytes));
+    final image = widget.builder(MemoryImage(bytes));
+    if (_immediate) return image;
+    // The picture arrived just now: fade it in over whatever stood in for it —
+    // the BlurHash, or the initials. The decode of the resized image costs a
+    // frame or two after this, and lands while the new layer is still at a few
+    // percent opacity, so it is not visible as a step.
+    return FadeInOver(under: widget.placeholder, child: image);
   }
 }
 

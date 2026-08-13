@@ -16,6 +16,50 @@ ImageProvider<Object>? blurHashProviderFor(String url) {
   return BlurHashImage(hash);
 }
 
+/// Fades [child] in over [under], once, when it is first built.
+///
+/// Not a cross-fade: [under] stays fully opaque underneath. Two half
+/// transparent layers let whatever is behind them show through, which on a
+/// circular avatar over a coloured page reads as a flash rather than as a
+/// picture arriving.
+///
+/// Both layers are given the same box, so the caller's constraints decide the
+/// size and this can never introduce an overflow of its own.
+class FadeInOver extends StatelessWidget {
+  const FadeInOver({
+    super.key,
+    required this.under,
+    required this.child,
+    this.duration = const Duration(milliseconds: 260),
+    this.curve = Curves.easeOut,
+  });
+
+  /// Drawn at full opacity below [child] — a blur, a glyph, initials.
+  final Widget under;
+
+  /// The picture that arrived.
+  final Widget child;
+
+  final Duration duration;
+  final Curve curve;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.passthrough,
+    children: [
+      under,
+      TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: duration,
+        curve: curve,
+        builder: (context, value, child) =>
+            Opacity(opacity: value, child: child),
+        child: child,
+      ),
+    ],
+  );
+}
+
 /// An image that is never an empty box while it loads.
 ///
 /// Three layers, each taking over from the one below as it becomes available:

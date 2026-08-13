@@ -95,6 +95,53 @@ void main() {
     });
   });
 
+  group('FadeInOver', () {
+    const under = ColoredBox(color: Color(0xFF102030));
+    const over = ColoredBox(color: Color(0xFFAABBCC));
+
+    double opacityOf(WidgetTester tester) => tester
+        .widgetList<Opacity>(find.byType(Opacity))
+        .map((o) => o.opacity)
+        .last;
+
+    testWidgets('starts invisible and ends fully opaque', (tester) async {
+      await pumpIn(
+        tester,
+        const FadeInOver(under: under, child: over),
+        const Size(80, 80),
+      );
+
+      expect(opacityOf(tester), 0);
+      await tester.pump(const Duration(milliseconds: 130));
+      expect(opacityOf(tester), greaterThan(0));
+      expect(opacityOf(tester), lessThan(1));
+      await tester.pumpAndSettle();
+      expect(opacityOf(tester), 1);
+    });
+
+    testWidgets('keeps what is underneath at full opacity throughout', (
+      tester,
+    ) async {
+      await pumpIn(
+        tester,
+        const FadeInOver(under: under, child: over),
+        const Size(80, 80),
+      );
+      await tester.pump(const Duration(milliseconds: 130));
+
+      // Mid-fade both layers are on screen, and only the arriving one is
+      // transparent — otherwise the page behind them shows through as a flash.
+      expect(find.byWidget(under), findsOneWidget);
+      expect(
+        tester.widgetList<Opacity>(find.byType(Opacity)).length,
+        1,
+        reason: 'only the incoming layer is faded',
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('mediaThumbnailPath', () {
     test('derives the preview path of an inline media image', () {
       expect(
