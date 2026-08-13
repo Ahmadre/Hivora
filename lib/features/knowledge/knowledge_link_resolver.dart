@@ -134,6 +134,7 @@ const Map<String, (String, String)> _realPriority = {
   'MAJOR': ('Major', 'chevron-up'),
   'NORMAL': ('Normal', 'equal'),
   'MINOR': ('Minor', 'chevron-down'),
+  'TRIVIAL': ('Trivial', 'chevrons-down'),
 };
 
 /// Builds a display-ready [SmartIssue] from a real backend [Issue]. [stateColorFor]

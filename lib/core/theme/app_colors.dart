@@ -152,7 +152,7 @@ abstract final class AppColors {
         'SHOWSTOPPER' || 'CRITICAL' => priUrgent,
         'MAJOR' => priHigh,
         'NORMAL' => priNormal,
-        'MINOR' => priLow,
+        'MINOR' || 'TRIVIAL' => priLow,
         // Legacy aliases.
         'URGENT' => priUrgent,
         'HIGH' => priHigh,

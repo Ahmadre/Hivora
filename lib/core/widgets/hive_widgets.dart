@@ -66,12 +66,14 @@ class _PriMeta {
 }
 
 const _priMeta = <String, _PriMeta>{
-  // Backend Issue.Priority: SHOWSTOPPER, CRITICAL, MAJOR, NORMAL, MINOR.
+  // Backend Issue.Priority: SHOWSTOPPER, CRITICAL, MAJOR, NORMAL, MINOR,
+  // TRIVIAL.
   'SHOWSTOPPER': _PriMeta(LucideIcons.chevronsUp, AppColors.priUrgent),
   'CRITICAL': _PriMeta(LucideIcons.chevronUp, AppColors.priUrgent),
   'MAJOR': _PriMeta(LucideIcons.chevronUp, AppColors.priHigh),
   'NORMAL': _PriMeta(LucideIcons.gripHorizontal, AppColors.priNormal),
   'MINOR': _PriMeta(LucideIcons.chevronDown, AppColors.priLow),
+  'TRIVIAL': _PriMeta(LucideIcons.chevronsDown, AppColors.priLow),
   // Legacy aliases kept so older data / the design palette still resolve.
   'URGENT': _PriMeta(LucideIcons.chevronsUp, AppColors.priUrgent),
   'HIGH': _PriMeta(LucideIcons.chevronUp, AppColors.priHigh),

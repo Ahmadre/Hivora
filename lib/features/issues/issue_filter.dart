@@ -173,6 +173,7 @@ const kIssuePriorityCodes = [
   'MAJOR',
   'NORMAL',
   'MINOR',
+  'TRIVIAL',
 ];
 
 /// The distinct facet values available to filter on, derived from the issues

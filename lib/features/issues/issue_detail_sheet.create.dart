@@ -748,7 +748,7 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
   }
 
   Future<void> _pickPriority(Rect anchor) async {
-    const priorities = ['SHOWSTOPPER', 'CRITICAL', 'MAJOR', 'NORMAL', 'MINOR'];
+    const priorities = kIssuePriorityCodes;
     final chosen = await _pickOption<String>(
       context,
       title: context.t('issues.priority'),

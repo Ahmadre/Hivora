@@ -26,6 +26,9 @@ void main() {
       expect(options.priorities, kIssuePriorityCodes);
       expect(options.types, contains('EPIC'));
       expect(options.priorities, contains('SHOWSTOPPER'));
+      // Lowest severity is offered too and stays last in display order.
+      expect(options.priorities, contains('TRIVIAL'));
+      expect(kIssuePriorityCodes.last, 'TRIVIAL');
     });
 
     test('always allows filtering the unassigned bucket', () {

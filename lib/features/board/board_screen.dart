@@ -1091,6 +1091,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       'SHOWSTOPPER' || 'CRITICAL' || 'URGENT' => 5,
       'MAJOR' || 'HIGH' => 3,
       'MINOR' || 'LOW' => 1,
+      'TRIVIAL' => 0,
       _ => rank[i.priority.toUpperCase()] ?? 2,
     };
     // The backlog lists the standard work items only — epics are containers and

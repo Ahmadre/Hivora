@@ -411,7 +411,19 @@ class _IssuesScreenState extends State<IssuesScreen> {
           return ra != rb ? ra.compareTo(rb) : a.compareTo(b);
         };
       case IssueGrouping.priority:
-        const order = ['URGENT', 'HIGH', 'NORMAL', 'LOW'];
+        // Backend codes (see [kIssuePriorityCodes]) with the legacy aliases
+        // interleaved at the matching severity, so old data still groups right.
+        const order = [
+          'SHOWSTOPPER',
+          'CRITICAL',
+          'URGENT',
+          'MAJOR',
+          'HIGH',
+          'NORMAL',
+          'MINOR',
+          'LOW',
+          'TRIVIAL',
+        ];
         return (a, b) => _rankIn(order, a).compareTo(_rankIn(order, b));
       case IssueGrouping.type:
         const order = ['EPIC', 'STORY', 'TASK', 'BUG', 'FEATURE', 'SUBTASK'];

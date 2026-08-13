@@ -74,6 +74,7 @@ import '../sprint/modals/glass_modal.dart'
 import 'attachments/attachments_section.dart';
 import 'email_reply/email_reply_sheet.dart';
 import 'epic_search_popover.dart';
+import 'issue_filter.dart' show kIssuePriorityCodes;
 import 'issue_form.dart' show showIssueForm;
 import 'issue_links_section.dart';
 import 'issue_labels.dart';

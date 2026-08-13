@@ -255,6 +255,8 @@ IconData lucideIcon(String? name) {
       return LucideIcons.equal;
     case 'chevron-down':
       return LucideIcons.chevronDown;
+    case 'chevrons-down':
+      return LucideIcons.chevronsDown;
     // callouts
     case 'info':
       return LucideIcons.info;

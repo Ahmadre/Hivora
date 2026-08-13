@@ -706,7 +706,8 @@
     "critical": "Kritisch",
     "major": "Hohe Priorität",
     "normal": "Normal",
-    "minor": "Gering"
+    "minor": "Gering",
+    "trivial": "Sehr gering"
   },
   "time": {
     "hours": "Stunden",
