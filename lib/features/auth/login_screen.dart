@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show TextInput;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -7,11 +7,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/api/api_client.dart' show ApiFailure;
 import '../../core/repositories/auth_repository.dart';
 import '../../core/blocs/app_config_bloc.dart';
 import '../../core/blocs/auth_bloc.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/core_models.dart';
+import '../../core/storage/app_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../account/twofa_modals.dart' show OtpInput;
 import '../connect/server_switcher.dart';
@@ -26,11 +28,41 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// How the SSO provider list is doing. The buttons come from a *second*
+/// request, so "none yet" and "we couldn't ask" are different states — and only
+/// the second one may be presented as a problem.
+enum _SsoDiscovery { loading, done, failed }
+
 class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
+  /// Attempts spent on discovering the SSO providers before giving up, and how
+  /// long to wait before each of them.
+  static const List<Duration> _ssoRetryDelays = [
+    Duration.zero,
+    Duration(milliseconds: 500),
+    Duration(milliseconds: 2000),
+  ];
+
+  /// What to wait instead after a 429. Provider discovery draws from the
+  /// server's *auth* rate-limit bucket — the same small budget as sign-in and
+  /// token refresh — so a couple of app restarts in a minute can empty it. That
+  /// bucket refills continuously, so the next token is seconds away; retrying
+  /// on the ordinary backoff would just burn attempts against an empty one.
+  static const Duration _ssoRateLimitedDelay = Duration(seconds: 7);
+
   final _formKey = GlobalKey<FormState>();
   final _identifier = TextEditingController();
   final _password = TextEditingController();
   List<SsoProvider> _providers = const [];
+  _SsoDiscovery _ssoDiscovery = _SsoDiscovery.loading;
+
+  /// Generation counter for [_loadProviders]: a reload (server switch, retry
+  /// tap) invalidates whatever an older, still-retrying run would report.
+  int _ssoLoad = 0;
+
+  /// Which server [_providers] were discovered on. The selector sits right
+  /// above the form, so the list must never outlive the backend it came from —
+  /// its buttons would start a flow the new server doesn't have.
+  String? _providersServer;
 
   /// The 2FA code typed during a login challenge.
   String _otpCode = '';
@@ -56,8 +88,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   /// way to start another attempt.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _launchingSsoId != null) {
-      setState(() => _launchingSsoId = null);
+    if (state == AppLifecycleState.resumed) {
+      if (_launchingSsoId != null) setState(() => _launchingSsoId = null);
+      // Discovery that never landed (the app started before the network was
+      // up, a tunnel was still cold) gets another go now that we are back —
+      // otherwise the buttons stay missing for the rest of the session.
+      if (_ssoDiscovery == _SsoDiscovery.failed) _loadProviders();
     }
     super.didChangeAppLifecycleState(state);
   }
@@ -79,13 +115,68 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     });
   }
 
+  /// Discovers the server's SSO providers, retrying a couple of times.
+  ///
+  /// This is the *second* request of the session, fired the instant the sign-in
+  /// screen mounts — right after a cold start, when the connection is often
+  /// still waking up (DNS, TLS, a proxy or tunnel warming its first upstream,
+  /// or Wi-Fi that hasn't associated yet). One swallowed failure used to mean
+  /// the SSO buttons silently never appeared for the rest of the session, on a
+  /// server that has SSO configured: exactly the "it's missing on the first
+  /// start, fine after a restart" report. So try again a few times, and let
+  /// [didChangeAppLifecycleState] and the server switch below re-arm it.
   Future<void> _loadProviders() async {
-    try {
-      final providers = await context.read<AuthRepository>().ssoProviders();
-      if (mounted) setState(() => _providers = providers);
-    } catch (_) {
-      // SSO buttons are optional; password login stays available.
+    final load = ++_ssoLoad;
+    // Read the tree before the first await — the context may be gone after one.
+    final repository = context.read<AuthRepository>();
+    final server = context.read<AppStorage>().serverUrl;
+    if (_ssoDiscovery != _SsoDiscovery.loading) {
+      setState(() => _ssoDiscovery = _SsoDiscovery.loading);
     }
+    var delay = Duration.zero;
+    for (var attempt = 0; attempt < _ssoRetryDelays.length; attempt++) {
+      if (delay > Duration.zero) await Future<void>.delayed(delay);
+      if (!mounted || load != _ssoLoad) return;
+      try {
+        final providers = await repository.ssoProviders();
+        if (!mounted || load != _ssoLoad) return;
+        setState(() {
+          _providers = providers;
+          _providersServer = server;
+          _ssoDiscovery = _SsoDiscovery.done;
+        });
+        return;
+      } catch (error) {
+        // Never fatal: password login stays available either way. Said out loud
+        // in debug, because a missing button is otherwise indistinguishable
+        // from a server without SSO.
+        if (kDebugMode) {
+          debugPrint(
+            '[sso] provider discovery failed '
+            '(${attempt + 1}/${_ssoRetryDelays.length}): $error',
+          );
+        }
+        final rateLimited = error is ApiFailure && error.statusCode == 429;
+        delay = rateLimited
+            ? _ssoRateLimitedDelay
+            : _ssoRetryDelays[(attempt + 1).clamp(
+                0,
+                _ssoRetryDelays.length - 1,
+              )];
+      }
+    }
+    if (mounted && load == _ssoLoad) {
+      setState(() => _ssoDiscovery = _SsoDiscovery.failed);
+    }
+  }
+
+  /// Re-discovers after a server switch settles: the providers of the backend
+  /// we just left must not linger, and the new one's have never been fetched.
+  void _onConfigChanged(BuildContext context, AppConfigState state) {
+    if (state.status != AppConfigStatus.ready) return;
+    if (context.read<AppStorage>().serverUrl == _providersServer) return;
+    setState(() => _providers = const []);
+    _loadProviders();
   }
 
   @override
@@ -112,217 +203,256 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     );
     return AuthShell(
       maxContentWidth: 440,
-      child: BlocConsumer<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state.errorKey != null) {
-            showGlassErrorToast(context, context.t(state.errorKey!));
-          }
-        },
-        builder: (context, state) {
-          if (state.status == AuthStatus.twoFactorRequired ||
-              (state.status == AuthStatus.authenticating &&
-                  state.mfaToken != null)) {
-            return _twoFactorPanel(context, state);
-          }
-          final passwordBusy = state.status == AuthStatus.authenticating;
-          // While any login is in flight every button is disabled, so a
-          // second flow can't start on top of the first.
-          final busy = passwordBusy || _launchingSsoId != null;
-          return AuthGlassCard(
-            child: Form(
-              key: _formKey,
-              // Groups the identifier + password fields so the OS/password
-              // manager fills both when a saved credential is picked, and can
-              // offer to save the pair on submit.
-              child: AutofillGroup(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Let the user re-target a different backend before
-                    // signing in (or add a new one).
-                    const ServerSelectorButton(),
-                    const SizedBox(height: 16),
-                    Text(
-                      organization ?? 'Hinata',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      localAuth
-                          ? context.t('auth.subtitle')
-                          : context.t('auth.ssoOnlyBody'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                    if (localAuth) ...[
-                      const SizedBox(height: 20),
-                      TextFormField(
-                        controller: _identifier,
-                        enabled: !busy,
-                        autofillHints: const [AutofillHints.username],
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autocorrect: false,
-                        decoration: InputDecoration(
-                          labelText: context.t('auth.identifier'),
-                          prefixIcon: const Icon(LucideIcons.user),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? context.t('errors.required')
-                            : null,
-                      ),
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _password,
-                        enabled: !busy,
-                        obscureText: true,
-                        autofillHints: const [AutofillHints.password],
-                        textInputAction: TextInputAction.done,
-                        decoration: InputDecoration(
-                          labelText: context.t('auth.password'),
-                          prefixIcon: const Icon(LucideIcons.lock),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? context.t('errors.required')
-                            : null,
-                        onFieldSubmitted: (_) => _submit(),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: busy
-                              ? null
-                              : () => context.go('/forgot-password'),
-                          child: Text(context.t('auth.forgotPassword')),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      FilledButton(
-                        onPressed: busy ? null : _submit,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: passwordBusy
-                              ? const SizedBox(
-                                  key: ValueKey('loader'),
-                                  width: 22,
-                                  height: 22,
-                                  child: HiveLoader(
-                                    size: 22,
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  context.t('auth.signIn'),
-                                  key: const ValueKey('label'),
-                                ),
-                        ),
-                      ),
-                    ],
-                    // The "or" divider only makes sense when both local
-                    // sign-in and SSO are offered.
-                    if (localAuth && _providers.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          const Expanded(child: Divider()),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              context.t('auth.or'),
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
-                          ),
-                          const Expanded(child: Divider()),
-                        ],
-                      ),
-                    ],
-                    // SSO buttons are shown whenever a provider exists,
-                    // including SSO-only mode (localAuth == false).
-                    if (_providers.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      for (final provider in _providers)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: OutlinedButton.icon(
-                            onPressed: busy ? null : () => _launchSso(provider),
-                            icon: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: _launchingSsoId == provider.id
-                                  ? const SizedBox(
-                                      key: ValueKey('loader'),
-                                      width: 18,
-                                      height: 18,
-                                      child: HiveLoader(
-                                        size: 18,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      LucideIcons.shield,
-                                      size: 18,
-                                      key: ValueKey('icon'),
-                                    ),
-                            ),
-                            label: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: _launchingSsoId == provider.id
-                                  ? Text(
-                                      context.t('auth.signingIn'),
-                                      key: const ValueKey('signing'),
-                                    )
-                                  : Text(
-                                      context.t(
-                                        'auth.continueWith',
-                                        variables: {
-                                          'provider': provider.displayName,
-                                        },
-                                      ),
-                                      key: const ValueKey('continue'),
-                                    ),
-                            ),
-                          ),
-                        ),
-                    ],
-                    // SSO-only, but no provider configured yet — the user
-                    // has no way to sign in; point them at their admin.
-                    if (!localAuth && _providers.isEmpty) ...[
+      child: BlocListener<AppConfigBloc, AppConfigState>(
+        listener: _onConfigChanged,
+        child: BlocConsumer<AuthBloc, AuthState>(
+          listener: (context, state) {
+            if (state.errorKey != null) {
+              showGlassErrorToast(context, context.t(state.errorKey!));
+            }
+          },
+          builder: (context, state) {
+            if (state.status == AuthStatus.twoFactorRequired ||
+                (state.status == AuthStatus.authenticating &&
+                    state.mfaToken != null)) {
+              return _twoFactorPanel(context, state);
+            }
+            final passwordBusy = state.status == AuthStatus.authenticating;
+            // While any login is in flight every button is disabled, so a
+            // second flow can't start on top of the first.
+            final busy = passwordBusy || _launchingSsoId != null;
+            return AuthGlassCard(
+              child: Form(
+                key: _formKey,
+                // Groups the identifier + password fields so the OS/password
+                // manager fills both when a saved credential is picked, and can
+                // offer to save the pair on submit.
+                child: AutofillGroup(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Let the user re-target a different backend before
+                      // signing in (or add a new one).
+                      const ServerSelectorButton(),
                       const SizedBox(height: 16),
                       Text(
-                        context.t('auth.ssoOnlyNoProviders'),
+                        organization ?? 'Hinata',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        localAuth
+                            ? context.t('auth.subtitle')
+                            : context.t('auth.ssoOnlyBody'),
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
-                    ],
-                    if (localAuth && registrationEnabled) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            context.t('auth.noAccount'),
-                            style: TextStyle(color: AppColors.textSecondary),
+                      if (localAuth) ...[
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _identifier,
+                          enabled: !busy,
+                          autofillHints: const [AutofillHints.username],
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          decoration: InputDecoration(
+                            labelText: context.t('auth.identifier'),
+                            prefixIcon: const Icon(LucideIcons.user),
                           ),
-                          TextButton(
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? context.t('errors.required')
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _password,
+                          enabled: !busy,
+                          obscureText: true,
+                          autofillHints: const [AutofillHints.password],
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            labelText: context.t('auth.password'),
+                            prefixIcon: const Icon(LucideIcons.lock),
+                          ),
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? context.t('errors.required')
+                              : null,
+                          onFieldSubmitted: (_) => _submit(),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
                             onPressed: busy
                                 ? null
-                                : () => context.go('/register'),
-                            child: Text(context.t('auth.createAccount')),
+                                : () => context.go('/forgot-password'),
+                            child: Text(context.t('auth.forgotPassword')),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 10),
+                        FilledButton(
+                          onPressed: busy ? null : _submit,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: passwordBusy
+                                ? const SizedBox(
+                                    key: ValueKey('loader'),
+                                    width: 22,
+                                    height: 22,
+                                    child: HiveLoader(
+                                      size: 22,
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    context.t('auth.signIn'),
+                                    key: const ValueKey('label'),
+                                  ),
+                          ),
+                        ),
+                      ],
+                      // The "or" divider only makes sense when both local
+                      // sign-in and SSO are offered.
+                      if (localAuth && _providers.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Text(
+                                context.t('auth.or'),
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                      ],
+                      // SSO buttons are shown whenever a provider exists,
+                      // including SSO-only mode (localAuth == false).
+                      if (_providers.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        for (final provider in _providers)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: OutlinedButton.icon(
+                              onPressed: busy
+                                  ? null
+                                  : () => _launchSso(provider),
+                              icon: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: _launchingSsoId == provider.id
+                                    ? const SizedBox(
+                                        key: ValueKey('loader'),
+                                        width: 18,
+                                        height: 18,
+                                        child: HiveLoader(
+                                          size: 18,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        LucideIcons.shield,
+                                        size: 18,
+                                        key: ValueKey('icon'),
+                                      ),
+                              ),
+                              label: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                child: _launchingSsoId == provider.id
+                                    ? Text(
+                                        context.t('auth.signingIn'),
+                                        key: const ValueKey('signing'),
+                                      )
+                                    : Text(
+                                        context.t(
+                                          'auth.continueWith',
+                                          variables: {
+                                            'provider': provider.displayName,
+                                          },
+                                        ),
+                                        key: const ValueKey('continue'),
+                                      ),
+                              ),
+                            ),
+                          ),
+                      ],
+                      // Discovery is a second request. While it is in flight an
+                      // SSO-only server must not be declared misconfigured — on
+                      // that server this screen is the only way in.
+                      if (!localAuth &&
+                          _providers.isEmpty &&
+                          _ssoDiscovery == _SsoDiscovery.loading) ...[
+                        const SizedBox(height: 20),
+                        const Center(child: HiveLoader(size: 28)),
+                      ],
+                      // The lookup itself failed. Say so and offer another go:
+                      // silence here reads as "this server has no SSO", which is
+                      // wrong and (in SSO-only mode) a dead end.
+                      if (_ssoDiscovery == _SsoDiscovery.failed) ...[
+                        const SizedBox(height: 14),
+                        Text(
+                          context.t('auth.ssoLoadFailed'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: busy ? null : _loadProviders,
+                          icon: const Icon(LucideIcons.refreshCw, size: 15),
+                          label: Text(context.t('common.retry')),
+                        ),
+                      ],
+                      // SSO-only, and the server really did answer "none" — the
+                      // user has no way to sign in; point them at their admin.
+                      if (!localAuth &&
+                          _providers.isEmpty &&
+                          _ssoDiscovery == _SsoDiscovery.done) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          context.t('auth.ssoOnlyNoProviders'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ],
+                      if (localAuth && registrationEnabled) ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              context.t('auth.noAccount'),
+                              style: TextStyle(color: AppColors.textSecondary),
+                            ),
+                            TextButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => context.go('/register'),
+                              child: Text(context.t('auth.createAccount')),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      const LegalLinks(),
                     ],
-                    const SizedBox(height: 8),
-                    const LegalLinks(),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

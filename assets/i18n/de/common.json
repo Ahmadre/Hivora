@@ -206,6 +206,7 @@
     "ssoTimedOut": "Die Anmeldung hat zu lange gedauert. Bitte versuche es erneut.",
     "ssoNoCode": "Der Anmeldelink war unvollständig. Bitte versuche es erneut.",
     "ssoLaunchFailed": "Die Anmeldeseite konnte nicht geöffnet werden. Bitte versuche es erneut.",
+    "ssoLoadFailed": "Single Sign-on konnte nicht geladen werden.",
     "invalidTwoFactorCode": "Ungültiger Code. Bitte erneut versuchen.",
     "twoFactorTitle": "Zwei-Faktor-Authentifizierung",
     "twoFactorSubtitle": "Gib den 6-stelligen Code deiner Authenticator-App oder einen Wiederherstellungscode ein.",

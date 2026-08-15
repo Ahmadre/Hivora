@@ -206,6 +206,7 @@
     "ssoTimedOut": "signing in took too long. Please try again.",
     "ssoNoCode": "the sign-in link was incomplete. Please try again.",
     "ssoLaunchFailed": "Could not open the sign-in page. Please try again.",
+    "ssoLoadFailed": "Couldn't load single sign-on.",
     "invalidTwoFactorCode": "Invalid code. Try again.",
     "twoFactorTitle": "Two-factor authentication",
     "twoFactorSubtitle": "Enter the 6-digit code from your authenticator app, or a recovery code.",
