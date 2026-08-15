@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -36,43 +38,138 @@ bool kindIsPdf(String kind) => kind == 'pdf';
 /// asking for a preview would only cost a request that answers 404.
 bool kindHasPreview(String kind) => kindIsImage(kind) || kindIsPdf(kind);
 
-/// Extensions we can render inline as plain text in the lightbox. These are a
-/// superset of what the server actually accepts (text/plain, text/csv,
-/// application/json) so previews keep working if the whitelist grows.
+/// Largest text file we fetch and render inline. Bigger files fall back to the
+/// type card so a huge blob is never pulled into memory just for a preview.
+const int kMaxTextPreviewBytes = 2 * 1024 * 1024;
+
+/// Largest *unknown* file we're willing to download just to find out whether it
+/// is text (see [AttachmentPreviewKind.maybeText]). Much tighter than
+/// [kMaxTextPreviewBytes]: this budget is spent on a guess, not on a request the
+/// file type already justified.
+const int kMaxTextSniffBytes = 512 * 1024;
+
+/// Extensions we can render inline as plain text. Deliberately broad — the
+/// viewer renders every one of them as *inert plain text* (never as markup, a
+/// document or a script), so listing a type here only ever means "show the
+/// characters", and a superset costs nothing while covering the code, config
+/// and log files people actually attach.
 const Set<String> kTextPreviewExtensions = {
-  'txt',
-  'text',
-  'log',
-  'md',
-  'markdown',
-  'json',
-  'jsonc',
-  'geojson',
-  'csv',
-  'tsv',
-  'xml',
-  'yaml',
-  'yml',
-  'toml',
-  'ini',
-  'cfg',
-  'conf',
-  'properties',
-  'env',
-  'html',
-  'htm',
-  'css',
+  // plain text, logs, docs
+  'txt', 'text', 'log', 'out', 'err', 'md', 'markdown', 'mdx', 'rst', 'adoc',
+  'tex', 'bib', 'srt', 'vtt', 'diff', 'patch', 'readme', 'license',
+  // structured data
+  'json', 'jsonc', 'json5', 'geojson', 'ndjson', 'jsonl', 'csv', 'tsv', 'xml',
+  'plist', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'config', 'properties',
+  'env', 'lock', 'sum', 'graphql', 'gql', 'proto', 'sql', 'ipynb',
+  // web
+  'html', 'htm', 'xhtml', 'css', 'scss', 'sass', 'less', 'vue', 'svelte',
+  // code
+  'dart', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'java', 'kt', 'kts', 'swift',
+  'm', 'mm', 'c', 'h', 'cc', 'cpp', 'hpp', 'cs', 'go', 'rs', 'rb', 'py', 'pyi',
+  'php', 'pl', 'lua', 'r', 'scala', 'groovy', 'gradle', 'sh', 'bash', 'zsh',
+  'fish', 'ps1', 'bat', 'cmd', 'mk', 'cmake', 'tf', 'tfvars', 'hcl', 'nix',
+  'dockerfile', 'makefile', 'gitignore', 'gitattributes', 'editorconfig',
 };
 
+/// `application/…` types that are text despite not saying `text/`.
+const Set<String> _kTextApplicationMimes = {
+  'application/json',
+  'application/ld+json',
+  'application/xml',
+  'application/xhtml+xml',
+  'application/javascript',
+  'application/x-javascript',
+  'application/x-sh',
+  'application/x-yaml',
+  'application/yaml',
+  'application/toml',
+  'application/csv',
+  'application/sql',
+  'application/x-ndjson',
+};
+
+/// The file name's lowercase extension, or the whole (lowercased) name for
+/// extensionless files like `Dockerfile` / `Makefile` — which is exactly how
+/// [kTextPreviewExtensions] lists them.
+String fileExtension(String name) {
+  final base = name.split('/').last.split(r'\').last.toLowerCase();
+  final dot = base.lastIndexOf('.');
+  if (dot <= 0 || dot == base.length - 1) return base;
+  return base.substring(dot + 1);
+}
+
 /// Whether [name]/[mime] is previewable as plain text inline. Switches on MIME
-/// first (covers text/* and application/json), then falls back to extension.
+/// first (covers `text/*`, the JSON/XML families and their `+json` / `+xml`
+/// suffixes), then falls back to the extension — the declared type is often
+/// just `application/octet-stream` for anything the OS has no mapping for.
 bool isTextPreviewable(String name, [String? mime]) {
-  if (mime != null &&
-      (mime.startsWith('text/') || mime == 'application/json')) {
-    return true;
+  final m = mime?.toLowerCase().split(';').first.trim();
+  if (m != null && m.isNotEmpty) {
+    if (m.startsWith('text/')) return true;
+    if (_kTextApplicationMimes.contains(m)) return true;
+    if (m.startsWith('application/') &&
+        (m.endsWith('+json') || m.endsWith('+xml'))) {
+      return true;
+    }
   }
-  final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
-  return kTextPreviewExtensions.contains(ext);
+  return kTextPreviewExtensions.contains(fileExtension(name));
+}
+
+/// How an attachment is shown on the viewer's stage.
+enum AttachmentPreviewKind {
+  image,
+  pdf,
+
+  /// A type we know is text — rendered in the text viewer.
+  text,
+
+  /// A type we don't recognise, small enough to fetch and look at: rendered as
+  /// text when the bytes actually *are* text, and as the type card when they
+  /// aren't. This is what makes extensionless files (`Dockerfile`, `LICENSE`)
+  /// and anything the OS typed as `application/octet-stream` readable.
+  maybeText,
+
+  /// Nothing to render inline — the type card explains why.
+  none,
+}
+
+/// Picks the stage renderer for an attachment. [size] is the file size in
+/// bytes; text previews are capped so one large attachment can't stall the app.
+AttachmentPreviewKind previewKindFor({
+  required String kind,
+  required String name,
+  required int size,
+  String? mime,
+}) {
+  if (kindIsImage(kind)) return AttachmentPreviewKind.image;
+  if (kindIsPdf(kind)) return AttachmentPreviewKind.pdf;
+  if (isTextPreviewable(name, mime)) {
+    return size <= kMaxTextPreviewBytes
+        ? AttachmentPreviewKind.text
+        : AttachmentPreviewKind.none;
+  }
+  // Unknown type: worth a look, but only a small one.
+  if (kind == 'file' && size > 0 && size <= kMaxTextSniffBytes) {
+    return AttachmentPreviewKind.maybeText;
+  }
+  return AttachmentPreviewKind.none;
+}
+
+/// Whether [bytes] look like text rather than a binary blob — the check behind
+/// [AttachmentPreviewKind.maybeText]. Mirrors what `file(1)` and Git do: a NUL
+/// byte means binary, and so does a high share of other control characters.
+/// Only the head of the file is probed, so the cost is independent of its size.
+bool looksLikeText(Uint8List bytes) {
+  if (bytes.isEmpty) return false;
+  final probe = bytes.length > 4096 ? 4096 : bytes.length;
+  var control = 0;
+  for (var i = 0; i < probe; i++) {
+    final b = bytes[i];
+    if (b == 0) return false;
+    // Everything outside tab/LF/CR/FF and the printable range.
+    if (b < 0x09 || (b > 0x0D && b < 0x20) || b == 0x7F) control++;
+  }
+  return control / probe < 0.05;
 }
 
 /// Mirrors `kindFromName()`: switch on MIME first, then file extension.

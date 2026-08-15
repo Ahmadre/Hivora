@@ -545,6 +545,20 @@
       "ageWeeks": "{{n}}w ago",
       "ageMonths": "{{n}}mo ago",
       "ageYears": "{{n}}y ago",
+      "viewer": {
+        "close": "Close",
+        "previous": "Previous file",
+        "next": "Next file",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "resetZoom": "Reset zoom",
+        "wrap": "Wrap long lines",
+        "lineNumbers": "Line numbers",
+        "copy": "Copy all text",
+        "copied": "Text copied",
+        "emptyFile": "This file is empty.",
+        "tooLarge": "Too large for an inline preview — download it to read it."
+      },
       "source": {
         "title": "Add attachment",
         "gallery": "Photo Library",

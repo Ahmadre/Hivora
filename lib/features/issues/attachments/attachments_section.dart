@@ -28,7 +28,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassConfirm, showGlassToast;
 import 'attachment_kind.dart';
-import 'attachment_lightbox.dart';
+import 'attachment_viewer.dart';
 import 'upload_source_sheet.dart';
 
 part 'attachments_section.tiles.dart';
@@ -566,36 +566,20 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     }
   }
 
+  /// Opens the full-screen viewer on the tapped file, with *every* attachment
+  /// of the issue in the pager — pictures, documents and text alike, in the
+  /// order the grid shows them. Paging used to cover the pictures only, so
+  /// looking through what is attached meant returning to the grid each time.
   Future<void> _open(IssueAttachment tapped) async {
-    final kind = kindFromName(tapped.fileName, tapped.contentType);
-    if (kindIsImage(kind)) {
-      final images = _server
-          .where((a) => kindIsImage(kindFromName(a.fileName, a.contentType)))
-          .toList();
-      final items = [
-        for (final a in images) _toLightboxItem(a, _downloadPath(a.id)),
-      ];
-      final idx = images.indexWhere((a) => a.id == tapped.id);
-      await showAttachmentLightbox(
-        context,
-        items: items,
-        initialIndex: idx < 0 ? 0 : idx,
-        onDownload: (it) => _downloadById(it.id, it.name),
-      );
-    } else {
-      // PDFs and text/JSON/CSV preview inline too — pass the download path so
-      // the lightbox can fetch the content. Other types just show a card.
-      final previewable =
-          kindIsPdf(kind) ||
-          isTextPreviewable(tapped.fileName, tapped.contentType);
-      final url = previewable ? _downloadPath(tapped.id) : null;
-      await showAttachmentLightbox(
-        context,
-        items: [_toLightboxItem(tapped, url)],
-        initialIndex: 0,
-        onDownload: (it) => _downloadById(it.id, it.name),
-      );
-    }
+    final ordered = _server.reversed.toList(); // newest first, like the grid
+    final items = [for (final a in ordered) _toViewerItem(a)];
+    final idx = ordered.indexWhere((a) => a.id == tapped.id);
+    await showAttachmentViewer(
+      context,
+      items: items,
+      initialIndex: idx < 0 ? 0 : idx,
+      onDownload: (it) => _downloadById(it.id, it.name),
+    );
   }
 
   Future<void> _downloadById(String id, String name) async {
@@ -606,14 +590,17 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     await _download(att);
   }
 
-  LightboxItem _toLightboxItem(IssueAttachment a, String? url) {
+  ViewerItem _toViewerItem(IssueAttachment a) {
     final kind = kindFromName(a.fileName, a.contentType);
-    return LightboxItem(
+    return ViewerItem(
       id: a.id,
       name: a.fileName,
       kind: kind,
       size: a.size,
-      url: url,
+      // Always the download path: the viewer decides what (if anything) to
+      // fetch from the file's type and size, and only ever reads bytes for a
+      // stage that can actually render them.
+      url: _downloadPath(a.id),
       // Pictures and PDFs have a server-rendered preview to show while the
       // original downloads; nothing else does.
       thumbnailUrl: kindHasPreview(kind) ? _thumbnailPath(a.id) : null,

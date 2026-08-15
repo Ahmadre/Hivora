@@ -16,7 +16,6 @@ class WnsChannel {
 
   static const MethodChannel _channel = MethodChannel('hinata/wns');
 
-
   /// Routes a notification the user clicked.
   ///
   /// Two paths, because a click either activates the running app or launches
@@ -43,7 +42,9 @@ class WnsChannel {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return null;
     try {
       final link = await _channel.invokeMethod<String>('getInitialDeepLink');
-      if (link == null || !link.startsWith('/') || link.length <= 1) return null;
+      if (link == null || !link.startsWith('/') || link.length <= 1) {
+        return null;
+      }
       return link;
     } on MissingPluginException {
       return null;

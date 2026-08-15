@@ -268,8 +268,9 @@ class _ActionPopup extends StatelessWidget {
             // and `supportsImageSource` reports exactly that. Offering the row
             // unconditionally used to throw a StateError on Windows/Linux and
             // on any desktop build without the delegate.
-            if (ImagePickerPlatform.instance
-                .supportsImageSource(ImageSource.camera))
+            if (ImagePickerPlatform.instance.supportsImageSource(
+              ImageSource.camera,
+            ))
               _row(
                 context,
                 LucideIcons.camera,

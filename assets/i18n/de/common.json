@@ -545,6 +545,20 @@
       "ageWeeks": "vor {{n}} Wo.",
       "ageMonths": "vor {{n}} Mon.",
       "ageYears": "vor {{n}} J.",
+      "viewer": {
+        "close": "Schließen",
+        "previous": "Vorherige Datei",
+        "next": "Nächste Datei",
+        "zoomIn": "Vergrößern",
+        "zoomOut": "Verkleinern",
+        "resetZoom": "Zoom zurücksetzen",
+        "wrap": "Lange Zeilen umbrechen",
+        "lineNumbers": "Zeilennummern",
+        "copy": "Gesamten Text kopieren",
+        "copied": "Text kopiert",
+        "emptyFile": "Diese Datei ist leer.",
+        "tooLarge": "Zu groß für die Vorschau – zum Lesen herunterladen."
+      },
       "source": {
         "title": "Anhang hinzufügen",
         "gallery": "Fotomediathek",
