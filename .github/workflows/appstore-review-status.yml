@@ -1,0 +1,33 @@
+name: App Store review status
+
+# What does App Store Connect actually say about our submissions? Prints every
+# recent version and review submission with its state and dates, so "Apple is
+# not reviewing us" can be told apart from "it was never submitted".
+#
+#   Actions tab → "App Store review status" → Run workflow
+on:
+  workflow_dispatch:
+    inputs:
+      bundle_id:
+        description: 'Bundle id to inspect'
+        type: string
+        default: 'com.ahmadre.hinata'
+
+jobs:
+  status:
+    name: Query App Store Connect
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests pyjwt cryptography
+      - name: Review status
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: python ios/fastlane/review_status.py --bundle-id "${{ inputs.bundle_id }}"
