@@ -118,6 +118,25 @@ und meldet ihn; abgelaufene Kanäle antworten mit HTTP 410, woraufhin der Server
 sie aus der Geräteliste entfernt (dieselbe Selbstheilung wie bei toten
 FCM-Tokens).
 
+## 5. Store-Listing-Bilder (automatisiert)
+
+`msstore publish` lädt **nur Pakete** hoch — Screenshots und Bildunterschriften
+sind darüber nicht erreichbar. Dafür gibt es **Actions → „Windows listing
+(screenshots)"**: `windows/store/update_listing.py` schreibt die Bilder aus
+`windows/store/screenshots/` über die Store-Submission-API in die offene
+Übermittlung, in **jedes** Sprach-Listing (`en-us`, `de-de`), und committet sie
+auf Wunsch gleich mit (= Zertifizierung startet). Es nutzt dieselben
+`AZURE_AD_*`-Secrets wie oben.
+
+Zwei Regeln der API, die man kennen muss:
+
+- Sie kann eine Übermittlung nur **klonen, wenn schon einmal etwas
+  veröffentlicht wurde**. Solange die App nie live war, muss die offene
+  Übermittlung in Partner Center existieren — der Workflow aktualisiert sie dann.
+- Eine per API angelegte Übermittlung darf **nicht** zwischendurch in Partner
+  Center bearbeitet werden, sonst lässt sie sich per API weder ändern noch
+  committen.
+
 ## Wozu die CI KEIN Zertifikat braucht
 
 Store-gebundene Pakete signiert Microsoft bei der Ingestion selbst. Ein

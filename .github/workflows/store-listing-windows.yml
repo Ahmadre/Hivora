@@ -1,0 +1,50 @@
+name: Windows listing (screenshots)
+
+# Pushes the Microsoft Store listing screenshots in windows/store/screenshots
+# into the pending Partner Center submission — for every listing language —
+# and optionally commits it, which starts certification.
+#
+#   Actions tab → "Windows listing (screenshots)" → Run workflow
+#
+# Listing content (screenshots, captions) is out of reach for `msstore publish`,
+# which only uploads packages; this uses the Store submission API with the same
+# Entra credentials. See release/MANUAL_STEPS_WINDOWS.md for how those secrets
+# were created.
+on:
+  workflow_dispatch:
+    inputs:
+      languages:
+        description: 'Listing languages (comma-separated, empty = all)'
+        type: string
+        default: 'en-us,de-de'
+      commit:
+        description: 'Commit the submission (starts certification)'
+        type: boolean
+        default: true
+      dry_run:
+        description: 'Only report what would change'
+        type: boolean
+        default: false
+
+jobs:
+  listing:
+    name: Update store listing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Update listing screenshots
+        env:
+          AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+          AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+          AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+        run: |
+          python windows/store/update_listing.py \
+            --languages "${{ inputs.languages }}" \
+            ${{ inputs.commit && '--commit' || '' }} \
+            ${{ inputs.dry_run && '--dry-run' || '' }}

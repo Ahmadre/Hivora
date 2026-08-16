@@ -123,7 +123,29 @@ Same check as above: this is displayed publicly on the listing.
 
 ## Images
 
-Screenshots: 6 desktop shots already uploaded ✅
+### Screenshots — `windows/store/screenshots/`
+
+Six 2560 × 1440 desktop shots, in listing order, with the captions in
+`captions.json` (en-us + de-de). Upload them with **Actions → "Windows listing
+(screenshots)"**; `windows/store/update_listing.py` writes them into the pending
+Partner Center submission through the Store submission API, for every language.
+
+**Why they look the way they do.** The 2026-08-16 submission was rejected under
+policy **10.1.1.3 Inaccurate Representation**: the images uploaded then were the
+Apple-store compositions — a MacBook frame with macOS traffic lights. Store
+metadata may not show another platform's UI or devices. The current set shows the
+app in a plain Windows 11 window (title bar with minimize / maximize / close) on
+the brand backdrop, and nothing else: Store guidance for the screenshot slots is
+also explicit that they carry no extra logos, icons or marketing copy.
+
+Two things to keep in mind when regenerating them:
+
+- The search hint must read **Ctrl K**, not ⌘K. The app renders it per platform
+  (`searchShortcutLabel` in `lib/features/shell/app_shell.dart`) — before
+  2026-08-16 it was hardcoded to ⌘K on every platform, which is what the old
+  screenshots showed.
+- Captions are per language; the app UI in the images is English for both
+  listings.
 
 Store logos — generated from `assets/branding/app_icon.png` into
 `windows/store/images/` by `windows/store/generate_images.py`:

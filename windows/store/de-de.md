@@ -122,6 +122,20 @@ stehen soll — die Angabe ist öffentlich sichtbar.
 ## Bilder
 
 Identisch zur englischen Fassung — Store-Grafiken sind sprachunabhängig und
-liegen in `windows/store/images/`. Screenshots kannst du dieselben verwenden;
-falls du deutsche Beschriftungen in den Screenshots willst, brauchst du einen
-eigenen Satz für dieses Listing.
+liegen in `windows/store/images/`. Auch die sechs Screenshots aus
+`windows/store/screenshots/` sind für beide Listings dieselben; **deutsch ist
+nur die Bildunterschrift** (`captions.json`), die App-Oberfläche auf den Bildern
+ist englisch.
+
+Hochgeladen werden sie über **Actions → „Windows listing (screenshots)"** — das
+schreibt sie per Store-Submission-API in beide Sprach-Listings der offenen
+Übermittlung.
+
+**Warum die Bilder so aussehen:** Die Einreichung vom 16.08.2026 wurde nach
+Richtlinie **10.1.1.3 Inaccurate Representation** abgelehnt — hochgeladen waren
+die Apple-Store-Kompositionen mit MacBook-Rahmen und macOS-Ampelknöpfen.
+Store-Metadaten dürfen keine fremde Plattform-UI und keine fremden Geräte
+zeigen. Der aktuelle Satz zeigt die App in einem schlichten Windows-11-Fenster
+(Titelleiste mit Minimieren / Maximieren / Schließen), ohne Zusatz-Logos und
+ohne Werbetext — auch das verlangt Microsofts Leitfaden für die Screenshot-Slots.
+Die Suchleiste muss dabei **Ctrl K** zeigen, nicht ⌘K.

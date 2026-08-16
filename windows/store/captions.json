@@ -1,0 +1,48 @@
+{
+  "_comment": "Store listing screenshots for Partner Center, in listing order. Each caption is the image's `description` (Store limit: 200 characters).",
+  "screenshots": [
+    {
+      "file": "01_dashboard.png",
+      "captions": {
+        "en-us": "Your work at a glance: sprint progress, today's focus and project health on one dashboard.",
+        "de-de": "Alles auf einen Blick: Sprint-Fortschritt, Tagesfokus und Projektstatus auf einem Dashboard."
+      }
+    },
+    {
+      "file": "02_board.png",
+      "captions": {
+        "en-us": "Scrum and Kanban boards with drag & drop, WIP limits and live sprint progress.",
+        "de-de": "Scrum- und Kanban-Boards mit Drag & Drop, WIP-Limits und laufendem Sprint-Fortschritt."
+      }
+    },
+    {
+      "file": "03_issues.png",
+      "captions": {
+        "en-us": "Every issue in its place: grouping, sorting, filters, priorities and assignees.",
+        "de-de": "Jeder Vorgang an seinem Platz: Gruppierung, Sortierung, Filter, Priorität und Zuständigkeit."
+      }
+    },
+    {
+      "file": "04_gantt.png",
+      "captions": {
+        "en-us": "Timeline and Gantt view with dependencies, milestones and live progress.",
+        "de-de": "Timeline- und Gantt-Ansicht mit Abhängigkeiten, Meilensteinen und Live-Fortschritt."
+      }
+    },
+    {
+      "file": "05_reports.png",
+      "captions": {
+        "en-us": "Reports that matter: burndown, velocity, cycle time and issue distribution.",
+        "de-de": "Aussagekräftige Reports: Burndown, Velocity, Cycle Time und Verteilung der Vorgänge."
+      }
+    },
+    {
+      "file": "06_comments.png",
+      "captions": {
+        "en-us": "Threaded comments with replies, emoji reactions and voice notes, updating live.",
+        "de-de": "Kommentar-Threads mit Antworten, Emoji-Reaktionen und Sprachnotizen — live aktualisiert."
+      }
+    }
+  ],
+  "notesForCertification": "Screenshot update (policy 10.1.1.3): every listing image now shows the Windows desktop build of Hinata in a standard Windows 11 window - title bar with minimize, maximize and close. No other platform's UI or devices appear in the metadata."
+}
