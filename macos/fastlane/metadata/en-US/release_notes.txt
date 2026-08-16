@@ -1,3 +1,8 @@
-• Add base tint, rim, and popover scrim to anchored dropdowns
-• Open launch notification deep link once per notification, ever
-• Broadcast board mutations via BoardEvents for cross-screen sync
+• Add progressive image loading with BlurHash placeholders
+• Add bulk download-all and delete-all for attachments
+• Add TRIVIAL priority level support
+• Add SSO profile-mapping fields and PKCE toggle to all providers
+• Localize due labels, add key suggestion, and fix attachment grid
+• Restore glyph legibility on active toolbar buttons in dark mode
+• Resolve assignee names and fix capacity bar rendering
+• Retry SSO discovery on cold-start failure and surface errors
