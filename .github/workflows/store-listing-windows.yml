@@ -10,6 +10,11 @@ name: Windows listing (screenshots)
 # which only uploads packages; this uses the Store submission API with the same
 # Entra credentials. See release/MANUAL_STEPS_WINDOWS.md for how those secrets
 # were created.
+#
+# A submission that is currently being ingested (pre-processing, certification,
+# publishing) cannot be edited — the API answers 409 InvalidState. With
+# `tolerate_busy` that is reported instead of failing the run, which is how the
+# companion retry workflow keeps trying until the Store lets the edit through.
 on:
   workflow_dispatch:
     inputs:
@@ -25,6 +30,35 @@ on:
         description: 'Only report what would change'
         type: boolean
         default: false
+      tolerate_busy:
+        description: 'Do not fail if the submission is locked by an ingestion run'
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      languages:
+        type: string
+        default: 'en-us,de-de'
+      commit:
+        type: boolean
+        default: true
+      dry_run:
+        type: boolean
+        default: false
+      tolerate_busy:
+        type: boolean
+        default: false
+    outputs:
+      outcome:
+        description: 'already-applied · dry-run · busy · uploaded · committed'
+        value: ${{ jobs.listing.outputs.outcome }}
+    secrets:
+      AZURE_AD_TENANT_ID:
+        required: true
+      AZURE_AD_APPLICATION_CLIENT_ID:
+        required: true
+      AZURE_AD_APPLICATION_SECRET:
+        required: true
 
 jobs:
   listing:
@@ -32,6 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      outcome: ${{ steps.listing.outputs.outcome }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,12 +75,18 @@ jobs:
           python-version: '3.12'
       - run: pip install requests
       - name: Update listing screenshots
+        id: listing
         env:
           AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
           AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
           AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+          LANGUAGES: ${{ inputs.languages }}
+          COMMIT: ${{ inputs.commit }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          TOLERATE_BUSY: ${{ inputs.tolerate_busy }}
         run: |
-          python windows/store/update_listing.py \
-            --languages "${{ inputs.languages }}" \
-            ${{ inputs.commit && '--commit' || '' }} \
-            ${{ inputs.dry_run && '--dry-run' || '' }}
+          flags=""
+          if [ "$COMMIT" = "true" ]; then flags="$flags --commit"; fi
+          if [ "$DRY_RUN" = "true" ]; then flags="$flags --dry-run"; fi
+          if [ "$TOLERATE_BUSY" = "true" ]; then flags="$flags --tolerate-busy"; fi
+          python windows/store/update_listing.py --languages "$LANGUAGES" $flags

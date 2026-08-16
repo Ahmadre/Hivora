@@ -1,0 +1,41 @@
+name: Windows listing (retry until accepted)
+
+# A submission that the Store is currently ingesting cannot be edited: the API
+# answers 409 InvalidState until pre-processing / certification / publishing for
+# that round has ended. So when the listing update has to wait for a running
+# round, this keeps knocking every 30 minutes and lands it at the first moment
+# the Store allows the edit — then commits, and switches itself off so the
+# schedule does not run forever.
+#
+# Turn it back on in Actions → this workflow → "Enable workflow" whenever a
+# listing change has to wait for a round again.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  listing:
+    uses: ./.github/workflows/store-listing-windows.yml
+    with:
+      languages: 'en-us,de-de'
+      commit: true
+      tolerate_busy: true
+    secrets:
+      AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+      AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+      AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+
+  done:
+    name: Stop retrying
+    needs: listing
+    if: needs.listing.outputs.outcome != 'busy'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "outcome: ${{ needs.listing.outputs.outcome }} — disabling the schedule"
+          gh workflow disable "${{ github.workflow }}" --repo "${{ github.repository }}"

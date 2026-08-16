@@ -89,8 +89,17 @@ class Store:
         return self._call("GET", f"/applications/{PRODUCT_ID}/submissions/{sid}")
 
     def update(self, sid, body):
-        return self._call("PUT", f"/applications/{PRODUCT_ID}/submissions/{sid}",
-                          data=json.dumps(body))
+        """False when the Store refuses the edit because an ingestion run holds
+        the submission (409 InvalidState). That clears once the run ends, so it
+        is a "come back later", not a failure."""
+        r = self.s.put(f"{API}/applications/{PRODUCT_ID}/submissions/{sid}",
+                       data=json.dumps(body), timeout=120)
+        if r.status_code == 409 and "InvalidState" in r.text:
+            print(f"  busy: {r.json().get('message')}")
+            return False
+        if r.status_code >= 400:
+            die(f"PUT submission -> {r.status_code}: {r.text[:1200]}")
+        return True
 
     def commit(self, sid):
         return self._call(
@@ -99,6 +108,16 @@ class Store:
     def status(self, sid):
         return self._call(
             "GET", f"/applications/{PRODUCT_ID}/submissions/{sid}/status")
+
+
+def outcome(value):
+    """Report what happened to the caller (a workflow step reads this)."""
+    print(f"outcome: {value}")
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as f:
+            f.write(f"outcome={value}\n")
+    return 0
 
 
 def load_shots():
@@ -113,6 +132,14 @@ def load_shots():
             if len(cap) > 200:
                 die(f"caption for {s['file']} [{lang}] is {len(cap)} chars (max 200)")
     return shots, cfg.get("notesForCertification", "")
+
+
+def already_applied(listing, shots):
+    """True when this listing already carries exactly these screenshots."""
+    live = {i["fileName"] for i in listing["baseListing"].get("images", [])
+            if i.get("imageType") == IMAGE_TYPE
+            and i.get("fileStatus") != "PendingDelete"}
+    return live == {s["file"] for s in shots}
 
 
 def swap_images(listing, shots, lang):
@@ -154,6 +181,9 @@ def main(argv=None):
                     help="show what would change; touch nothing")
     ap.add_argument("--languages", default="",
                     help="comma-separated listing languages (default: all)")
+    ap.add_argument("--tolerate-busy", action="store_true",
+                    help="exit 0 when the submission is locked by an ingestion "
+                         "run (for the scheduled retry)")
     args = ap.parse_args(argv)
 
     shots, notes = load_shots()
@@ -161,11 +191,16 @@ def main(argv=None):
 
     app = store.app()
     pending = app.get("pendingApplicationSubmission")
-    if not pending:
-        die("the app has no pending submission — create one in Partner Center "
-            "first (the API can only clone a *published* submission, and this "
-            "app has never been published)")
-    sid = pending["id"]
+    if pending:
+        sid = pending["id"]
+    elif app.get("lastPublishedApplicationSubmission"):
+        # Nothing open: clone the published one, which is what Partner Center's
+        # "new submission" button does.
+        sid = store._call("POST", f"/applications/{PRODUCT_ID}/submissions")["id"]
+        print(f"created submission {sid} from the published listing")
+    else:
+        die("the app has no pending submission and has never been published — "
+            "create the submission in Partner Center first")
     sub = store.submission(sid)
     print(f"app {PRODUCT_ID} · submission {sid} · status {sub.get('status')}")
     for e in sub.get("statusDetails", {}).get("errors", []):
@@ -186,6 +221,10 @@ def main(argv=None):
     if not langs:
         die("submission has no store listings")
 
+    if all(already_applied(listings[l], shots) for l in langs):
+        print("listings already carry these screenshots — nothing to do")
+        return outcome("already-applied")
+
     for lang in langs:
         retired = swap_images(listings[lang], shots, lang.lower())
         print(f"  {lang}: {retired} screenshot(s) removed, {len(shots)} added")
@@ -196,9 +235,13 @@ def main(argv=None):
 
     if args.dry_run:
         print("dry run — nothing sent")
-        return 0
+        return outcome("dry-run")
 
-    store.update(sid, sub)
+    if not store.update(sid, sub):
+        print("the submission is being ingested right now and cannot be edited; "
+              "it becomes editable again when that run ends (certification "
+              "passed or failed). Re-run this then.")
+        return outcome("busy") if args.tolerate_busy else 1
     print("submission updated")
 
     blob = zip_images(shots)
@@ -210,7 +253,7 @@ def main(argv=None):
 
     if not args.commit:
         print("not committed (--commit to submit for certification)")
-        return 0
+        return outcome("uploaded")
 
     store.commit(sid)
     for _ in range(60):
@@ -224,10 +267,10 @@ def main(argv=None):
                          "CertificationFailed", "PublishFailed", "ReleaseFailed"):
                 die(f"submission ended in {state}")
             print("committed — certification is running")
-            return 0
+            return outcome("committed")
         time.sleep(15)
     print("still committing; check Partner Center")
-    return 0
+    return outcome("committed")
 
 
 if __name__ == "__main__":
