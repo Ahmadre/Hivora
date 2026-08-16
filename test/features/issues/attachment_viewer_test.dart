@@ -3,6 +3,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/api/api_client.dart';
 import 'package:hinata/features/issues/attachments/attachment_kind.dart';
+import 'package:hinata/core/theme/app_colors.dart';
 import 'package:hinata/features/issues/attachments/attachment_viewer.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -309,6 +311,35 @@ void main() {
       expect(vertical.offset, 600);
     });
 
+    testWidgets('an active toolbar toggle keeps its glyph legible on dark', (
+      tester,
+    ) async {
+      AppColors.brightness = Brightness.dark;
+      addTearDown(() => AppColors.brightness = Brightness.light);
+
+      api.serve('/dl/dark', 'alpha');
+      await openViewer(tester, [textItem(path: '/dl/dark')]);
+      await pumpUntil(tester, find.text('alpha'));
+
+      // Wrap starts on, so its button is the one in the active state.
+      final button = find.byIcon(LucideIcons.wrapText);
+      final glyph = tester.widget<Icon>(button).color!;
+      final fill = tester
+          .widget<Material>(
+            find.ancestor(of: button, matching: find.byType(Material)).first,
+          )
+          .color!;
+
+      // The fill keeps the token's own translucency instead of forcing it to
+      // near-solid amber…
+      expect(fill, AppColors.accentSoft);
+      // …so the glyph on it clears the 3:1 bar WCAG sets for icons.
+      expect(
+        _contrast(glyph, _composite(fill, AppColors.canvas)),
+        greaterThan(3),
+      );
+    });
+
     testWidgets('an unknown file that turns out to be binary shows the card', (
       tester,
     ) async {
@@ -451,6 +482,25 @@ void main() {
       expect(find.byType(PageView), findsNothing);
     });
   });
+}
+
+/// [top] painted over [bottom] — what a translucent fill really looks like
+/// once it sits on the surface behind it.
+Color _composite(Color top, Color bottom) => Color.from(
+  alpha: 1,
+  red: top.r * top.a + bottom.r * (1 - top.a),
+  green: top.g * top.a + bottom.g * (1 - top.a),
+  blue: top.b * top.a + bottom.b * (1 - top.a),
+);
+
+/// WCAG contrast ratio between two opaque colours, 1 (identical) to 21.
+double _contrast(Color a, Color b) {
+  double channel(double v) =>
+      v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+  double luminance(Color c) =>
+      0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
+  final (hi, lo) = (luminance(a), luminance(b));
+  return hi > lo ? (hi + 0.05) / (lo + 0.05) : (lo + 0.05) / (hi + 0.05);
 }
 
 /// An 8×8 red PNG — a real, decodable picture, small enough to inline.

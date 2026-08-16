@@ -784,7 +784,7 @@ class _IconAction extends StatelessWidget {
     final color = !enabled
         ? AppColors.inkFaint
         : active
-        ? AppColors.accentStrong
+        ? AppColors.accentInk
         : AppColors.inkSoft;
     return Tooltip(
       message: tooltip,
@@ -793,10 +793,14 @@ class _IconAction extends StatelessWidget {
         enabled: enabled,
         label: tooltip,
         child: Material(
-          color: active
-              ? AppColors.accentSoft.withValues(alpha: 0.9)
-              : Colors.transparent,
+          // The token carries its own opacity — a faint wash on dark, an
+          // opaque cream on light. Overriding the alpha turned the dark
+          // variant into near-solid amber, which swallowed the glyph on it.
+          color: active ? AppColors.accentSoft : Colors.transparent,
           shape: RoundedRectangleBorder(
+            side: BorderSide(
+              color: active ? AppColors.accentLine : Colors.transparent,
+            ),
             borderRadius: BorderRadius.circular(11),
           ),
           child: InkWell(

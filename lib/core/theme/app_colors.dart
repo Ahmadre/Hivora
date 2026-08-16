@@ -110,6 +110,13 @@ abstract final class AppColors {
   // so this lifts to a light lavender in dark mode.
   static Color get brandInk => _dark ? railInk : navy;
 
+  // Amber foreground for the *active* state — an icon or label on [accentSoft]
+  // or on a plain theme surface. [accentStrong] is the deeper amber that reads
+  // on the light cream fill; on dark, where [accentSoft] is only a faint wash
+  // over a near-black surface, that same deep amber sinks into the background,
+  // so this lifts to the brighter [accent].
+  static Color get accentInk => _dark ? accent : accentStrong;
+
   // Pastel card tints — light & warm on light, muted & dark (white-text safe)
   // on dark, so colourful cards keep their hue without losing legibility.
   static const pastelBlue = Color(0xFFE9EEF8);
