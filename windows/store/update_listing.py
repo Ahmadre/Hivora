@@ -170,6 +170,11 @@ def main(argv=None):
     print(f"app {PRODUCT_ID} · submission {sid} · status {sub.get('status')}")
     for e in sub.get("statusDetails", {}).get("errors", []):
         print(f"  ! {e.get('code')}: {e.get('details')}")
+    # Committing sends whatever package the submission already holds to
+    # certification — say which one, so nobody ships an unexpected build.
+    for p in sub.get("applicationPackages", []):
+        print(f"  package {p.get('fileName')} {p.get('version')} "
+              f"({p.get('fileStatus')})")
 
     wanted = [l.strip().lower() for l in args.languages.split(",") if l.strip()]
     listings = sub.get("listings", {})
