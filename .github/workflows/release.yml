@@ -145,6 +145,23 @@ jobs:
           bundler-cache: true
           working-directory: ios
       - run: flutter pub get
+      # Submitting again while a submission is queued REMOVES the version from
+      # it and re-queues it at the back — which is how an iOS version can wait
+      # for weeks while every macOS release is approved in a day. So when App
+      # Review already has us, this run goes to TestFlight instead and leaves
+      # the queue position alone. If the check itself fails, nothing changes.
+      - name: Is an iOS review already queued?
+        id: queue
+        if: ${{ inputs.submit == 'true' }}
+        continue-on-error: true
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+        run: |
+          python3 -m venv /tmp/ascvenv
+          /tmp/ascvenv/bin/pip -q install requests pyjwt cryptography
+          /tmp/ascvenv/bin/python ios/fastlane/review_status.py --queued-platform IOS
       - name: Build & upload via Fastlane
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -153,7 +170,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
-          SUBMIT: ${{ inputs.submit }}
+          SUBMIT: ${{ inputs.submit == 'true' && steps.queue.outputs.queued != 'true' }}
         run: |
           cd ios
           # Publish → deliver (App Store version + listing + submit for review).
@@ -162,6 +179,7 @@ jobs:
           if [ "$SUBMIT" = "true" ]; then
             bundle exec fastlane release
           else
+            echo "TestFlight only (submit=${{ inputs.submit }}, already queued=${{ steps.queue.outputs.queued }})"
             bundle exec fastlane beta
           fi
 

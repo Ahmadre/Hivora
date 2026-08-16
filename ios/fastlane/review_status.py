@@ -75,6 +75,10 @@ def ago(stamp):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--bundle-id", default=BUNDLE_ID)
+    ap.add_argument("--queued-platform", default="", metavar="PLATFORM",
+                    help="also report whether a submission for this platform "
+                         "(IOS / MAC_OS) is already waiting or in review — as "
+                         "`queued` on stdout and in GITHUB_OUTPUT")
     args = ap.parse_args(argv)
 
     asc = ASC()
@@ -111,6 +115,20 @@ def main(argv=None):
                   f"{' '.join(kinds)}")
         if a.get("canceled"):
             print("      ! canceled")
+
+    if args.queued_platform:
+        # Re-submitting a version that is already queued removes it from its
+        # submission and puts it at the back of the queue — the reason an iOS
+        # version can wait for weeks while every macOS release sails through.
+        queued = any(
+            s["attributes"]["platform"] == args.queued_platform
+            and s["attributes"]["state"] in ("WAITING_FOR_REVIEW", "IN_REVIEW")
+            for s in subs["data"])
+        print(f"\nqueued ({args.queued_platform}): {queued}")
+        out = os.environ.get("GITHUB_OUTPUT")
+        if out:
+            with open(out, "a", encoding="utf-8") as f:
+                f.write(f"queued={'true' if queued else 'false'}\n")
     return 0
 
 
