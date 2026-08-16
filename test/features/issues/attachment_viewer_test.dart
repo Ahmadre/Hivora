@@ -227,6 +227,88 @@ void main() {
       );
     });
 
+    testWidgets('wrap and line numbers toggle without tearing down the text', (
+      tester,
+    ) async {
+      api.serve('/dl/wrap', 'alpha\nbeta');
+      await openViewer(tester, [textItem(path: '/dl/wrap')]);
+      await pumpUntil(tester, find.text('alpha'));
+
+      // Wrap off — the rows gain a horizontal scroller.
+      await tester.tap(find.byIcon(LucideIcons.wrapText));
+      await tester.pump();
+      expect(find.text('alpha'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+
+      // …and back on.
+      await tester.tap(find.byIcon(LucideIcons.wrapText));
+      await tester.pump();
+      expect(find.text('alpha'), findsOneWidget);
+
+      // The gutter toggle reshapes every row the same way.
+      await tester.tap(find.byIcon(LucideIcons.listOrdered));
+      await tester.pump();
+      expect(find.text('alpha'), findsOneWidget);
+      expect(find.text('1'), findsNothing);
+    });
+
+    testWidgets('wrap off lays a long line out on one scrollable row', (
+      tester,
+    ) async {
+      final long = 'x' * 400;
+      api.serve('/dl/long', long);
+      await openViewer(tester, [textItem(path: '/dl/long', size: 400)]);
+      await pumpUntil(tester, find.text(long));
+
+      // Wrapped: the line is folded over several visual lines.
+      final wrapped = tester.getSize(find.text(long));
+      expect(wrapped.height, greaterThan(30));
+
+      await tester.tap(find.byIcon(LucideIcons.wrapText));
+      await tester.pump();
+
+      // Unwrapped: one row, and the paper scrolls sideways to reach its end.
+      final flat = tester.getSize(find.text(long));
+      expect(flat.height, lessThan(wrapped.height));
+      final sideways = tester.widget<SingleChildScrollView>(
+        find.byWidgetPredicate(
+          (w) =>
+              w is SingleChildScrollView &&
+              w.scrollDirection == Axis.horizontal,
+        ),
+      );
+      final h = sideways.controller!;
+      expect(h.position.maxScrollExtent, greaterThan(0));
+
+      // Wrapping again must not leave the text parked off to the left.
+      h.jumpTo(200);
+      await tester.pump();
+      await tester.tap(find.byIcon(LucideIcons.wrapText));
+      await tester.pump();
+      await tester.pump();
+
+      expect(h.offset, 0);
+      expect(h.position.maxScrollExtent, 0);
+    });
+
+    testWidgets('toggling wrap keeps the reading position', (tester) async {
+      api.serve('/dl/keep', List.generate(400, (i) => 'line $i').join('\n'));
+      await openViewer(tester, [textItem(path: '/dl/keep', size: 4000)]);
+      await pumpUntil(tester, find.text('line 0'));
+
+      final list = find.byType(ListView);
+      final vertical = tester.widget<ListView>(list).controller!;
+      vertical.jumpTo(600);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(LucideIcons.wrapText));
+      await tester.pump();
+
+      // Same list element, same offset — not a fresh list back at line 1.
+      expect(tester.widget<ListView>(list).controller, same(vertical));
+      expect(vertical.offset, 600);
+    });
+
     testWidgets('an unknown file that turns out to be binary shows the card', (
       tester,
     ) async {

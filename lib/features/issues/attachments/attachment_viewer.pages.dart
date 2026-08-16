@@ -41,8 +41,14 @@ Future<Uint8List> _fetchBytes(BuildContext context, String path) async {
 
 /// A decoded text file: the whole thing (what "copy" puts on the clipboard),
 /// split into display rows with the source line number each row belongs to
-/// (`0` marks the continuation of a hard-split over-long line).
-typedef _TextDoc = ({String text, List<String> rows, List<int> numbers});
+/// (`0` marks the continuation of a hard-split over-long line), plus the
+/// longest row — the one the unwrapped view measures to size its scroll.
+typedef _TextDoc = ({
+  String text,
+  List<String> rows,
+  List<int> numbers,
+  String widest,
+});
 
 /// Rows longer than this are hard-split. One 5 MB line (a minified payload)
 /// would otherwise be laid out as a single paragraph and freeze the frame; the
@@ -89,7 +95,13 @@ _TextDoc? _prepareText(({Uint8List bytes, bool isJson}) msg) {
       numbers.add(at == 0 ? i + 1 : 0);
     }
   }
-  return (text: text, rows: rows, numbers: numbers);
+  // Found here, on the isolate that already walked every row, rather than in
+  // build(): a 100k-line log must not be scanned again on every zoom step.
+  var widest = '';
+  for (final row in rows) {
+    if (row.length > widest.length) widest = row;
+  }
+  return (text: text, rows: rows, numbers: numbers, widest: widest);
 }
 
 // ═══════════════════════════════ Stage ════════════════════════════════════
@@ -608,6 +620,16 @@ class _TextPageState extends State<_TextPage> {
   @override
   void didUpdateWidget(covariant _TextPage old) {
     super.didUpdateWidget(old);
+    // Wrapping again makes the sideways scroll meaningless, but a scroll
+    // position that can no longer be moved would leave the text parked off to
+    // the left for good.
+    if (!old.wrap && widget.wrap && _horizontal.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _horizontal.hasClients && _horizontal.offset != 0) {
+          _horizontal.jumpTo(0);
+        }
+      });
+    }
     // The chrome forgets the text on every page change, so hand it back when
     // this page returns to the screen (its bytes are already cached). After the
     // frame: this runs inside the viewer's own build, and the chrome reacts to
@@ -679,6 +701,20 @@ class _TextPageState extends State<_TextPage> {
     );
   }
 
+  /// Width one line of [text] really takes in [style] — one layout of one line,
+  /// which is what keeps this affordable on a file with 100 000 of them.
+  double _measure(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
   /// The text sits on its own themed sheet: the stage behind it is dark for
   /// pictures, which would make theme-coloured ink unreadable.
   Widget _paper(_TextDoc doc, double zoom) {
@@ -690,14 +726,20 @@ class _TextPageState extends State<_TextPage> {
       height: 1.5,
       color: AppColors.ink,
     );
+    // Wide enough for the highest line number this file can show. Measured
+    // rather than guessed from an advance width: a gutter one pixel too narrow
+    // wraps the number onto a second line and pushes the row out of shape.
     final gutterWidth = widget.lineNumbers
-        ? math.max(30.0, ('${doc.numbers.length}'.length + 1) * fontSize * 0.62)
+        ? math.max(
+            30.0,
+            _measure('8' * '${doc.numbers.length}'.length, mono) + 4,
+          )
         : 0.0;
 
     final hPad = phone ? 10.0 : 18.0;
     // Only the rows are lazy — a 2 MB log is tens of thousands of them, and
     // laying every one out up front would freeze the frame that opens the file.
-    Widget rows = Scrollbar(
+    final Widget lines = Scrollbar(
       controller: _vertical,
       child: ListView.builder(
         controller: _vertical,
@@ -721,29 +763,41 @@ class _TextPageState extends State<_TextPage> {
       ),
     );
 
-    if (!widget.wrap) {
-      // Widest row, roughly: a monospace advance is ~0.6 em. Measuring exactly
-      // would mean laying out every row, and this only sets how far the
-      // horizontal scroll reaches.
-      final widest = doc.rows.fold<int>(0, (m, r) => math.max(m, r.length));
-      final contentWidth = gutterWidth + widest * fontSize * 0.62 + 2 * hPad;
-      // The vertical scrollbar stays *inside* the horizontal viewport on
-      // purpose: a Scrollbar only listens to depth-0 scroll notifications, so
-      // nesting it the other way around would leave it attached to nothing.
-      rows = LayoutBuilder(
-        builder: (context, constraints) => Scrollbar(
+    // How far the rows reach sideways when they are not wrapped. Measured, not
+    // estimated from an advance width: too narrow and the tail of the longest
+    // line would sit past the end of the scroll, unreachable — and, with a
+    // gutter beside it, overflow its own row. Only the longest row is laid
+    // out, so this stays cheap on a huge file.
+    final contentWidth = widget.wrap
+        ? 0.0
+        : (widget.lineNumbers ? gutterWidth + _kGutterGap : 0) +
+              _measure(doc.widest, mono) +
+              2 * hPad;
+
+    // The same widget chain in both modes, on purpose: toggling wrap only
+    // changes numbers, never the shape of the tree, so the list keeps its
+    // element — and with it the reading position and the live selection —
+    // instead of being torn down and rebuilt at the top of the file.
+    //
+    // The vertical scrollbar stays *inside* the horizontal viewport: a
+    // Scrollbar only listens to depth-0 scroll notifications, so nesting it
+    // the other way around would leave it attached to nothing.
+    final Widget rows = LayoutBuilder(
+      builder: (context, constraints) => Scrollbar(
+        controller: _horizontal,
+        child: SingleChildScrollView(
           controller: _horizontal,
-          child: SingleChildScrollView(
-            controller: _horizontal,
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: math.max(constraints.maxWidth, contentWidth),
-              child: rows,
-            ),
+          scrollDirection: Axis.horizontal,
+          physics: widget.wrap
+              ? const NeverScrollableScrollPhysics()
+              : const ClampingScrollPhysics(),
+          child: SizedBox(
+            width: math.max(constraints.maxWidth, contentWidth),
+            child: lines,
           ),
         ),
-      );
-    }
+      ),
+    );
 
     return Center(
       child: ConstrainedBox(
@@ -765,6 +819,9 @@ class _TextPageState extends State<_TextPage> {
     );
   }
 }
+
+/// Space between the line-number gutter and the text it belongs to.
+const double _kGutterGap = 12;
 
 /// One rendered row: the source line number in a muted gutter, then the text.
 class _TextRow extends StatelessWidget {
@@ -804,11 +861,15 @@ class _TextRow extends StatelessWidget {
           child: Text(
             number == 0 ? '' : '$number',
             textAlign: TextAlign.right,
+            maxLines: 1,
             style: style.copyWith(color: AppColors.inkFaint),
           ),
         ),
-        const SizedBox(width: 12),
-        wrap ? Expanded(child: body) : body,
+        const SizedBox(width: _kGutterGap),
+        // Expanded in both modes: an unwrapped row is laid out unconstrained
+        // and paints past its box on purpose, and handing a Row a child wider
+        // than itself is an overflow error, not a scroll.
+        Expanded(child: body),
       ],
     );
   }

@@ -19,9 +19,17 @@ class PlanRow extends StatelessWidget {
     required this.onToggleSelect,
     required this.onOpen,
     required this.onEstimate,
+    this.assigneeName,
+    this.assigneeAvatar,
   });
 
   final Issue issue;
+
+  /// The assignee's display name and avatar, resolved by the surface from the
+  /// board's user directory. The issue itself only carries the assignee *id*,
+  /// and an id has no initials worth drawing.
+  final String? assigneeName;
+  final String? assigneeAvatar;
   final bool selected;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpen;
@@ -77,7 +85,14 @@ class PlanRow extends StatelessWidget {
               _PointsBadge(points: issue.storyPoints, onTap: onEstimate),
               const SizedBox(width: 10),
               if (issue.assigneeId != null)
-                HiveAvatar(name: issue.assigneeId!, size: 24)
+                Tooltip(
+                  message: assigneeName ?? issue.assigneeId!,
+                  child: HiveAvatar(
+                    name: assigneeName ?? issue.assigneeId!,
+                    imageUrl: assigneeAvatar,
+                    size: 24,
+                  ),
+                )
               else
                 const SizedBox(width: 24),
             ],

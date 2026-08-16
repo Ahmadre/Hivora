@@ -110,11 +110,35 @@ class _FocusItem extends StatelessWidget {
                 ),
               ],
               const SizedBox(width: 10),
-              if (issue.assigneeId != null)
-                HiveAvatar(name: issue.assigneeId!, size: 26),
+              if (issue.assigneeId != null) _Assignee(issue: issue),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The focus list is "assigned to me", so the row's assignee is the signed-in
+/// user — take their name and picture from the session rather than rendering
+/// the raw assignee id, whose "initial" is a hex digit every account shares.
+/// A secondary-assignee row (someone else holds the primary slot) falls back to
+/// the neutral avatar placeholder.
+class _Assignee extends StatelessWidget {
+  const _Assignee({required this.issue});
+
+  final Issue issue;
+
+  @override
+  Widget build(BuildContext context) {
+    final me = context.select((AuthBloc bloc) => bloc.state.user);
+    final mine = me != null && me.id == issue.assigneeId;
+    return Tooltip(
+      message: mine ? me.displayName : context.t('issues.assignee'),
+      child: HiveAvatar(
+        name: mine ? me.displayName : issue.assigneeId!,
+        imageUrl: mine ? me.avatarUrl : null,
+        size: 26,
       ),
     );
   }

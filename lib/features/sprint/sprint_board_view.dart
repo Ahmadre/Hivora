@@ -750,6 +750,8 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           sprints: _planningSprints,
           activeSprintId: _activeSprintId,
           issuesBySprint: _bySprint,
+          names: widget.names,
+          avatars: widget.avatars,
           filter: _filter,
           backlog: _backlog,
           backlogTotal: _backlogTotal,

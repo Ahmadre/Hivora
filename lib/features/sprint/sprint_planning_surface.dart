@@ -24,6 +24,8 @@ class SprintPlanningSurface extends StatelessWidget {
     required this.sprints,
     required this.activeSprintId,
     required this.issuesBySprint,
+    required this.names,
+    required this.avatars,
     required this.filter,
     required this.backlog,
     required this.backlogTotal,
@@ -50,6 +52,12 @@ class SprintPlanningSurface extends StatelessWidget {
   final List<Sprint> sprints;
   final String? activeSprintId;
   final Map<String, List<Issue>> issuesBySprint;
+
+  /// Display name / avatar URL per user id, so a row can show *who* an issue is
+  /// assigned to. Without them a row only has the raw assignee id, which is not
+  /// something to render at a person.
+  final Map<String, String> names;
+  final Map<String, String> avatars;
   final BoardFilter filter;
   final List<Issue> backlog;
   final int backlogTotal;
@@ -96,6 +104,8 @@ class SprintPlanningSurface extends StatelessWidget {
               _SprintGroup(
                 sprint: s,
                 isActive: s.id == activeSprintId,
+                names: names,
+                avatars: avatars,
                 issues: (issuesBySprint[s.id] ?? const [])
                     .where(filter.matches)
                     .where(_matchesQuery)
@@ -125,6 +135,8 @@ class SprintPlanningSurface extends StatelessWidget {
             ],
             _BacklogGroup(
               issues: backlog.where(filter.matches).toList(),
+              names: names,
+              avatars: avatars,
               total: backlogTotal,
               page: backlogPage,
               pages: backlogPages,
@@ -266,6 +278,8 @@ class _SprintGroup extends StatefulWidget {
     required this.sprint,
     required this.isActive,
     required this.issues,
+    required this.names,
+    required this.avatars,
     required this.selected,
     required this.onToggleSelect,
     required this.onOpenIssue,
@@ -279,6 +293,8 @@ class _SprintGroup extends StatefulWidget {
   final Sprint sprint;
   final bool isActive;
   final List<Issue> issues;
+  final Map<String, String> names;
+  final Map<String, String> avatars;
   final Set<String> selected;
   final ValueChanged<String> onToggleSelect;
   final void Function(Issue) onOpenIssue;
@@ -342,6 +358,8 @@ class _SprintGroupState extends State<_SprintGroup> {
                             padding: const EdgeInsets.only(bottom: 7),
                             child: _DraggableRow(
                               issue: issue,
+                              assigneeName: widget.names[issue.assigneeId],
+                              assigneeAvatar: widget.avatars[issue.assigneeId],
                               selected: widget.selected.contains(issue.id),
                               onToggleSelect: () =>
                                   widget.onToggleSelect(issue.id),
@@ -552,6 +570,8 @@ class _StateBadge extends StatelessWidget {
 class _BacklogGroup extends StatefulWidget {
   const _BacklogGroup({
     required this.issues,
+    required this.names,
+    required this.avatars,
     required this.total,
     required this.page,
     required this.pages,
@@ -568,6 +588,8 @@ class _BacklogGroup extends StatefulWidget {
   });
 
   final List<Issue> issues;
+  final Map<String, String> names;
+  final Map<String, String> avatars;
   final int total;
   final int page;
   final int pages;
@@ -692,6 +714,8 @@ class _BacklogGroupState extends State<_BacklogGroup> {
                             padding: const EdgeInsets.only(bottom: 7),
                             child: _DraggableRow(
                               issue: issue,
+                              assigneeName: widget.names[issue.assigneeId],
+                              assigneeAvatar: widget.avatars[issue.assigneeId],
                               selected: widget.selected.contains(issue.id),
                               onToggleSelect: () =>
                                   widget.onToggleSelect(issue.id),
@@ -722,6 +746,8 @@ class _BacklogGroupState extends State<_BacklogGroup> {
 class _DraggableRow extends StatelessWidget {
   const _DraggableRow({
     required this.issue,
+    required this.assigneeName,
+    required this.assigneeAvatar,
     required this.selected,
     required this.onToggleSelect,
     required this.onOpen,
@@ -729,6 +755,8 @@ class _DraggableRow extends StatelessWidget {
   });
 
   final Issue issue;
+  final String? assigneeName;
+  final String? assigneeAvatar;
   final bool selected;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpen;
@@ -738,6 +766,8 @@ class _DraggableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = PlanRow(
       issue: issue,
+      assigneeName: assigneeName,
+      assigneeAvatar: assigneeAvatar,
       selected: selected,
       onToggleSelect: onToggleSelect,
       onOpen: onOpen,

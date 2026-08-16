@@ -536,7 +536,10 @@ class _BreakdownCard extends StatelessWidget {
                         ),
                       )
                     else
-                      HiveAvatar(name: a.userId, size: 26),
+                      // The label beside it already resolves the name; the
+                      // avatar must not fall back to the raw id, whose
+                      // "initial" is a digit shared by every user.
+                      HiveAvatar(name: names[a.userId] ?? a.userId, size: 26),
                     const SizedBox(width: 12),
                     SizedBox(
                       width: 110,

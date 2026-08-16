@@ -133,6 +133,8 @@ class SprintActiveSurface extends StatelessWidget {
       columnBuilder: (column, colIssues, lane, width) => _SprintColumn(
         column: column,
         issues: colIssues,
+        names: names,
+        avatars: avatars,
         laneMode: true,
         width: width,
         projectsById: projectsById,
@@ -209,6 +211,8 @@ class SprintActiveSurface extends StatelessWidget {
                             width: width,
                             projectsById: projectsById,
                             issues: colIssues,
+                            names: names,
+                            avatars: avatars,
                             onAccept: (issue) => onMoveState(
                               issue,
                               boardDropState(
@@ -238,6 +242,8 @@ class _SprintColumn extends StatelessWidget {
   const _SprintColumn({
     required this.column,
     required this.issues,
+    required this.names,
+    required this.avatars,
     required this.onAccept,
     required this.onOpenIssue,
     required this.quickCreate,
@@ -249,6 +255,11 @@ class _SprintColumn extends StatelessWidget {
 
   final BoardColumnView column;
   final List<Issue> issues;
+
+  /// Display name / avatar URL per user id — a card carries only the assignee
+  /// id, which is not something to render at a person.
+  final Map<String, String> names;
+  final Map<String, String> avatars;
   final void Function(Issue) onAccept;
   final void Function(Issue) onOpenIssue;
 
@@ -422,6 +433,8 @@ class _SprintColumn extends StatelessWidget {
                                   enabled: !isTouch,
                                   ghost: _SprintCard(
                                     issue: issue,
+                                    assigneeName: names[issue.assigneeId],
+                                    assigneeAvatar: avatars[issue.assigneeId],
                                     accent: dotColor,
                                   ),
                                   child: BoardLandingCard(
@@ -429,6 +442,8 @@ class _SprintColumn extends StatelessWidget {
                                     accent: dotColor,
                                     child: _SprintCard(
                                       issue: issue,
+                                      assigneeName: names[issue.assigneeId],
+                                      assigneeAvatar: avatars[issue.assigneeId],
                                       accent: dotColor,
                                       onOpen: () => onOpenIssue(issue),
                                       onOpenIssue: onOpenIssue,
@@ -474,12 +489,19 @@ class _SprintColumn extends StatelessWidget {
 class _SprintCard extends StatelessWidget {
   const _SprintCard({
     required this.issue,
+    this.assigneeName,
+    this.assigneeAvatar,
     this.accent,
     this.onOpen,
     this.onOpenIssue,
   });
 
   final Issue issue;
+
+  /// The assignee's display name and avatar, resolved from the board's user
+  /// directory — the issue only carries the assignee id.
+  final String? assigneeName;
+  final String? assigneeAvatar;
 
   /// Project-configured state color for this card's column; falls back to the
   /// global palette when unknown.
@@ -575,7 +597,14 @@ class _SprintCard extends StatelessWidget {
                           ),
                         const Spacer(),
                         if (issue.assigneeId != null)
-                          HiveAvatar(name: issue.assigneeId!, size: 24),
+                          Tooltip(
+                            message: assigneeName ?? issue.assigneeId!,
+                            child: HiveAvatar(
+                              name: assigneeName ?? issue.assigneeId!,
+                              imageUrl: assigneeAvatar,
+                              size: 24,
+                            ),
+                          ),
                       ],
                     ),
                   ],

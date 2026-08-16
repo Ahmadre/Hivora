@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassProgressIndicator;
 
 import '../../../core/i18n/i18n.dart';
 import '../../../core/models/work_models.dart';
@@ -82,7 +84,13 @@ class PointBuckets extends StatelessWidget {
   }
 }
 
-/// Capacity bar: committed (done/prog/todo) vs. capacity, flagged red when over.
+/// Capacity bar: how full the sprint is — committed story points against the
+/// team's capacity, flagged red once it is over.
+///
+/// The fill is the package's [GlassProgressIndicator], so it carries the same
+/// liquid-glass treatment (rounded track, lit fill) as the rest of the app's
+/// chrome. The done/in-progress/to-do split lives in the [PointBuckets] pills
+/// right next to it, so the bar answers one question and answers it clearly.
 class CapacityBar extends StatelessWidget {
   const CapacityBar({
     super.key,
@@ -101,8 +109,9 @@ class CapacityBar extends StatelessWidget {
     final committed = b.todo + b.progress + b.done;
     final cap = capacity ?? 0;
     final over = cap > 0 && committed > cap;
-    final denom = [committed, cap, 1].reduce((a, c) => a > c ? a : c);
-    int flex(int v) => denom == 0 ? 0 : ((v / denom) * 1000).round();
+    // Over capacity fills the whole track (and turns red); the number above it
+    // says by how much.
+    final fill = cap <= 0 ? 0.0 : (committed / cap).clamp(0.0, 1.0);
 
     return SizedBox(
       width: width,
@@ -140,47 +149,28 @@ class CapacityBar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 5),
-          // A defined pill track (surface fill + hairline border) with the
-          // done/in-progress/todo segments filling it; the uncovered part is
-          // the track itself, so remaining capacity reads as the empty pill
-          // (mirrors `.cap-bar` in sprint.css).
-          Container(
-            height: 8,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: AppColors.hairline),
+          // Without a capacity there is nothing to fill against, and a bar that
+          // is always full says nothing — the points above stand on their own.
+          if (cap > 0) ...[
+            const SizedBox(height: 5),
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              tween: Tween<double>(begin: 0, end: fill),
+              builder: (context, value, _) => GlassProgressIndicator.linear(
+                value: value,
+                height: 8,
+                // The package defaults to a 200px minimum, which would blow the
+                // desktop meta row apart; this bar owns its own width.
+                minWidth: 0,
+                color: over ? SprintTokens.over : SprintTokens.progress,
+                // The package's default track is 15 % white — invisible on the
+                // light sprint card.
+                backgroundColor: AppColors.canvas2,
+                semanticLabel: context.t('sprint.capacity'),
+              ),
             ),
-            child: Row(
-              children: [
-                if (b.done > 0)
-                  Expanded(
-                    flex: flex(b.done),
-                    child: const ColoredBox(color: SprintTokens.done),
-                  ),
-                if (b.progress > 0)
-                  Expanded(
-                    flex: flex(b.progress),
-                    child: const ColoredBox(color: SprintTokens.progress),
-                  ),
-                if (b.todo > 0)
-                  Expanded(
-                    flex: flex(b.todo),
-                    child: ColoredBox(
-                      color: over ? SprintTokens.over : SprintTokens.todo,
-                    ),
-                  ),
-                // Remaining capacity = the empty pill track showing through.
-                if (denom > committed)
-                  Expanded(
-                    flex: flex(denom - committed),
-                    child: const SizedBox(),
-                  ),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );

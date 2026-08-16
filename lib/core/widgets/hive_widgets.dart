@@ -350,6 +350,26 @@ String _initials(String value) {
       .toUpperCase();
 }
 
+/// Whether [value] is an opaque identifier rather than something a person is
+/// called — a Mongo ObjectId, a UUID, a hex token.
+///
+/// Initials of an id are noise that *looks* like data: every user whose
+/// ObjectId starts with the same nibble gets the same letter, so a whole list
+/// renders the same meaningless "6". A caller that has no name yet is better
+/// served by an honest placeholder, so [HiveAvatar] draws a person glyph for
+/// these instead of a fake initial.
+@visibleForTesting
+bool looksLikeOpaqueId(String value) {
+  final v = value.trim();
+  if (v.length < 12 || v.contains(RegExp(r'\s'))) return false;
+  // 24-hex ObjectId, 32-hex token, or a dashed UUID.
+  return RegExp(r'^[0-9a-f]{12,}$', caseSensitive: false).hasMatch(v) ||
+      RegExp(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        caseSensitive: false,
+      ).hasMatch(v);
+}
+
 /// Round initials avatar tinted by name hue.
 class HiveAvatar extends StatelessWidget {
   const HiveAvatar({
@@ -421,18 +441,23 @@ class HiveAvatar extends StatelessWidget {
           : null,
     ),
     alignment: Alignment.center,
-    child: image != null
-        ? null
-        : glyph ??
-              Text(
-                _initials(name),
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: size * 0.4,
-                ),
-              ),
+    child: image != null ? null : glyph ?? _label(),
   );
+
+  /// Initials — unless all we were given is an id, which has none.
+  Widget _label() {
+    if (looksLikeOpaqueId(name)) {
+      return Icon(LucideIcons.user, size: size * 0.5, color: Colors.white);
+    }
+    return Text(
+      _initials(name),
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: size * 0.4,
+      ),
+    );
+  }
 }
 
 /// Overlapping avatar stack with optional +N overflow chip.
