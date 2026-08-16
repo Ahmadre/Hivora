@@ -101,7 +101,6 @@ class AuthShell extends StatelessWidget {
                       child: _InputPane(
                         maxContentWidth: maxContentWidth,
                         veil: true,
-                        showBrand: false,
                         child: child,
                       ),
                     ),
@@ -121,7 +120,6 @@ class AuthShell extends StatelessWidget {
               child: _InputPane(
                 maxContentWidth: maxContentWidth,
                 veil: false,
-                showBrand: true,
                 child: child,
               ),
             );
@@ -137,7 +135,6 @@ class AuthShell extends StatelessWidget {
                         child: _InputPane(
                           maxContentWidth: maxContentWidth,
                           veil: true,
-                          showBrand: false,
                           child: child,
                         ),
                       ),
@@ -147,7 +144,6 @@ class AuthShell extends StatelessWidget {
                 : _InputPane(
                     maxContentWidth: maxContentWidth,
                     veil: false,
-                    showBrand: true,
                     child: child,
                   ),
           );
@@ -205,32 +201,19 @@ class _InputPane extends StatelessWidget {
     required this.child,
     required this.maxContentWidth,
     required this.veil,
-    required this.showBrand,
   });
 
   final Widget child;
   final double maxContentWidth;
   final bool veil;
 
-  /// On compact (no hero pane) the brand lockup rides above the card so the
-  /// mark is never missing. On the wide split it's false — the hero owns it.
-  final bool showBrand;
-
   @override
   Widget build(BuildContext context) {
-    final paneChild = showBrand
-        ? Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: HivBrandLockup(hexSize: context.isCompact ? 34 : 44),
-              ),
-              const SizedBox(height: 18),
-              child,
-            ],
-          )
-        : child;
+    // The card carries the product name in its own heading, so a mark above it
+    // only repeats what is already there — and on a phone that repetition costs
+    // the vertical room the form needs to fit without scrolling. The wide
+    // split still shows the lockup: there it lives in the hero pane, next to
+    // the headline, where it has space of its own.
     // No SafeArea: the backdrop and the scroll view run edge-to-edge to the
     // display bounds (immersive — no boxed-in clip line where scrolling content
     // gets cut). The safe-area insets are folded into the scroll padding
@@ -253,7 +236,7 @@ class _InputPane extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: maxContentWidth),
-                child: paneChild,
+                child: child,
               ),
             ),
           ),
