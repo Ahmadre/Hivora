@@ -202,7 +202,9 @@ def main(argv=None):
         die("the app has no pending submission and has never been published — "
             "create the submission in Partner Center first")
     sub = store.submission(sid)
-    print(f"app {PRODUCT_ID} · submission {sid} · status {sub.get('status')}")
+    published = (app.get("lastPublishedApplicationSubmission") or {}).get("id")
+    print(f"app {PRODUCT_ID} · submission {sid} · status {sub.get('status')} · "
+          f"last published {published or 'never'}")
     for e in sub.get("statusDetails", {}).get("errors", []):
         print(f"  ! {e.get('code')}: {e.get('details')}")
     # Committing sends whatever package the submission already holds to
