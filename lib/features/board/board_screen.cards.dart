@@ -517,7 +517,7 @@ class _BoardCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = palette.stateColor(issue.state);
-    final due = dueLabel(issue.dueDate);
+    final due = dueLabel(context, issue.dueDate);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,

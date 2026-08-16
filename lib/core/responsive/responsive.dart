@@ -19,6 +19,31 @@ abstract final class Breakpoints {
   /// The wide shell centres every page inside this; pages whose content is a
   /// spatial layout rather than something to read may opt out of it.
   static const double readingWidth = 1618; // 1000 · φ
+
+  /// Columns for a tile grid that has to fill [width] exactly.
+  ///
+  /// A tile grid has two failure modes, and picking a column count by device
+  /// class hits both: a phone squeezes three unreadable slivers into a row,
+  /// while a wide desktop stretches four tiles into billboards. So the *tile*
+  /// is what the design fixes — it may breathe between [min] and [max], a
+  /// golden step apart (144 → 233) — and the column count follows from the
+  /// space actually available, whatever is rendering it.
+  ///
+  /// Takes the fewest columns that keep a tile at or under [max], then as many
+  /// more as fit while every tile stays at least [min] wide. Below `min` there
+  /// is nothing left to divide, so the grid becomes a single column.
+  static int goldenColumns(
+    double width, {
+    required double min,
+    required double max,
+    required double gap,
+  }) {
+    if (!width.isFinite || width <= min || min <= 0) return 1;
+    // A row of n tiles spans n·tile + (n−1)·gap, i.e. n·(tile + gap) − gap.
+    final widest = ((width + gap) / (min + gap)).floor();
+    final fewest = ((width + gap) / (max + gap)).ceil();
+    return fewest.clamp(1, widest < 1 ? 1 : widest);
+  }
 }
 
 /// Chrome insets published by whichever app shell is mounted, for widgets that

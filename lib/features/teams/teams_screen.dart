@@ -61,8 +61,15 @@ class _TeamsScreenState extends State<TeamsScreen> {
     super.dispose();
   }
 
+  /// Keys already in use — what the create modal steps around when it suggests
+  /// one from the name.
+  Set<String> _takenKeys() {
+    final teams = _cubit.state.data?.teams ?? const <Team>[];
+    return {for (final t in teams) t.key.toUpperCase()};
+  }
+
   Future<void> _create() async {
-    final created = await showCreateTeamModal(context);
+    final created = await showCreateTeamModal(context, takenKeys: _takenKeys());
     if (created != null && mounted) {
       await _cubit.load();
       if (mounted) context.go('/teams/${created.id}');

@@ -714,6 +714,12 @@
       "confirm": "Jetzt verschieben",
       "pulledIn": "Wandert automatisch mit",
       "archivedHint": "Vorgang zuerst wiederherstellen"
+    },
+    "due": {
+      "overdue": "{{count}} T. überfällig",
+      "today": "Heute",
+      "tomorrow": "Morgen",
+      "inDays": "in {{count}} T."
     }
   },
   "type": {
@@ -778,7 +784,8 @@
       "results": "ERGEBNISSE",
       "choose": "Projekte wählen …",
       "chooseOne": "Projekt wählen …"
-    }
+    },
+    "keyTaken": "Dieser Schlüssel ist bereits vergeben."
   },
   "board": {
     "title": "Agile Boards",
@@ -1917,7 +1924,8 @@
     "permMember": "Arbeiten an den gewährten Projekten. Können Mitgliedschaft oder Einstellungen nicht ändern.",
     "dangerZone": "Gefahrenzone",
     "deleteThis": "Dieses Team löschen",
-    "deleteThisHint": "Entfernt das Team und alle Mitgliedschaften. Projekte bleiben im Workspace."
+    "deleteThisHint": "Entfernt das Team und alle Mitgliedschaften. Projekte bleiben im Workspace.",
+    "keyTaken": "Schlüssel bereits vergeben."
   },
   "projectSettings": {
     "title": "Projekteinstellungen",
@@ -1974,7 +1982,8 @@
     "migrateBody": "Wähle einen Status, in den die Aufgaben von „{{name}}“ verschoben werden – erst dann kann er entfernt werden.",
     "migrateTarget": "Aufgaben verschieben nach",
     "migrateManualHint": "Du kannst die Aufgaben auch manuell verschieben, bevor du den Status löschst.",
-    "migrateConfirm": "Migrieren & entfernen"
+    "migrateConfirm": "Migrieren & entfernen",
+    "keyFromName": "Schlüssel aus dem Namen erzeugen"
   },
   "account": {
     "title": "Mein Konto",

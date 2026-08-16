@@ -8,6 +8,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/models/team_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/keys.dart';
 import '../deletion/delete_flows.dart';
 import 'team_modal_kit.dart';
 import 'team_widgets.dart';
@@ -16,17 +17,30 @@ export 'team_member_modals.dart';
 export 'team_project_modal.dart';
 
 /// Create-team modal. Returns the created [Team] (so the caller can open it).
-Future<Team?> showCreateTeamModal(BuildContext context) {
+///
+/// [takenKeys] lets the suggested key step around the ones already in use.
+Future<Team?> showCreateTeamModal(
+  BuildContext context, {
+  Set<String> takenKeys = const {},
+}) {
   final repo = context.read<TeamRepository>();
-  return showTeamModal<Team>(context, _TeamFormBody(repo: repo), width: 580);
+  return showTeamModal<Team>(
+    context,
+    _TeamFormBody(repo: repo, takenKeys: takenKeys),
+    width: 580,
+  );
 }
 
 /// Edit-team modal. Returns true if the team was saved.
-Future<bool?> showEditTeamModal(BuildContext context, Team team) {
+Future<bool?> showEditTeamModal(
+  BuildContext context,
+  Team team, {
+  Set<String> takenKeys = const {},
+}) {
   final repo = context.read<TeamRepository>();
   return showTeamModal<bool>(
     context,
-    _TeamFormBody(repo: repo, existing: team),
+    _TeamFormBody(repo: repo, existing: team, takenKeys: takenKeys),
     width: 580,
   );
 }
@@ -38,10 +52,18 @@ Future<bool?> showDeleteTeamModal(BuildContext context, Team team) {
 }
 
 class _TeamFormBody extends StatefulWidget {
-  const _TeamFormBody({required this.repo, this.existing});
+  const _TeamFormBody({
+    required this.repo,
+    this.existing,
+    this.takenKeys = const {},
+  });
 
   final TeamRepository repo;
   final Team? existing;
+
+  /// Keys already in use — best effort, the server still answers 409 for one
+  /// this list missed.
+  final Set<String> takenKeys;
 
   @override
   State<_TeamFormBody> createState() => _TeamFormBodyState();
@@ -62,29 +84,86 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
   bool _busy = false;
   String? _error;
 
+  /// While true the key follows the name. It starts on for a new team, and for
+  /// an existing one only while its key is still exactly what the name would
+  /// generate — a key somebody chose is never rewritten under them.
+  late bool _keyFollowsName = isGeneratedKey(
+    widget.existing?.key ?? '',
+    widget.existing?.name ?? '',
+    maxLength: _maxKeyLength,
+  );
+
+  /// The key field is five characters wide here; the server allows ten.
+  static const int _maxKeyLength = 5;
+
   bool get _isEdit => widget.existing != null;
+
+  Set<String> get _taken => {
+    for (final key in widget.takenKeys)
+      if (key.toUpperCase() != (widget.existing?.key ?? '').toUpperCase())
+        key.toUpperCase(),
+  };
+
+  bool get _keyTaken => _taken.contains(_key.text.trim().toUpperCase());
+
+  @override
+  void initState() {
+    super.initState();
+    _name.addListener(_onNameChanged);
+    _key.addListener(_onKeyChanged);
+  }
+
+  /// Types the key along with the name, so nobody has to invent one — it stays
+  /// a plain field they can overrule at any point.
+  void _onNameChanged() {
+    if (!_keyFollowsName) return;
+    final suggestion = suggestKey(
+      _name.text,
+      taken: _taken,
+      maxLength: _maxKeyLength,
+    );
+    if (suggestion == _key.text) return;
+    _key.value = TextEditingValue(
+      text: suggestion,
+      selection: TextSelection.collapsed(offset: suggestion.length),
+    );
+  }
+
+  void _onKeyChanged() {
+    if (_keyFollowsName &&
+        _key.text !=
+            suggestKey(_name.text, taken: _taken, maxLength: _maxKeyLength)) {
+      _keyFollowsName = false;
+    }
+    setState(() {});
+  }
 
   @override
   void dispose() {
+    _name.removeListener(_onNameChanged);
+    _key.removeListener(_onKeyChanged);
     _name.dispose();
     _key.dispose();
     _desc.dispose();
     super.dispose();
   }
 
+  /// What gets sent: whatever stands in the field, or — if it was cleared — a
+  /// fresh suggestion from the name.
   String get _effectiveKey {
     final typed = _key.text.trim().toUpperCase();
     if (typed.isNotEmpty) return typed;
-    final from = _name.text.trim();
-    return from.isEmpty
-        ? ''
-        : from.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    return suggestKey(_name.text, taken: _taken, maxLength: _maxKeyLength);
   }
 
   Future<void> _submit() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
       setState(() => _error = context.t('errors.required'));
+      return;
+    }
+    if (_keyTaken) {
+      setState(() => _error = context.t('teams.keyTaken'));
       return;
     }
     setState(() {
@@ -104,9 +183,7 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
       } else {
         final created = await widget.repo.createTeam(
           name: name,
-          key: _effectiveKey.isEmpty
-              ? name.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase()
-              : _effectiveKey,
+          key: _effectiveKey,
           description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
           colorHue: _hue,
           icon: _icon,
@@ -189,6 +266,18 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
                       style: const TextStyle(fontFamily: AppTheme.fontMono),
                       decoration: teamFieldDecoration(context, hint: 'CORE'),
                     ),
+                    // Said here rather than after a round trip that fails.
+                    if (_keyTaken)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          context.t('teams.keyTaken'),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.danger,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

@@ -199,7 +199,7 @@ class IssueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final due = dueLabel(issue.dueDate);
+    final due = dueLabel(context, issue.dueDate);
     final compact = context.isCompact;
     final name = assignee ?? '';
 

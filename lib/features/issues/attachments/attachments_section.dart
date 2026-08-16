@@ -27,6 +27,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassConfirm, showGlassToast;
+import 'attachment_grid.dart';
 import 'attachment_kind.dart';
 import 'attachment_viewer.dart';
 import 'upload_source_sheet.dart';
@@ -629,7 +630,6 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
   @override
   Widget build(BuildContext context) {
     final count = _server.length + _uploads.length;
-    final phone = MediaQuery.sizeOf(context).width < 610;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,7 +645,7 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
           },
           child: Stack(
             children: [
-              if (count == 0) _empty() else _grid(phone),
+              if (count == 0) _empty() else _grid(),
               if (_dragging) const Positioned.fill(child: _DropOverlay()),
             ],
           ),
@@ -764,38 +764,47 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     );
   }
 
-  Widget _grid(bool phone) {
-    final extent = phone ? 140.0 : 168.0;
-    final mainAxisExtent = (extent * 10 / 16).ceilToDouble() + 56;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.zero,
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: extent,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        mainAxisExtent: mainAxisExtent,
-      ),
-      itemCount: _uploads.length + _server.length,
-      itemBuilder: (context, i) {
-        if (i < _uploads.length) {
-          final u = _uploads[i];
-          return _AttachmentTile.uploading(
-            upload: u,
-            onRetry: () => _retry(u),
-            onCancel: () => _cancelUpload(u),
-          );
-        }
-        // Server attachments newest-first below the in-flight uploads.
-        final a = _server[_server.length - 1 - (i - _uploads.length)];
-        return _AttachmentTile.done(
-          attachment: a,
-          subtitle: _subtitle(a),
-          imagePath: _thumbnailPath,
-          onOpen: () => _open(a),
-          onDownload: () => _download(a),
-          onDelete: () => _delete(a),
+  /// The grid measures the space it was actually given, not the window: this
+  /// section sits in a phone's full width, in a desktop detail column and in a
+  /// modal, and only the first of those has anything to do with screen size.
+  Widget _grid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final grid = AttachmentGrid.metrics(
+          constraints.maxWidth,
+          textScale: MediaQuery.textScalerOf(context).scale(1),
+        );
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: grid.columns,
+            crossAxisSpacing: AttachmentGrid.gap,
+            mainAxisSpacing: AttachmentGrid.gap,
+            mainAxisExtent: grid.extent,
+          ),
+          itemCount: _uploads.length + _server.length,
+          itemBuilder: (context, i) {
+            if (i < _uploads.length) {
+              final u = _uploads[i];
+              return _AttachmentTile.uploading(
+                upload: u,
+                onRetry: () => _retry(u),
+                onCancel: () => _cancelUpload(u),
+              );
+            }
+            // Server attachments newest-first below the in-flight uploads.
+            final a = _server[_server.length - 1 - (i - _uploads.length)];
+            return _AttachmentTile.done(
+              attachment: a,
+              subtitle: _subtitle(a),
+              imagePath: _thumbnailPath,
+              onOpen: () => _open(a),
+              onDownload: () => _download(a),
+              onDelete: () => _delete(a),
+            );
+          },
         );
       },
     );

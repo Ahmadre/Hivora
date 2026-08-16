@@ -51,7 +51,7 @@ class _FocusItem extends StatelessWidget {
     final progress = hasEstimate
         ? (issue.spentMinutes / issue.estimateMinutes!).clamp(0.0, 1.0)
         : 0.0;
-    final due = dueLabel(issue.dueDate);
+    final due = dueLabel(context, issue.dueDate);
     return Material(
       color: Colors.transparent,
       child: InkWell(

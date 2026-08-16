@@ -714,6 +714,12 @@
       "confirm": "Move now",
       "pulledIn": "Comes along automatically",
       "archivedHint": "Restore the issue first"
+    },
+    "due": {
+      "overdue": "{{count}}d overdue",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays": "{{count}}d"
     }
   },
   "type": {
@@ -778,7 +784,8 @@
       "results": "RESULTS",
       "choose": "Choose projects…",
       "chooseOne": "Choose a project…"
-    }
+    },
+    "keyTaken": "That key is already taken."
   },
   "board": {
     "title": "Agile Boards",
@@ -1917,7 +1924,8 @@
     "permMember": "Work on the projects they're granted. Can't change team membership or settings.",
     "dangerZone": "Danger zone",
     "deleteThis": "Delete this team",
-    "deleteThisHint": "Removes the team and all memberships. Projects stay in the workspace."
+    "deleteThisHint": "Removes the team and all memberships. Projects stay in the workspace.",
+    "keyTaken": "Key already in use."
   },
   "projectSettings": {
     "title": "Project settings",
@@ -1974,7 +1982,8 @@
     "migrateBody": "Choose a status to move the issues from \"{{name}}\" into — only then can it be removed.",
     "migrateTarget": "Move issues to",
     "migrateManualHint": "You can also move the issues manually before deleting the status.",
-    "migrateConfirm": "Migrate & remove"
+    "migrateConfirm": "Migrate & remove",
+    "keyFromName": "Generate key from the name"
   },
   "account": {
     "title": "My account",

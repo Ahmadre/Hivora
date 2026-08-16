@@ -516,7 +516,7 @@ class _SprintCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent =
         this.accent ?? AppColors.stateColor(issue.state.toUpperCase());
-    final due = dueLabel(issue.dueDate);
+    final due = dueLabel(context, issue.dueDate);
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,

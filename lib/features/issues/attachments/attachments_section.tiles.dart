@@ -72,9 +72,10 @@ class _AttachmentTileState extends State<_AttachmentTile> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Thumb / preview.
+            // Thumb / preview — a golden rectangle, the caption below it takes
+            // what is left (see [AttachmentGrid]).
             AspectRatio(
-              aspectRatio: 16 / 10,
+              aspectRatio: AttachmentGrid.previewRatio,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -185,11 +186,13 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     final path = widget.imagePath!(att.id);
     // Decode at (roughly) the tile's on-screen pixel size, never the source's
     // full resolution: a legacy attachment with no stored thumbnail still serves
-    // the original, and a 48 MP photo drawn in a ~168 px tile would otherwise
+    // the original, and a 48 MP photo drawn in a ~233 px tile would otherwise
     // decode into a ~200 MB bitmap and OOM-crash a photo-dense grid. ResizeImage
-    // is a no-op when the source is already smaller. 168 dp is the widest tile
-    // extent; ×dpr covers the densest screens.
-    final cacheW = (168 * MediaQuery.devicePixelRatioOf(context)).round();
+    // is a no-op when the source is already smaller. The grid never hands a tile
+    // more than [AttachmentGrid.maxTile]; ×dpr covers the densest screens.
+    final cacheW =
+        (AttachmentGrid.maxTile * MediaQuery.devicePixelRatioOf(context))
+            .round();
     return HivePreviewImage(
       key: ValueKey(path),
       image: ResizeImage(

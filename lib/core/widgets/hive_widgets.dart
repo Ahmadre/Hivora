@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/api_client.dart';
@@ -791,32 +792,31 @@ class SegmentedControl extends StatelessWidget {
 
 // ───────────────────────────── helpers ──────────────────────────────────
 
-/// Relative due label + lateness, mirroring the prototype's dueLabel().
-({String text, bool late})? dueLabel(DateTime? due) {
+/// Relative due label + lateness: "3 T. überfällig", "Heute", "in 4 T.", and
+/// a plain date once the deadline is more than a week out.
+///
+/// Localized end to end — the near terms through the message bundle, the far
+/// date through [DateFormat] in the app's locale, so a German user never reads
+/// "23d overdue" or "Jul 24".
+({String text, bool late})? dueLabel(BuildContext context, DateTime? due) {
   if (due == null) return null;
   final d = DateTime(due.year, due.month, due.day);
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final diff = d.difference(today).inDays;
-  if (diff < 0) return (text: '${-diff}d overdue', late: true);
-  if (diff == 0) return (text: 'Today', late: true);
-  if (diff == 1) return (text: 'Tomorrow', late: false);
-  if (diff <= 7) return (text: '${diff}d', late: false);
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return (text: '${months[d.month - 1]} ${d.day}', late: false);
+  // Interpolated, not pluralized: these strings use the same wording for one
+  // day and for many ("1 T. überfällig" / "23 T. überfällig"), and asking
+  // i18next for a plural form that no bundle defines renders the bare key.
+  String t(String key, [int? count]) => context.t(
+    'issues.due.$key',
+    variables: count == null ? const {} : {'count': count},
+  );
+  if (diff < 0) return (text: t('overdue', -diff), late: true);
+  if (diff == 0) return (text: t('today'), late: true);
+  if (diff == 1) return (text: t('tomorrow'), late: false);
+  if (diff <= 7) return (text: t('inDays', diff), late: false);
+  final locale = Localizations.localeOf(context).toString();
+  return (text: DateFormat.MMMd(locale).format(d), late: false);
 }
 
 /// Format minutes as `2h 30m`.

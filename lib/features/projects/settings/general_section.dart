@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/i18n/i18n.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/hue_colors.dart';
+import '../../../core/util/keys.dart';
 import 'settings_common.dart';
 
 /// General card: name (required), key (required, uppercase), description, accent.
@@ -44,6 +46,7 @@ class GeneralSection extends StatelessWidget {
               );
               final keyField = _KeyField(
                 controller: keyController,
+                nameController: nameController,
                 error: keyError,
               );
               if (stacked) {
@@ -118,16 +121,55 @@ class _NameField extends StatelessWidget {
 }
 
 class _KeyField extends StatelessWidget {
-  const _KeyField({required this.controller, required this.error});
+  const _KeyField({
+    required this.controller,
+    required this.nameController,
+    required this.error,
+  });
   final TextEditingController controller;
+
+  /// The name the key can be re-derived from — on request only. An existing
+  /// project's key prefixes every one of its issue ids, and the server re-keys
+  /// them all when it changes, so this never follows the name on its own the
+  /// way the create dialog does.
+  final TextEditingController nameController;
   final bool error;
+
+  void _generate() {
+    final suggestion = suggestKey(nameController.text);
+    if (suggestion.isEmpty) return;
+    controller.value = TextEditingValue(
+      text: suggestion,
+      selection: TextSelection.collapsed(offset: suggestion.length),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        FieldLabel(text: context.t('projects.key'), required: true),
+        Row(
+          children: [
+            FieldLabel(text: context.t('projects.key'), required: true),
+            const Spacer(),
+            Tooltip(
+              message: context.t('projectSettings.keyFromName'),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: _generate,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    LucideIcons.wandSparkles,
+                    size: 14,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         TextField(
           controller: controller,
           textCapitalization: TextCapitalization.characters,

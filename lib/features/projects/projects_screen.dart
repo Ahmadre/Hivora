@@ -16,6 +16,7 @@ import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hue_colors.dart';
+import '../../core/util/keys.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
 import '../sprint/modals/glass_modal.dart';
@@ -201,6 +202,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
+  /// Keys of the projects this user can see — archived ones included, since
+  /// they hold their key too. What the create dialog steps around when it
+  /// suggests one.
+  Set<String> _takenProjectKeys() {
+    final data = _cubit.state.data;
+    if (data == null) return const {};
+    return {
+      for (final p in [...data.active, ...data.archived]) p.key.toUpperCase(),
+    };
+  }
+
   Future<void> _showCreate() async {
     final projects = context.read<ProjectRepository>();
     final users = context.read<UserRepository>();
@@ -213,7 +225,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           RepositoryProvider.value(value: projects),
           RepositoryProvider.value(value: users),
         ],
-        child: _CreateProjectBody(meId: meId),
+        child: _CreateProjectBody(meId: meId, takenKeys: _takenProjectKeys()),
       ),
     );
     if (created != null) _cubit.load();
@@ -504,9 +516,14 @@ class _Stat extends StatelessWidget {
 /// (same as the sprint/team modals) and matching the design: glyph + name/key,
 /// description, lead, accent color and the default-workflow note.
 class _CreateProjectBody extends StatefulWidget {
-  const _CreateProjectBody({required this.meId});
+  const _CreateProjectBody({required this.meId, this.takenKeys = const {}});
 
   final String? meId;
+
+  /// Keys already in use, so the suggested one doesn't walk into a conflict the
+  /// server would only report after the form is submitted. Best effort — the
+  /// server stays the authority (it answers 409 for a key this list missed).
+  final Set<String> takenKeys;
 
   @override
   State<_CreateProjectBody> createState() => _CreateProjectBodyState();
@@ -516,6 +533,10 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   final _key = TextEditingController();
   final _name = TextEditingController();
   final _description = TextEditingController();
+
+  /// While true the key follows the name. The first edit of the key field ends
+  /// that for good — a key somebody typed is theirs to keep.
+  bool _keyFollowsName = true;
 
   List<DirectoryUser> _users = const [];
   String? _leadId;
@@ -529,8 +550,8 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   void initState() {
     super.initState();
     _leadId = widget.meId;
-    _name.addListener(_refresh);
-    _key.addListener(_refresh);
+    _name.addListener(_onNameChanged);
+    _key.addListener(_onKeyChanged);
     _loadUsers();
   }
 
@@ -545,6 +566,36 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
 
   void _refresh() => setState(() {});
 
+  /// Types the key along with the name — the whole point being that nobody has
+  /// to invent one, while it stays a plain text field they can overrule.
+  void _onNameChanged() {
+    if (_keyFollowsName) {
+      final suggestion = suggestKey(_name.text, taken: widget.takenKeys);
+      if (suggestion != _key.text) {
+        // Set through the controller's value so the caret stays at the end.
+        _key.value = TextEditingValue(
+          text: suggestion,
+          selection: TextSelection.collapsed(offset: suggestion.length),
+        );
+        return; // the key listener refreshes
+      }
+    }
+    _refresh();
+  }
+
+  void _onKeyChanged() {
+    // Only a *typed* key breaks the link; the one we just wrote does not.
+    if (_keyFollowsName &&
+        _key.text != suggestKey(_name.text, taken: widget.takenKeys)) {
+      _keyFollowsName = false;
+    }
+    _refresh();
+  }
+
+  /// A key the client already knows is taken — surfaced before the round trip.
+  bool get _keyTaken =>
+      widget.takenKeys.contains(_key.text.trim().toUpperCase());
+
   @override
   void dispose() {
     _key.dispose();
@@ -554,7 +605,9 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   }
 
   bool get _valid =>
-      _name.text.trim().isNotEmpty && _keyPattern.hasMatch(_key.text.trim());
+      _name.text.trim().isNotEmpty &&
+      _keyPattern.hasMatch(_key.text.trim()) &&
+      !_keyTaken;
 
   @override
   Widget build(BuildContext context) {
@@ -641,16 +694,30 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
     );
     final keyField = GlassField(
       label: context.t('projects.key'),
-      child: TextField(
-        controller: _key,
-        textCapitalization: TextCapitalization.characters,
-        autocorrect: false,
-        maxLength: 10,
-        style: const TextStyle(fontFamily: AppTheme.fontMono),
-        inputFormatters: [_UpperAlphaNumFormatter()],
-        decoration: glassInputDecoration(
-          hint: 'BILL',
-        ).copyWith(counterText: ''),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _key,
+            textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
+            maxLength: 10,
+            style: const TextStyle(fontFamily: AppTheme.fontMono),
+            inputFormatters: [_UpperAlphaNumFormatter()],
+            decoration: glassInputDecoration(
+              hint: 'BILL',
+            ).copyWith(counterText: ''),
+          ),
+          // Said here rather than after a round trip that fails.
+          if (_keyTaken)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                context.t('projects.keyTaken'),
+                style: const TextStyle(fontSize: 11.5, color: AppColors.danger),
+              ),
+            ),
+        ],
       ),
     );
 
