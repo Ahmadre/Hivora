@@ -123,6 +123,14 @@ bool get isNativeApp =>
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.macOS);
 
+/// How the search-palette shortcut is spelled on this platform. [_onGlobalKey]
+/// accepts ⌘ and Ctrl everywhere, but the hint has to name the key the user
+/// actually has — a Windows or Linux keyboard has no ⌘.
+String get searchShortcutLabel => switch (defaultTargetPlatform) {
+  TargetPlatform.macOS || TargetPlatform.iOS => '⌘K',
+  _ => 'Ctrl K',
+};
+
 /// Responsive scaffold:
 /// • phone/compact (<987): Liquid-Glass floating bottom nav
 /// • desktop/wide (≥987): persistent dark Navy rail on the left

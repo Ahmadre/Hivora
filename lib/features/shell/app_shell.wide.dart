@@ -1028,7 +1028,7 @@ class _TopSearchField extends StatelessWidget {
                     border: Border.all(color: AppColors.hairline),
                   ),
                   child: Text(
-                    '⌘K',
+                    searchShortcutLabel,
                     style: TextStyle(
                       fontFamily: AppTheme.fontMono,
                       fontSize: 11,
