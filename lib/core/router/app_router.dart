@@ -68,16 +68,25 @@ class _MergedRefresh extends ChangeNotifier {
   }
 }
 
-GoRouter buildRouter({
-  required AppConfigBloc appConfig,
-  required AuthBloc auth,
-  required AppStorage storage,
-}) {
-  // Gate screens the user is bounced through while the app boots (connects,
-  // onboards, authenticates). A deep-linked destination requested before the
-  // app is ready gets parked here so it can be restored afterwards instead of
-  // being lost to the default /dashboard.
-  const gates = {
+/// Where the router sends the user while the app is still booting, and the one
+/// parking slot that carries a deep-linked destination across that boot.
+///
+/// A deep link (an e-mail link, a tapped push notification, an SSO callback)
+/// almost always lands *before* the app is in any state to show it: the server
+/// is still being verified, the session still being re-checked. The router
+/// bounces such a request onto a gate screen — and unless the destination is
+/// remembered here, it is simply gone, which from the outside looks exactly
+/// like "I opened the link and the app did nothing".
+///
+/// Extracted from [buildRouter] with no widget tree attached, because the boot
+/// orderings this has to survive are the whole point and a screen-less unit test
+/// is the only way to walk through all of them.
+@visibleForTesting
+class BootGate {
+  /// Screens the user is bounced through while the app boots (connects,
+  /// onboards, authenticates) — never a deep-link destination in their own
+  /// right, so they are never parked and never restored.
+  static const gates = {
     '/connect',
     '/connecting',
     '/setup',
@@ -89,97 +98,131 @@ GoRouter buildRouter({
     '/forgot-password',
     '/verify-email',
   };
+
+  /// The destination waiting for the app to become able to show it.
   String? pendingDeepLink;
+
+  /// The location to redirect to, or null to let [location] render.
+  String? redirect({
+    required String location,
+    required String uri,
+    required AppConfigStatus config,
+    required AuthStatus auth,
+    required bool hasServerUrl,
+    required bool onboardingDone,
+  }) {
+    // Remember a real (non-gate) destination that we're about to bounce off a
+    // gate, so we can return to it once the app is ready + authenticated.
+    void parkIfDeepLink() {
+      if (!gates.contains(location) && location != '/dashboard') {
+        pendingDeepLink = uri;
+      }
+    }
+
+    // The SSO callback carries a one-time token pair in its query string.
+    // On a web login the whole app reloads at this URL, so AppConfig is still
+    // (re)connecting — without this guard the config switch below would bounce
+    // us to /connect and discard the tokens before SsoCallbackScreen reads
+    // them. Hold the route until the tokens have signed the user in.
+    if (location == '/auth-callback' && auth != AuthStatus.authenticated) {
+      return null;
+    }
+
+    // The invite + password-reset deep links are self-contained public flows
+    // (validate token → set password → auto-sign-in). Let them render
+    // regardless of config/auth state; they set the server URL from the link
+    // and navigate on themselves.
+    if (location == '/invite' ||
+        location == '/reset-password' ||
+        location == '/verify-email') {
+      return null;
+    }
+
+    switch (config) {
+      case AppConfigStatus.initial:
+      case AppConfigStatus.connecting:
+        // No server chosen yet → URL-entry screen. Otherwise (boot with a
+        // saved server, or a deliberate server switch) show a brief branded
+        // splash rather than flashing the connect form.
+        if (!hasServerUrl) {
+          if (location == '/connect') return null;
+          parkIfDeepLink();
+          return '/connect';
+        }
+        if (location == '/connecting') return null;
+        parkIfDeepLink();
+        return '/connecting';
+      case AppConfigStatus.needsServerUrl:
+        if (location == '/connect') return null;
+        parkIfDeepLink();
+        return '/connect';
+      case AppConfigStatus.updateRequired:
+        if (location == '/update') return null;
+        parkIfDeepLink();
+        return '/update';
+      case AppConfigStatus.needsSetup:
+        if (location == '/setup') return null;
+        parkIfDeepLink();
+        return '/setup';
+      case AppConfigStatus.ready:
+        break;
+    }
+    if (!onboardingDone) {
+      if (location == '/onboarding') return null;
+      parkIfDeepLink();
+      return '/onboarding';
+    }
+    if (auth != AuthStatus.authenticated) {
+      // /auth-callback carries the SSO token pair and signs the user in;
+      // /register + /forgot-password are the public logged-out auth flows.
+      const allowed = {
+        '/login',
+        '/auth-callback',
+        '/register',
+        '/forgot-password',
+      };
+      if (allowed.contains(location)) return null;
+      parkIfDeepLink();
+      return '/login';
+    }
+    // Authenticated and ready: hand back the parked deep link, wherever the
+    // user is standing right now. Deliberately not limited to the gates: the
+    // gates are where a link gets parked, but they are not the only place the
+    // app can be when it finally settles. A link that arrives a beat after the
+    // app is already home parks nothing and needs nothing; one that arrives
+    // while a *later* boot step is still running (a server switch dropping
+    // AppConfig back to `connecting`, a re-`AuthChecked` after it) is parked
+    // from a location that is by then no longer a gate — and used to sit there
+    // forever, which is exactly what "the app opens and does nothing" looked
+    // like.
+    final parked = pendingDeepLink;
+    pendingDeepLink = null;
+    if (parked != null && parked != uri) return parked;
+    // Nothing parked: just keep the user off the gate screens.
+    if (gates.contains(location)) return '/dashboard';
+    return null;
+  }
+}
+
+GoRouter buildRouter({
+  required AppConfigBloc appConfig,
+  required AuthBloc auth,
+  required AppStorage storage,
+}) {
+  final bootGate = BootGate();
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: storage.screenshotRoute ?? '/dashboard',
     refreshListenable: _MergedRefresh([appConfig.stream, auth.stream]),
-    redirect: (context, routerState) {
-      final config = appConfig.state.status;
-      final authStatus = auth.state.status;
-      final location = routerState.matchedLocation;
-
-      // Remember a real (non-gate) destination that we're about to bounce off a
-      // gate, so we can return to it once the app is ready + authenticated.
-      void parkIfDeepLink() {
-        if (!gates.contains(location) && location != '/dashboard') {
-          pendingDeepLink = routerState.uri.toString();
-        }
-      }
-
-      // The SSO callback carries a one-time token pair in its query string.
-      // On a web login the whole app reloads at this URL, so AppConfig is still
-      // (re)connecting — without this guard the config switch below would bounce
-      // us to /connect and discard the tokens before SsoCallbackScreen reads
-      // them. Hold the route until the tokens have signed the user in.
-      if (location == '/auth-callback' &&
-          authStatus != AuthStatus.authenticated) {
-        return null;
-      }
-
-      // The invite + password-reset deep links are self-contained public flows
-      // (validate token → set password → auto-sign-in). Let them render
-      // regardless of config/auth state; they set the server URL from the link
-      // and navigate on themselves.
-      if (location == '/invite' ||
-          location == '/reset-password' ||
-          location == '/verify-email') {
-        return null;
-      }
-
-      switch (config) {
-        case AppConfigStatus.initial:
-        case AppConfigStatus.connecting:
-          // No server chosen yet → URL-entry screen. Otherwise (boot with a
-          // saved server, or a deliberate server switch) show a brief branded
-          // splash rather than flashing the connect form.
-          if (storage.serverUrl == null) {
-            if (location == '/connect') return null;
-            parkIfDeepLink();
-            return '/connect';
-          }
-          if (location == '/connecting') return null;
-          parkIfDeepLink();
-          return '/connecting';
-        case AppConfigStatus.needsServerUrl:
-          if (location == '/connect') return null;
-          parkIfDeepLink();
-          return '/connect';
-        case AppConfigStatus.updateRequired:
-          return location == '/update' ? null : '/update';
-        case AppConfigStatus.needsSetup:
-          return location == '/setup' ? null : '/setup';
-        case AppConfigStatus.ready:
-          break;
-      }
-      if (!storage.onboardingDone) {
-        if (location == '/onboarding') return null;
-        parkIfDeepLink();
-        return '/onboarding';
-      }
-      if (authStatus != AuthStatus.authenticated) {
-        // /auth-callback carries the SSO token pair and signs the user in;
-        // /register + /forgot-password are the public logged-out auth flows.
-        const allowed = {
-          '/login',
-          '/auth-callback',
-          '/register',
-          '/forgot-password',
-        };
-        if (allowed.contains(location)) return null;
-        parkIfDeepLink();
-        return '/login';
-      }
-      // Authenticated and ready: send the user to their parked deep link (if
-      // any), otherwise keep them away from the gate screens.
-      if (gates.contains(location)) {
-        final target = pendingDeepLink;
-        pendingDeepLink = null;
-        return target ?? '/dashboard';
-      }
-      return null;
-    },
+    redirect: (context, routerState) => bootGate.redirect(
+      location: routerState.matchedLocation,
+      uri: routerState.uri.toString(),
+      config: appConfig.state.status,
+      auth: auth.state.status,
+      hasServerUrl: storage.serverUrl != null,
+      onboardingDone: storage.onboardingDone,
+    ),
     routes: [
       GoRoute(path: '/connect', builder: (_, _) => const ConnectScreen()),
       GoRoute(path: '/connecting', builder: (_, _) => const ConnectingScreen()),

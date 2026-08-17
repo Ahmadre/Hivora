@@ -82,7 +82,23 @@ void main() {
     // launch after it — which is the same loop, only worse.
     await boot().openNotification(launch);
 
-    expect(storage.launchNotificationId, 'msg-1');
+    expect(storage.hasOpenedNotification('msg-1'), isTrue);
+  });
+
+  test('does not forget the first one when a second is opened', () async {
+    // Remembering only the *last* id meant two notifications took turns
+    // evicting each other: open A, open B, and the stale A the OS keeps
+    // handing back as the launch notification is followed all over again.
+    await boot().openNotification(launch);
+    await boot().openNotification(
+      const RemoteMessage(messageId: 'msg-2', data: {'link': '/issues/HIN-9'}),
+    );
+    opened.clear();
+
+    await restart();
+    await boot().openNotification(launch);
+
+    expect(opened, isEmpty);
   });
 
   test('follows a notification that carries no id at all', () async {

@@ -137,6 +137,11 @@ class FcmService {
   /// A second *genuine* tap on the same notification is not a thing to lose:
   /// tapping one takes it out of Notification Center.
   ///
+  /// The ids are kept as a short list rather than a single "last one": with one
+  /// slot, two notifications simply took turns evicting each other, and the
+  /// stale launch notification came back as soon as any other one had been
+  /// opened in between.
+  ///
   /// The id is recorded *before* the link is followed, so a launch that dies
   /// on the way to the route is not repeated by every launch after it — the
   /// same loop, only harder to get out of. A message with no id is followed
@@ -151,8 +156,8 @@ class FcmService {
   Future<void> openNotification(RemoteMessage message) async {
     final id = message.messageId;
     if (id != null && id.isNotEmpty) {
-      if (_storage.launchNotificationId == id) return;
-      await _storage.setLaunchNotificationId(id);
+      if (_storage.hasOpenedNotification(id)) return;
+      await _storage.rememberOpenedNotification(id);
     }
     _route(message);
   }

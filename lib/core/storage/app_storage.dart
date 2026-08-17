@@ -27,7 +27,11 @@ class AppStorage {
   static const _kConnectHintSeen = 'connect_hint_seen';
   static const _kLocale = 'locale';
   static const _kRecentSearch = 'hinata.recentSearch.v1';
-  static const _kLaunchNotification = 'hinata.launchNotification.v1';
+  // v2 holds a list; v1 held a single id under the old key name and is simply
+  // left behind — reading a String back as a StringList would throw, and the
+  // worst a fresh key costs is that one already-opened notification could be
+  // opened once more.
+  static const _kOpenedNotifications = 'hinata.openedNotifications.v2';
 
   /// Maximum number of recent global-search queries kept on device.
   static const recentSearchMax = 6;
@@ -251,17 +255,36 @@ class AppStorage {
   String? get locale => _prefs.getString(_kLocale);
   Future<void> setLocale(String code) => _prefs.setString(_kLocale, code);
 
-  /// The id of the notification whose deep link was already opened at launch.
+  /// The ids of notifications whose deep link has already been opened.
   ///
   /// A notification tap that starts the app is handed to it by the OS as the
   /// "launch notification", and on macOS the same one comes back on later
   /// launches the app was never told to make — which reopened a months-old
-  /// comment every time the app was started. Written before the link is
+  /// comment every time the app was started. Recorded before the link is
   /// followed, so a launch link is followed at most once per notification, ever.
-  String? get launchNotificationId => _prefs.getString(_kLaunchNotification);
+  ///
+  /// A *list*, not a single id: remembering only the last one meant two
+  /// notifications took turns evicting each other, and the stale launch
+  /// notification came back the moment any other one had been opened in between.
+  /// The window is small on purpose — it only has to outlive how long a
+  /// notification can linger in Notification Center, not the install.
+  List<String> get openedNotificationIds =>
+      _prefs.getStringList(_kOpenedNotifications) ?? const <String>[];
 
-  Future<void> setLaunchNotificationId(String id) =>
-      _prefs.setString(_kLaunchNotification, id);
+  /// Maximum number of opened-notification ids kept on device.
+  static const openedNotificationsMax = 50;
+
+  bool hasOpenedNotification(String id) => openedNotificationIds.contains(id);
+
+  Future<void> rememberOpenedNotification(String id) async {
+    final ids = openedNotificationIds.toList()
+      ..remove(id)
+      ..add(id);
+    if (ids.length > openedNotificationsMax) {
+      ids.removeRange(0, ids.length - openedNotificationsMax);
+    }
+    await _prefs.setStringList(_kOpenedNotifications, ids);
+  }
 
   /// Tooling-only: lets the screenshot harness force the boot route via a
   /// pre-seeded pref (no effect in normal use, where the key is absent).

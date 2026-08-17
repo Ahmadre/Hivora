@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +17,7 @@ import 'core/notifications/fcm_service.dart';
 import 'core/notifications/wns_channel.dart';
 import 'core/repositories/repositories.dart';
 import 'core/router/app_router.dart';
+import 'core/router/relay_link.dart';
 import 'core/storage/app_storage.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
@@ -129,7 +129,7 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     _syncAccountStream(_auth.state);
     _authSub = _auth.stream.listen(_syncAccountStream);
     _configSub = _appConfig.stream.listen(_onAppConfig);
-    _listenForDeepLinks();
+    unawaited(_listenForDeepLinks());
   }
 
   /// Re-checks the auth session whenever AppConfig settles on a *different*
@@ -171,18 +171,37 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     }
   }
 
-  /// Handles the app's `hinata://` deep links:
-  ///  - `auth-callback?access_token=…&refresh_token=…` after an SSO login;
-  ///  - `invite?token=…&server=…` from an invitation email, which opens the
-  ///    in-app "set your password" screen (carrying the server URL so a freshly
-  ///    installed app knows which backend to talk to).
-  void _listenForDeepLinks() {
+  /// Subscribes to the two doors a deep link can come through: the link the app
+  /// was *launched* from, and the ones that arrive while it is already running.
+  ///
+  /// Both feed [_handleUri], which understands the app's `hinata://` links (the
+  /// SSO callback and the token-carrying invite / reset / verify flows) and the
+  /// https Universal / App Links the Connect gateway sends in every e-mail.
+  Future<void> _listenForDeepLinks() async {
     final appLinks = AppLinks();
     // Cold start: the link that launched the app (e.g. tapping an email link).
-    appLinks.getInitialLink().then((uri) {
-      if (uri != null) _handleUri(uri);
+    // Read *before* subscribing, because subscribing replays that very link as
+    // the stream's first event (app_links' `onListen` hands out an initial link
+    // it has not sent yet). Following one link twice re-submits the server and
+    // bounces the app back out through /connecting — right out of the screen it
+    // had just opened.
+    Uri? initial;
+    try {
+      initial = await appLinks.getInitialLink();
+    } catch (e) {
+      debugPrint('Initial deep link lookup failed: $e');
+    }
+    if (!mounted) return;
+    Uri? replay = initial;
+    _linkSubscription = appLinks.uriLinkStream.listen((uri) {
+      // Only the *first* stream event can be that replay; from then on an
+      // identical link is a second, deliberate tap and is followed again.
+      final isReplay = uri == replay;
+      replay = null;
+      if (isReplay) return;
+      unawaited(_handleUri(uri));
     });
-    _linkSubscription = appLinks.uriLinkStream.listen(_handleUri);
+    if (initial != null) await _handleUri(initial);
   }
 
   Future<void> _handleUri(Uri uri) async {
@@ -237,38 +256,33 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   /// redirect; a token, when present, is validated server-side anyway), point
   /// the app at that server, and open the flow.
   Future<void> _openRelayLink(Uri uri) async {
-    final seg = uri.pathSegments.length > 1 ? uri.pathSegments[1] : '';
-    final dot = seg.indexOf('.');
-    final b64 = dot > 0 ? seg.substring(0, dot) : seg;
-    if (b64.isEmpty) return;
-    try {
-      final padded = b64.padRight((b64.length + 3) ~/ 4 * 4, '=');
-      final payload =
-          jsonDecode(utf8.decode(base64Url.decode(padded)))
-              as Map<String, dynamic>;
-      final token = payload['t'] as String?;
-      final route = payload['p'] as String?;
-      final server = payload['a'] as String?;
-      if (route == null || route.isEmpty) return;
-      if (server != null && server.isNotEmpty) {
-        await widget.storage.setServerUrl(server);
-        _appConfig.add(ServerUrlSubmitted(server));
-      }
-      // Invite/reset links carry a one-time token; plain notification links
-      // (mentions, assignments, team changes, …) route with just the path.
-      // `route` may already carry its own query string (e.g.
-      // "/admin/users?user=…"), so merge rather than appending a second "?".
-      final qIndex = route.indexOf('?');
-      final path = qIndex < 0 ? route : route.substring(0, qIndex);
-      final queryParts = <String>[
-        if (qIndex >= 0) route.substring(qIndex + 1),
-        if (token != null && token.isNotEmpty)
-          'token=${Uri.encodeQueryComponent(token)}',
-      ];
-      _router.go(queryParts.isEmpty ? path : '$path?${queryParts.join('&')}');
-    } catch (_) {
-      // Malformed/garbage relay link — ignore silently.
+    final link = RelayLink.parse(uri);
+    // Only the *decode* is allowed to fail quietly — a garbage relay link is
+    // nothing we can act on. Switching servers and routing used to sit inside
+    // that same `catch`, which turned any failure on the way to the screen into
+    // a link that silently did nothing at all.
+    if (link == null) return;
+    await _selectServer(link.server);
+    _router.go(link.route);
+  }
+
+  /// Points the app at the server a deep link came from.
+  ///
+  /// Deliberately a no-op when that server is already the current one: a
+  /// [ServerUrlSubmitted] restarts the connection, which drops AppConfig back to
+  /// `connecting` and bounces the router onto /connecting — undoing the very
+  /// navigation the link just made. Every push/e-mail deep link carries its
+  /// origin server, so without this guard *every* one of them took that detour.
+  /// A failed connection is still re-submitted, since that is the case where
+  /// re-connecting is the whole point.
+  Future<void> _selectServer(String? server) async {
+    if (server == null || server.isEmpty) return;
+    if (widget.storage.serverUrl == server &&
+        _appConfig.state.status != AppConfigStatus.needsServerUrl) {
+      return;
     }
+    await widget.storage.setServerUrl(server);
+    _appConfig.add(ServerUrlSubmitted(server));
   }
 
   /// Shared handoff for the token-carrying email deep links (invite / reset):
@@ -277,11 +291,7 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   Future<void> _openTokenFlow(Uri uri, String route) async {
     final token = uri.queryParameters['token'];
     if (token == null || token.isEmpty) return;
-    final server = uri.queryParameters['server'];
-    if (server != null && server.isNotEmpty) {
-      await widget.storage.setServerUrl(server);
-      _appConfig.add(ServerUrlSubmitted(server));
-    }
+    await _selectServer(uri.queryParameters['server']);
     _router.go('$route?token=${Uri.encodeQueryComponent(token)}');
   }
 
