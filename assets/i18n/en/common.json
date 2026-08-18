@@ -559,6 +559,8 @@
         "copy": "Copy all text",
         "copied": "Text copied",
         "emptyFile": "This file is empty.",
+        "renderFailed": "This file couldn't be rendered.",
+        "retry": "Try again",
         "tooLarge": "Too large for an inline preview — download it to read it."
       },
       "source": {

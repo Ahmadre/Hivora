@@ -559,6 +559,8 @@
         "copy": "Gesamten Text kopieren",
         "copied": "Text kopiert",
         "emptyFile": "Diese Datei ist leer.",
+        "renderFailed": "Diese Datei konnte nicht dargestellt werden.",
+        "retry": "Erneut versuchen",
         "tooLarge": "Zu groß für die Vorschau – zum Lesen herunterladen."
       },
       "source": {

@@ -470,6 +470,227 @@ void main() {
       expect(find.text('second.md'), findsOneWidget);
     });
 
+    /// HIN-48. The minus button used to grey out at 100 % for pictures and
+    /// PDFs, so a whole PDF page never fit on a wide window and the control
+    /// looked broken. These pin the picture half; the PDF half is the same
+    /// `_zoomRange` floor and is verified on screen.
+    testWidgets('a picture zooms out below 100 % and stays centred', (
+      tester,
+    ) async {
+      api.serveBytes('/dl/out', base64Decode(_png8x8));
+      await openViewer(tester, [
+        const ViewerItem(
+          id: 'i',
+          name: 'shot.png',
+          kind: 'image',
+          size: 128,
+          url: '/dl/out',
+          mime: 'image/png',
+        ),
+      ]);
+      await pumpUntil(tester, find.byType(InteractiveViewer));
+
+      Matrix4 matrix() => tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value;
+      double scale() => matrix().getMaxScaleOnAxis();
+
+      expect(scale(), 1);
+
+      // The button being live at 100 % is the bug report. Tapping it must also
+      // not throw: below 1× the old clamp passed a lower limit above its upper
+      // one, which num.clamp rejects outright.
+      await tester.tap(find.byIcon(LucideIcons.minus));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+
+      expect(scale(), lessThan(1));
+      expect(tester.takeException(), isNull);
+
+      // Centred, not parked in a corner: the shrunken child's span has to sit
+      // symmetrically inside the viewport.
+      final stage = tester.getSize(find.byType(InteractiveViewer));
+      final translation = matrix().getTranslation();
+      expect(
+        translation.x,
+        closeTo((stage.width - scale() * stage.width) / 2, 0.5),
+      );
+      expect(
+        translation.y,
+        closeTo((stage.height - scale() * stage.height) / 2, 0.5),
+      );
+    });
+
+    testWidgets('zooming out reaches the floor and the readout stays legible', (
+      tester,
+    ) async {
+      api.serveBytes('/dl/floor', base64Decode(_png8x8));
+      api.serveBytes('/dl/floor2', base64Decode(_png8x8));
+      // Two items on purpose: paging is only ever enabled when there is
+      // somewhere to page to, so a single-item viewer could not tell us whether
+      // zooming out took the swipe away.
+      await openViewer(tester, [
+        const ViewerItem(
+          id: 'i',
+          name: 'shot.png',
+          kind: 'image',
+          size: 128,
+          url: '/dl/floor',
+          mime: 'image/png',
+        ),
+        const ViewerItem(
+          id: 'j',
+          name: 'other.png',
+          kind: 'image',
+          size: 128,
+          url: '/dl/floor2',
+          mime: 'image/png',
+        ),
+      ]);
+      await pumpUntil(tester, find.byType(InteractiveViewer));
+
+      final viewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer).first,
+      );
+      // One source of truth: the stage's own floor is the same number the
+      // toolbar clamps to, so a change to _zoomRange cannot ship half-applied.
+      expect(viewer.minScale, 0.5);
+
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(find.byIcon(LucideIcons.minus));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(tester.takeException(), isNull);
+
+      // 0.5 → "50%", two digits in a 58px box.
+      expect(find.text('50%'), findsOneWidget);
+
+      // Below 100 % the picture still fits, so the gestures that belong to the
+      // viewer keep the drag: swipe-to-close and paging must stay live.
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).physics,
+        isNot(isA<NeverScrollableScrollPhysics>()),
+      );
+
+      await tester.tap(find.byIcon(LucideIcons.maximize));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        tester
+            .widget<InteractiveViewer>(find.byType(InteractiveViewer).first)
+            .transformationController!
+            .value
+            .getMaxScaleOnAxis(),
+        closeTo(1, 0.001),
+      );
+    });
+
+    testWidgets('a double tap toggles fit and close-up, never the floor', (
+      tester,
+    ) async {
+      api.serveBytes('/dl/tap', base64Decode(_png8x8));
+      await openViewer(tester, [
+        const ViewerItem(
+          id: 'i',
+          name: 'shot.png',
+          kind: 'image',
+          size: 128,
+          url: '/dl/tap',
+          mime: 'image/png',
+        ),
+      ]);
+      await pumpUntil(tester, find.byType(InteractiveViewer));
+
+      double scale() => tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value
+          .getMaxScaleOnAxis();
+
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(scale(), closeTo(2.5, 0.001));
+
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
+      // Back to "fits the window", not down to the new floor.
+      expect(scale(), closeTo(1, 0.001));
+    });
+
+    testWidgets('a pinch takes a picture below 100 %, and it stays centred', (
+      tester,
+    ) async {
+      api.serveBytes('/dl/pinch', base64Decode(_png8x8));
+      await openViewer(tester, [
+        const ViewerItem(
+          id: 'i',
+          name: 'shot.png',
+          kind: 'image',
+          size: 128,
+          url: '/dl/pinch',
+          mime: 'image/png',
+        ),
+      ]);
+      await pumpUntil(tester, find.byType(InteractiveViewer));
+
+      Matrix4 matrix() => tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value;
+      double scale() => matrix().getMaxScaleOnAxis();
+
+      // Off to one side on purpose: the fingers are nowhere near the middle,
+      // which is what turns a plain zoom-out into a slide.
+      const at = Offset(200, 350);
+      final left = await tester.startGesture(at - const Offset(90, 0));
+      final right = await tester.startGesture(at + const Offset(90, 0));
+      await tester.pump(const Duration(milliseconds: 20));
+      for (var step = 0; step < 6; step++) {
+        await left.moveBy(const Offset(12, 0));
+        await right.moveBy(const Offset(-12, 0));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      // The toolbar could always do this; a pinch only can because the boundary
+      // is widened below 1× — InteractiveViewer's own floor is otherwise
+      // max(viewport / boundary), which is exactly 1 with the default boundary.
+      expect(scale(), lessThan(1));
+
+      // Now shove the shrunken picture sideways, still pinching. panEnabled is
+      // off, but the scale gesture translates anyway — this is the drag that
+      // used to leave a picture that *fits* parked half outside the window,
+      // with no way to bring it back.
+      for (var step = 0; step < 6; step++) {
+        await left.moveBy(const Offset(50, 0));
+        await right.moveBy(const Offset(50, 0));
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await left.up();
+      await right.up();
+      await tester.pump();
+
+      final stage = tester.getSize(find.byType(InteractiveViewer));
+      final translation = matrix().getTranslation();
+      expect(scale(), lessThan(1));
+      expect(
+        translation.x,
+        closeTo((stage.width - scale() * stage.width) / 2, 1),
+      );
+      expect(
+        translation.y,
+        closeTo((stage.height - scale() * stage.height) / 2, 1),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('Escape closes the viewer', (tester) async {
       api.serve('/dl/escape', 'alpha');
       await openViewer(tester, [textItem(path: '/dl/escape')]);
@@ -480,6 +701,309 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
 
       expect(find.byType(PageView), findsNothing);
+    });
+
+    // ── PDF stage (HIN-48) ──────────────────────────────────────────────
+    //
+    // Rasterizing a real PDF needs the `printing` plugin's platform channel,
+    // which a widget test does not have. What it *does* have is the channel
+    // itself: [_FakePrinting] answers `printingInfo`/`rasterPdf` and pushes the
+    // package's own `onPageRasterized` callbacks back, so everything above the
+    // rasterizer — our page layout, both scroll axes, the zoom anchoring and the
+    // failure path — runs exactly as it does on a device.
+    group('pdf', () {
+      late _FakePrinting printing;
+
+      setUp(() => printing = _FakePrinting());
+
+      ViewerItem pdfItem({String path = '/dl/spec'}) => ViewerItem(
+        id: 'p',
+        name: 'spec.pdf',
+        kind: 'pdf',
+        size: 4096,
+        url: path,
+        mime: 'application/pdf',
+      );
+
+      /// Our own page sheets — the ones the package no longer draws.
+      final sheets = find.byWidgetPredicate(
+        (w) => w.runtimeType.toString() == '_PdfSheet',
+      );
+
+      final sideways = find.byWidgetPredicate(
+        (w) =>
+            w is SingleChildScrollView && w.scrollDirection == Axis.horizontal,
+      );
+
+      /// How many pages the document has, whether or not they are on screen.
+      int? pageCount(WidgetTester tester) =>
+          (tester.widget<ListView>(find.byType(ListView)).childrenDelegate
+                  as SliverChildBuilderDelegate)
+              .estimatedChildCount;
+
+      /// [pumpUntil] stops at the first match, which for a lazy page list is
+      /// the first page — the rest of the raster stream is still in flight.
+      Future<void> settle(WidgetTester tester) async {
+        for (var i = 0; i < 10; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+      }
+
+      /// [path] per test on purpose: the byte cache is a module global that
+      /// outlives a single viewer (and a single test), so two tests sharing a
+      /// download path would hand each other their bytes.
+      Future<void> openPdf(
+        WidgetTester tester, {
+        String path = '/dl/spec',
+        bool serve = true,
+      }) async {
+        printing.install(tester);
+        if (serve) api.serveBytes(path, Uint8List.fromList([1, 2, 3, 4]));
+        await openViewer(tester, [pdfItem(path: path)]);
+      }
+
+      testWidgets('the pages are ours, and the package cannot take them back', (
+        tester,
+      ) async {
+        await openPdf(tester);
+        await pumpUntil(tester, sheets);
+        await settle(tester);
+
+        // The list is lazy — a page is nearly twice the stage tall, so only
+        // the first is built. The document's length is in the delegate.
+        expect(sheets, findsWidgets);
+        expect(pageCount(tester), 2);
+
+        // The bug: the package wraps every page in a double-tap detector that
+        // swaps the document for one page inside its own InteractiveViewer,
+        // after which our zoom (which widens the pages) and its transform fight
+        // over the same document and slide it off to the side. Supplying a
+        // pagesBuilder is what makes that mode unreachable — there must be no
+        // second zoom system on this stage, no matter how often it is tapped.
+        final centre = tester.getCenter(find.byType(PageView));
+        await tester.tapAt(centre);
+        await tester.pump(const Duration(milliseconds: 60));
+        await tester.tapAt(centre);
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(InteractiveViewer), findsNothing);
+        expect(sheets, findsWidgets);
+        expect(pageCount(tester), 2);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+        'zoom lays the pages out wider, and only then scrolls sideways',
+        (tester) async {
+          await openPdf(tester);
+          await pumpUntil(tester, sheets);
+
+          // Sheet width includes the page's own margin, so at 1× it is the whole
+          // stage — the paper inside it is that minus the margin.
+          final atOne = tester.getSize(sheets.first).width;
+          expect(atOne, closeTo(900, 1));
+          expect(
+            tester.widget<SingleChildScrollView>(sideways).physics,
+            isA<NeverScrollableScrollPhysics>(),
+          );
+
+          await tester.tap(find.byIcon(LucideIcons.plus));
+          await tester.pump();
+          await tester.pump();
+
+          expect(tester.getSize(sheets.first).width, closeTo(atOne * 1.4, 1));
+          final scroller = tester.widget<SingleChildScrollView>(sideways);
+          expect(scroller.physics, isA<ClampingScrollPhysics>());
+          expect(scroller.controller!.position.maxScrollExtent, greaterThan(0));
+
+          // …and below 100 % the page is narrower than the window, so there is
+          // nothing to scroll and the sheet is centred rather than pinned left.
+          await tester.tap(find.byIcon(LucideIcons.maximize));
+          await tester.pump();
+          await tester.tap(find.byIcon(LucideIcons.minus));
+          await tester.pump();
+          await tester.pump();
+
+          expect(find.text('71%'), findsOneWidget);
+          expect(tester.getSize(sheets.first).width, lessThan(900));
+          final page = tester.getRect(sheets.first);
+          expect(page.center.dx, closeTo(450, 1));
+        },
+      );
+
+      testWidgets('the toolbar zooms around the middle of the window', (
+        tester,
+      ) async {
+        await openPdf(tester);
+        await pumpUntil(tester, sheets);
+        await settle(tester);
+
+        final vertical = tester
+            .widget<ListView>(find.byType(ListView))
+            .controller!;
+        vertical.jumpTo(500);
+        await tester.pump();
+
+        final before = vertical.offset;
+        await tester.tap(find.byIcon(LucideIcons.plus));
+        await tester.pump();
+        await tester.pump();
+
+        // 350 = half of the 700-tall stage: what was in the middle stays there.
+        expect(
+          vertical.offset,
+          closeTo(
+            zoomAnchoredOffset(
+              offset: before,
+              focal: 350,
+              factor: 1.4,
+              maxExtent: vertical.position.maxScrollExtent,
+            ),
+            2,
+          ),
+        );
+      });
+
+      testWidgets('a pinch zooms around the fingers, not the corner', (
+        tester,
+      ) async {
+        await openPdf(tester);
+        await pumpUntil(tester, sheets);
+        await settle(tester);
+
+        final vertical = tester
+            .widget<ListView>(find.byType(ListView))
+            .controller!;
+        vertical.jumpTo(500);
+        await tester.pump();
+        final before = vertical.offset;
+
+        // Two fingers 100px apart, high up the window, spread to 200px — 2×,
+        // around a focal point far from the middle of the stage.
+        const focal = Offset(450, 160);
+        final left = await tester.startGesture(focal - const Offset(50, 0));
+        final right = await tester.startGesture(focal + const Offset(50, 0));
+        await tester.pump(const Duration(milliseconds: 20));
+        for (var step = 0; step < 5; step++) {
+          await left.moveBy(const Offset(-10, 0));
+          await right.moveBy(const Offset(10, 0));
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        await left.up();
+        await right.up();
+        await tester.pump();
+        await tester.pump();
+
+        final zoom = double.parse(
+          tester
+              .widget<Text>(
+                find.byWidgetPredicate(
+                  (w) => w is Text && (w.data?.endsWith('%') ?? false),
+                ),
+              )
+              .data!
+              .replaceAll('%', ''),
+        );
+        expect(zoom, greaterThan(100));
+
+        final factor = zoom / 100;
+        final anchored = zoomAnchoredOffset(
+          offset: before,
+          focal: focal.dy,
+          factor: factor,
+          maxExtent: vertical.position.maxScrollExtent,
+        );
+        final centred = zoomAnchoredOffset(
+          offset: before,
+          focal: 350,
+          factor: factor,
+          maxExtent: vertical.position.maxScrollExtent,
+        );
+        // Both are far from "did nothing" and far from each other, so this
+        // really does pin the point under the fingers rather than the middle.
+        expect(centred, isNot(closeTo(anchored, 20)));
+        expect(vertical.offset, closeTo(anchored, 2));
+      });
+
+      testWidgets('a render failure is offered a second chance', (
+        tester,
+      ) async {
+        // Nothing served: the fetch comes back empty, the rasterizer reports an
+        // error, and the stage falls to the card.
+        await openPdf(tester, path: '/dl/broken', serve: false);
+        await pumpUntil(tester, find.byIcon(LucideIcons.rotateCcw));
+        await settle(tester);
+
+        expect(find.byIcon(LucideIcons.rotateCcw), findsOneWidget);
+        expect(sheets, findsNothing);
+        // The rasterizer reports its failure to the framework as well.
+        expect(tester.takeException(), isNotNull);
+        expect(printing.rasterCalls, greaterThan(0));
+
+        // Retry re-fetches instead of replaying the memoized empty download…
+        api.serveBytes('/dl/broken', Uint8List.fromList([1, 2, 3, 4]));
+        final fetches = api.requested.length;
+        await tester.tap(find.byIcon(LucideIcons.rotateCcw));
+        await tester.pump();
+        await pumpUntil(tester, sheets);
+        await settle(tester);
+
+        expect(api.requested.length, greaterThan(fetches));
+        expect(sheets, findsWidgets);
+        expect(pageCount(tester), 2);
+        expect(find.byIcon(LucideIcons.rotateCcw), findsNothing);
+      });
+    });
+  });
+
+  // ── The maths the zoom is built on ──────────────────────────────────────
+  group('zoom geometry', () {
+    test('content that fits is centred, content that overflows is clamped', () {
+      // Below 1× the child is smaller than the window: (900 - 0.5*900) / 2.
+      expect(zoomFitTranslation(scale: 0.5, extent: 900, wanted: -400), 225);
+      // Exactly 1× there is nothing either way.
+      expect(zoomFitTranslation(scale: 1, extent: 900, wanted: -400), 0);
+      // Above 1× the wanted translation survives, inside the overflow.
+      expect(zoomFitTranslation(scale: 2, extent: 900, wanted: -400), -400);
+      expect(zoomFitTranslation(scale: 2, extent: 900, wanted: -2000), -900);
+      expect(zoomFitTranslation(scale: 2, extent: 900, wanted: 300), 0);
+    });
+
+    test('the point under the focal point is what stays put', () {
+      // The content 200px down the window sat at 300+200 = 500; doubled it is
+      // at 1000, and 1000-200 = 800 puts it back under the same pixel.
+      expect(
+        zoomAnchoredOffset(offset: 300, focal: 200, factor: 2, maxExtent: 5000),
+        800,
+      );
+      // Zooming out the same way.
+      expect(
+        zoomAnchoredOffset(
+          offset: 800,
+          focal: 200,
+          factor: 0.5,
+          maxExtent: 5000,
+        ),
+        300,
+      );
+      // The scroll extent wins over the anchor, at both ends.
+      expect(
+        zoomAnchoredOffset(offset: 300, focal: 200, factor: 2, maxExtent: 600),
+        600,
+      );
+      expect(
+        zoomAnchoredOffset(offset: 0, focal: 200, factor: 0.1, maxExtent: 600),
+        0,
+      );
+      // An axis that cannot scroll is left alone — it belongs centred by the
+      // layout, not pinned to its start.
+      expect(
+        zoomAnchoredOffset(offset: 0, focal: 200, factor: 4, maxExtent: 0),
+        0,
+      );
     });
   });
 }
@@ -507,6 +1031,74 @@ double _contrast(Color a, Color b) {
 const _png8x8 =
     'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEklEQVR4nGP4z8CAFWEXHbQS'
     'ACj/P8Fu7N9hAAAAAElFTkSuQmCC';
+
+/// The `printing` plugin's platform side, in Dart.
+///
+/// The package talks to it over one method channel: it asks for `printingInfo`
+/// (which decides whether rastering is possible at all), then fires `rasterPdf`
+/// and waits for the platform to push `onPageRasterized` — one per page — and
+/// finally `onPageRasterEnd`, optionally carrying an error. Answering both
+/// directions here is what makes the PDF stage mountable in a widget test; the
+/// real rasterizer never runs, but everything the app builds on top of it does.
+class _FakePrinting {
+  static const _channel = MethodChannel('net.nfet.printing');
+  static const _codec = StandardMethodCodec();
+
+  /// Fake pages, small enough to be free and portrait enough to overflow the
+  /// stage vertically — which is what gives the scroll something to anchor.
+  static const _pageWidth = 40;
+  static const _pageHeight = 60;
+
+  int rasterCalls = 0;
+
+  void install(WidgetTester tester) {
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(_channel, (call) async {
+      switch (call.method) {
+        case 'printingInfo':
+          return <String, dynamic>{'canRaster': true};
+        case 'rasterPdf':
+          rasterCalls++;
+          final args = call.arguments as Map<dynamic, dynamic>;
+          final doc = args['doc'] as Uint8List;
+          // An empty document is what a failed download hands the rasterizer;
+          // the real one errors out on it, and so does this.
+          _deliver(tester, args['job'] as int, failed: doc.isEmpty);
+          return null;
+      }
+      return null;
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(_channel, null));
+  }
+
+  Future<void> _deliver(
+    WidgetTester tester,
+    int job, {
+    required bool failed,
+  }) async {
+    Future<void> push(String method, Map<String, dynamic> args) =>
+        tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+          _channel.name,
+          _codec.encodeMethodCall(MethodCall(method, args)),
+          (_) {},
+        );
+
+    if (!failed) {
+      for (var page = 0; page < 2; page++) {
+        await push('onPageRasterized', <String, dynamic>{
+          'job': job,
+          'width': _pageWidth,
+          'height': _pageHeight,
+          'image': Uint8List(_pageWidth * _pageHeight * 4),
+        });
+      }
+    }
+    await push('onPageRasterEnd', <String, dynamic>{
+      'job': job,
+      if (failed) 'error': 'no document',
+    });
+  }
+}
 
 class _FakeApi implements ApiClient {
   final Map<String, Uint8List> _files = {};

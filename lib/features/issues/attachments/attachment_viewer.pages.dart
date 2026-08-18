@@ -37,6 +37,15 @@ Future<Uint8List> _fetchBytes(BuildContext context, String path) async {
   return bytes;
 }
 
+/// Forgets a memoized download, so the next [_fetchBytes] really goes back to
+/// the server. What "retry" has to mean: re-awaiting the same future — or
+/// handing back the same LRU entry — would replay the exact bytes that just
+/// failed to render, and the retry would be theatre.
+void _dropCachedBytes(String path) {
+  final removed = _bytesCache.remove(path);
+  if (removed != null) _bytesCacheSize -= removed.lengthInBytes;
+}
+
 // ═══════════════════════════ Text preparation ═════════════════════════════
 
 /// A decoded text file: the whole thing (what "copy" puts on the clipboard),
@@ -231,8 +240,10 @@ class _ImagePage extends StatefulWidget {
 
 class _ImagePageState extends State<_ImagePage>
     with SingleTickerProviderStateMixin {
-  static const double _minScale = 1;
-  static const double _maxScale = 8;
+  /// The one place the bounds live is [_zoomRange] — the toolbar and the
+  /// keyboard already read them from there, and a second copy here is how a
+  /// change to one of them ships half-applied.
+  static final _range = _zoomRange(AttachmentPreviewKind.image);
 
   Future<Uint8List>? _bytes;
   final TransformationController _view = TransformationController();
@@ -249,6 +260,10 @@ class _ImagePageState extends State<_ImagePage>
   /// True while *we* are pushing a value into the shared notifier, so the
   /// notifier's own listener doesn't bounce it straight back at us.
   bool _syncing = false;
+
+  /// Same trick one level down: [_report] writes the corrected transform back
+  /// into the controller it is itself listening to.
+  bool _normalising = false;
   bool _zoomed = false;
   Offset? _doubleTapAt;
 
@@ -299,9 +314,23 @@ class _ImagePageState extends State<_ImagePage>
   }
 
   /// Publishes the transform's real scale, whatever caused it (pinch, wheel,
-  /// double-tap, buttons), so the toolbar's percentage is never a guess.
+  /// double-tap, buttons), so the toolbar's percentage is never a guess — and
+  /// keeps a picture that fits the window sitting where a picture that fits
+  /// belongs.
+  ///
+  /// That second job exists because the widened [boundaryMargin] below 1× is
+  /// room InteractiveViewer will happily translate into: `panEnabled: false`
+  /// only takes the *pan* gesture away, while the scale gesture's own
+  /// `_matrixTranslate` (and the mouse wheel, which never goes through the
+  /// arena at all) keeps moving the child. A pinch off to one side could
+  /// therefore slide a shrunken picture halfway out of the window with no way
+  /// to drag it back, and the moment the scale crossed 1.01 again the boundary
+  /// collapsed onto the child and yanked it back in one frame. Correcting here
+  /// — on every change, before the margin ever narrows — means there is nothing
+  /// left to yank.
   void _report() {
-    final scale = _view.value.getMaxScaleOnAxis();
+    final matrix = _view.value;
+    final scale = matrix.getMaxScaleOnAxis();
     if (widget.active && (widget.zoom.value - scale).abs() > 0.005) {
       _syncing = true;
       widget.zoom.value = scale;
@@ -309,6 +338,29 @@ class _ImagePageState extends State<_ImagePage>
     }
     final zoomed = scale > 1.01;
     if (zoomed != _zoomed && mounted) setState(() => _zoomed = zoomed);
+
+    // Zoomed in, the tight boundary already holds the picture; mid-animation the
+    // tween owns the matrix and correcting it frame by frame would fight it.
+    if (zoomed || _normalising || _zoomAnim.isAnimating || !mounted) return;
+    final size = context.size;
+    if (size == null || size.isEmpty) return;
+    final at = matrix.getTranslation();
+    final tx = zoomFitTranslation(
+      scale: scale,
+      extent: size.width,
+      wanted: at.x,
+    );
+    final ty = zoomFitTranslation(
+      scale: scale,
+      extent: size.height,
+      wanted: at.y,
+    );
+    if ((tx - at.x).abs() < 0.5 && (ty - at.y).abs() < 0.5) return;
+    _normalising = true;
+    _view.value = matrix.clone()
+      ..setEntry(0, 3, tx)
+      ..setEntry(1, 3, ty);
+    _normalising = false;
   }
 
   void _onRequestedZoom() {
@@ -322,7 +374,7 @@ class _ImagePageState extends State<_ImagePage>
     final size = context.size;
     if (size == null || size.isEmpty) return;
     final current = _view.value.getMaxScaleOnAxis();
-    final scale = target.clamp(_minScale, _maxScale);
+    final scale = target.clamp(_range.min, _range.max);
     if ((scale - current).abs() < 0.001) return;
 
     final anchor = focal ?? Offset(size.width / 2, size.height / 2);
@@ -330,15 +382,21 @@ class _ImagePageState extends State<_ImagePage>
     // p_screen = scale · p_scene + t  ⇒  t = anchor − scale · scene
     var tx = anchor.dx - scale * scene.dx;
     var ty = anchor.dy - scale * scene.dy;
+
     // The child is viewport-sized (InteractiveViewer's constrained default), so
-    // the visible window at `scale` spans exactly these translations. Clamping
-    // here keeps a button-driven zoom inside the same bounds a drag obeys.
-    tx = tx.clamp(-(scale - 1) * size.width, 0.0);
-    ty = ty.clamp(-(scale - 1) * size.height, 0.0);
+    // the same rule [_report] uses to correct a stray pinch applies here.
+    tx = zoomFitTranslation(scale: scale, extent: size.width, wanted: tx);
+    ty = zoomFitTranslation(scale: scale, extent: size.height, wanted: ty);
 
     final matrix = Matrix4.identity()
       ..setEntry(0, 0, scale)
       ..setEntry(1, 1, scale)
+      // Z too, even though nothing here is three-dimensional: every readout
+      // goes through Matrix4.getMaxScaleOnAxis, which takes the largest of the
+      // three. Left at the identity's 1, it silently wins below 100 % — the
+      // picture shrinks while the toolbar keeps insisting it is at 1×, and the
+      // minus button greys itself out again one step later.
+      ..setEntry(2, 2, scale)
       ..setEntry(0, 3, tx)
       ..setEntry(1, 3, ty);
     _zoomTween = Matrix4Tween(
@@ -380,65 +438,93 @@ class _ImagePageState extends State<_ImagePage>
       onVerticalDragCancel: _zoomed
           ? null
           : () => widget.onDismissEnd(Velocity.zero),
-      child: InteractiveViewer(
-        transformationController: _view,
-        minScale: _minScale,
-        maxScale: _maxScale,
-        child: FutureBuilder<Uint8List>(
-          future: _bytes,
-          builder: (context, snap) {
-            final done = snap.connectionState == ConnectionState.done;
-            final bytes = snap.data;
-            final hasFull = bytes != null && bytes.isNotEmpty;
-            if (done && !hasFull) return Center(child: _FileCard(item: item));
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                // The blurred stand-in fills the stage from the first frame and
-                // retires the moment the real picture is up.
-                AnimatedOpacity(
-                  opacity: hasFull ? 0 : 1,
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOut,
-                  child: (item.blurHash?.isNotEmpty ?? false)
-                      ? Image(
-                          image: BlurHashImage(item.blurHash!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                        )
-                      : const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(40),
-                            child: HiveLoader(),
-                          ),
-                        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) => InteractiveViewer(
+          transformationController: _view,
+          minScale: _range.min,
+          maxScale: _range.max,
+          // `minScale` alone does not let a pinch below 1× through. With the
+          // constrained default the child is viewport-sized, so InteractiveViewer's
+          // own floor — max(viewport / boundaryRect) in _matrixScale — evaluates to
+          // exactly 1 and wins over minScale. Widening the boundary by the amount
+          // the floor needs is what actually unlocks it: a boundary 1/min times the
+          // viewport puts that floor at min.
+          //
+          // Only while the picture fits, though. Once it is zoomed in, the extra
+          // room would be pannable emptiness, so the boundary snaps back to the
+          // child and pans stay on the picture exactly as before.
+          boundaryMargin: _zoomed
+              ? EdgeInsets.zero
+              : EdgeInsets.symmetric(
+                  horizontal: constraints.maxWidth * (1 / _range.min - 1) / 2,
+                  vertical: constraints.maxHeight * (1 / _range.min - 1) / 2,
                 ),
-                // The thumbnail lands in a fraction of the bytes and already has
-                // the final geometry, so the swap to the original is invisible.
-                if (!hasFull && item.thumbnailUrl != null)
-                  Center(
-                    child: Image(
-                      image: ApiImage(
-                        item.thumbnailUrl!,
-                        api: context.read<ApiClient>(),
+          // At or below 1× the picture fits, so there is nothing to pan.
+          //
+          // This does *not* hand the drag to the viewer's own gestures — the
+          // same scale recognizer is registered either way, so swipe-to-close
+          // and paging win for reasons this flag has no say in. What it stops is
+          // the path that never reaches the arena: a trackpad two-finger scroll
+          // arrives as a pointer signal and, with `trackpadScrollCausesScale`
+          // off, lands on the pan branch. One flick would otherwise park a
+          // picture that fits off to the side of the window.
+          panEnabled: _zoomed,
+          child: FutureBuilder<Uint8List>(
+            future: _bytes,
+            builder: (context, snap) {
+              final done = snap.connectionState == ConnectionState.done;
+              final bytes = snap.data;
+              final hasFull = bytes != null && bytes.isNotEmpty;
+              if (done && !hasFull) return Center(child: _FileCard(item: item));
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  // The blurred stand-in fills the stage from the first frame and
+                  // retires the moment the real picture is up.
+                  AnimatedOpacity(
+                    opacity: hasFull ? 0 : 1,
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOut,
+                    child: (item.blurHash?.isNotEmpty ?? false)
+                        ? Image(
+                            image: BlurHashImage(item.blurHash!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          )
+                        : const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: HiveLoader(),
+                            ),
+                          ),
+                  ),
+                  // The thumbnail lands in a fraction of the bytes and already has
+                  // the final geometry, so the swap to the original is invisible.
+                  if (!hasFull && item.thumbnailUrl != null)
+                    Center(
+                      child: Image(
+                        image: ApiImage(
+                          item.thumbnailUrl!,
+                          api: context.read<ApiClient>(),
+                        ),
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
-                  ),
-                if (hasFull)
-                  Center(
-                    child: Image.memory(
-                      bytes,
-                      fit: BoxFit.contain,
-                      cacheWidth: decodeWidth,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (_, _, _) => _FileCard(item: item),
+                  if (hasFull)
+                    Center(
+                      child: Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        cacheWidth: decodeWidth,
+                        filterQuality: FilterQuality.medium,
+                        errorBuilder: (_, _, _) => _FileCard(item: item),
+                      ),
                     ),
-                  ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -469,11 +555,42 @@ class _PdfPage extends StatefulWidget {
 }
 
 class _PdfPageState extends State<_PdfPage> {
+  /// Same rule as the image stage: [_zoomRange] is where the bounds live, and a
+  /// second copy here is how a change to one of them ships half-applied.
+  static final _range = _zoomRange(AttachmentPreviewKind.pdf);
+
+  /// Space between two pages, and between a page and the edge of the sheet
+  /// column. Ours now — the package's own page margin went with its layout.
+  static const _pageMargin = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
+
   // Fetch once; PdfPreview's build callback can fire repeatedly on relayout.
   Future<Uint8List>? _bytes;
 
-  final _scroll = ScrollController();
+  /// Both scroll axes belong to this state, because the page list does: the
+  /// vertical one used to live inside the package's own `ListView`, where there
+  /// was no way to move it in step with a pinch.
+  final _horizontal = ScrollController();
+  final _vertical = ScrollController();
+
   bool _failed = false;
+
+  /// Bumped on every retry (and whenever this page is handed a different file)
+  /// so the preview is rebuilt from a fresh element. The package only
+  /// re-rasterizes when its `build` callback changes identity, and ours must
+  /// not — a new key is the honest way to ask for another attempt.
+  int _attempt = 0;
+
+  /// The zoom the pages are currently laid out at, so the next change knows how
+  /// much the content grew and by how much the scroll has to follow. Seeded in
+  /// [initState], never `late`: a lazy field would first be read *inside* the
+  /// handler for the first zoom change, by which time it would read back the
+  /// new value and the very first zoom would find nothing to do.
+  double _lastZoom = 1;
+
+  /// Where the fingers were on the pinch that is about to change the zoom.
+  /// Null for the toolbar and the keyboard, which anchor at the viewport centre
+  /// exactly like the image stage.
+  Offset? _pinchFocal;
 
   /// Passed as a tear-off on purpose: the preview compares this callback with
   /// the previous one and re-rasterizes the whole document whenever it differs,
@@ -483,6 +600,31 @@ class _PdfPageState extends State<_PdfPage> {
   Future<Uint8List> _buildPdf(PdfPageFormat format) => _bytes!;
 
   @override
+  void initState() {
+    super.initState();
+    _lastZoom = widget.zoom.value;
+    widget.zoom.addListener(_onZoom);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PdfPage old) {
+    super.didUpdateWidget(old);
+    if (old.zoom != widget.zoom) {
+      old.zoom.removeListener(_onZoom);
+      widget.zoom.addListener(_onZoom);
+      _lastZoom = widget.zoom.value;
+    }
+    // Reused for a different attachment: nothing about the old one survives —
+    // least of all a failure, which would otherwise show this file the previous
+    // file's error card for as long as the element lives.
+    if (old.item.id != widget.item.id) {
+      _failed = false;
+      _attempt++;
+      _bytes = _fetchBytes(context, widget.item.url!);
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _bytes ??= _fetchBytes(context, widget.item.url!);
@@ -490,79 +632,221 @@ class _PdfPageState extends State<_PdfPage> {
 
   @override
   void dispose() {
-    _scroll.dispose();
+    widget.zoom.removeListener(_onZoom);
+    _horizontal.dispose();
+    _vertical.dispose();
     super.dispose();
   }
 
+  // ── Zoom ──────────────────────────────────────────────────────────────────
+  /// Moves both scroll axes so the spot the zoom was aimed at stays put.
+  ///
+  /// The pages re-lay out on the same notification, so the new scroll extents
+  /// only exist after that frame — reading them now would clamp against the old
+  /// document height and drop the anchor a screen short.
+  void _onZoom() {
+    final from = _lastZoom;
+    final to = widget.zoom.value;
+    final focal = _pinchFocal;
+    _pinchFocal = null;
+    if (from <= 0 || (to - from).abs() < 0.0001) return;
+    _lastZoom = to;
+    final factor = to / from;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final size = context.size;
+      if (size == null || size.isEmpty) return;
+      final at = focal ?? Offset(size.width / 2, size.height / 2);
+      _anchor(_horizontal, at.dx, factor);
+      _anchor(_vertical, at.dy, factor);
+    });
+  }
+
+  void _anchor(ScrollController controller, double focal, double factor) {
+    // An axis with nothing to scroll has no position to move: below 1× the
+    // pages are narrower than the window and belong centred, which the layout
+    // already does, and pinning such an axis to 0 would be a no-op at best.
+    if (!controller.hasClients) return;
+    final position = controller.position;
+    if (position.maxScrollExtent <= 0) return;
+    final target = zoomAnchoredOffset(
+      offset: position.pixels,
+      focal: focal,
+      factor: factor,
+      maxExtent: position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < 0.5) return;
+    controller.jumpTo(target);
+  }
+
+  // ── Failure ───────────────────────────────────────────────────────────────
+  /// Drops everything this attempt produced — the memoized future, the bytes in
+  /// the LRU, the preview element — and starts over.
+  void _retry() {
+    final url = widget.item.url;
+    if (url == null) return;
+    _dropCachedBytes(url);
+    setState(() {
+      _failed = false;
+      _attempt++;
+      _bytes = _fetchBytes(context, url);
+    });
+  }
+
+  Widget _errorCard(BuildContext context) => Center(
+    child: _FileCard(
+      item: widget.item,
+      // Not "no preview for this type" — we *do* preview PDFs, and telling the
+      // user their file is unsupported when the render failed sends them off
+      // to find another viewer instead of pressing the button below.
+      note: context.t('issues.attachments.viewer.renderFailed'),
+      action: _CardAction(
+        icon: LucideIcons.rotateCcw,
+        label: context.t('issues.attachments.viewer.retry'),
+        onTap: _retry,
+      ),
+    ),
+  );
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_failed) return Center(child: _FileCard(item: widget.item));
+    if (_failed) return _errorCard(context);
     return _PinchZoom(
       zoom: widget.zoom,
-      range: _zoomRange(AttachmentPreviewKind.pdf),
+      range: _range,
       onTap: widget.onTap,
+      onFocal: (focal) => _pinchFocal = focal,
+      child: PdfPreview.builder(
+        key: ValueKey(_attempt),
+        build: _buildPdf,
+        // We lay the pages out ourselves. Not for the looks — for the two
+        // things the package's own layout takes away:
+        //  • every page is wrapped in a GestureDetector whose double-tap swaps
+        //    the document for a single page inside the package's *own*
+        //    InteractiveViewer. Two zoom systems then fight over the same
+        //    document, and ours (which widens the pages) slides the other one's
+        //    centred page off to the side. `pagesBuilder` is consulted before
+        //    those detectors are ever built, so that mode becomes unreachable.
+        //  • the scroll controllers were the package's, so a pinch could not
+        //    move the document under the fingers.
+        pagesBuilder: _buildPages,
+        // Deliberately no `maxPageWidth`. It reads as a layout constraint but
+        // also feeds the raster *resolution* (`dpi = min(window − 16,
+        // maxPageWidth) · dpr / pageWidth · inch`), and while a change to it
+        // does not re-raster on its own, any MediaQuery change does — so a
+        // document zoomed to 25 % would come back at a quarter of the DPI after
+        // the next resize and stay a blur for the rest of the session. Leaving
+        // it null pins the raster to the window, and the zoomed width comes from
+        // our own layout below.
+        useActions: false,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        canDebug: false,
+        allowPrinting: false,
+        allowSharing: false,
+        // Rasterizing a PDF locally takes a moment; the server already
+        // rendered its first page once, so the blur of that page
+        // stands in meanwhile.
+        loadingWidget: (widget.item.blurHash?.isNotEmpty ?? false)
+            ? Image(
+                image: BlurHashImage(widget.item.blurHash!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: HiveLoader(),
+                ),
+              )
+            : const Padding(padding: EdgeInsets.all(40), child: HiveLoader()),
+        onError: (context, error) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _failed = true);
+          });
+          return _errorCard(context);
+        },
+      ),
+    );
+  }
+
+  /// The whole document: a column of sheets, as wide as the zoom asks for, in
+  /// a viewport we own on both axes.
+  Widget _buildPages(BuildContext context, List<PdfPreviewPageData> pages) {
+    return SizedBox.expand(
       child: LayoutBuilder(
         builder: (context, constraints) => ValueListenableBuilder<double>(
           valueListenable: widget.zoom,
           builder: (context, zoom, _) {
-            final width = constraints.maxWidth * zoom;
+            // Zooming a document means the page gets bigger, not that the
+            // window magnifies — so the width is the whole of the zoom, and
+            // below 1× the pages are simply narrower than the window.
+            final pageWidth = constraints.maxWidth * zoom;
+            final columnWidth = math.max(constraints.maxWidth, pageWidth);
             return SingleChildScrollView(
-              controller: _scroll,
+              controller: _horizontal,
               scrollDirection: Axis.horizontal,
               physics: zoom > 1.01
                   ? const ClampingScrollPhysics()
                   : const NeverScrollableScrollPhysics(),
               child: SizedBox(
-                width: math.max(constraints.maxWidth, width),
-                child: PdfPreview(
-                  build: _buildPdf,
-                  maxPageWidth: width,
-                  useActions: false,
-                  canChangePageFormat: false,
-                  canChangeOrientation: false,
-                  canDebug: false,
-                  allowPrinting: false,
-                  allowSharing: false,
+                width: columnWidth,
+                child: ListView.builder(
+                  controller: _vertical,
+                  // The floating chrome would otherwise sit on the first and
+                  // last page.
                   padding: EdgeInsets.only(
                     top: widget.insets.top,
                     bottom: widget.insets.bottom,
                   ),
-                  pdfPreviewPageDecoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF14122D).withValues(alpha: 0.28),
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
+                  itemCount: pages.length,
+                  itemBuilder: (context, i) => Center(
+                    child: SizedBox(
+                      width: pageWidth,
+                      child: _PdfSheet(page: pages[i], margin: _pageMargin),
+                    ),
                   ),
-                  // Rasterizing a PDF locally takes a moment; the server already
-                  // rendered its first page once, so the blur of that page
-                  // stands in meanwhile.
-                  loadingWidget: (widget.item.blurHash?.isNotEmpty ?? false)
-                      ? Image(
-                          image: BlurHashImage(widget.item.blurHash!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Padding(
-                            padding: EdgeInsets.all(40),
-                            child: HiveLoader(),
-                          ),
-                        )
-                      : const Padding(
-                          padding: EdgeInsets.all(40),
-                          child: HiveLoader(),
-                        ),
-                  onError: (context, error) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) setState(() => _failed = true);
-                    });
-                    return _FileCard(item: widget.item);
-                  },
                 ),
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// One rasterized page on its white sheet — the paper the package used to draw
+/// for us, minus the double-tap detector it came wrapped in.
+class _PdfSheet extends StatelessWidget {
+  const _PdfSheet({required this.page, required this.margin});
+
+  final PdfPreviewPageData page;
+  final EdgeInsets margin;
+
+  @override
+  Widget build(BuildContext context) {
+    // A page with no height (or no width) would make AspectRatio assert and
+    // take the whole viewer down with it. Portrait is the sane stand-in.
+    final ratio = page.aspectRatio;
+    return Container(
+      margin: margin,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF14122D).withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: AspectRatio(
+        aspectRatio: ratio > 0 && ratio.isFinite ? ratio : 1 / math.sqrt2,
+        child: Image(
+          image: page.image,
+          fit: BoxFit.cover,
+          // The raster is made for the window's width; zoomed past that it is
+          // being upscaled, and nearest-neighbour turns type into stairsteps.
+          filterQuality: FilterQuality.medium,
         ),
       ),
     );
@@ -889,12 +1173,23 @@ class _PinchZoom extends StatefulWidget {
     required this.range,
     required this.onTap,
     required this.child,
+    this.onFocal,
   });
 
   final ValueNotifier<double> zoom;
   final ({double min, double max, double step}) range;
   final VoidCallback onTap;
   final Widget child;
+
+  /// Where the fingers are, in this widget's coordinates, reported immediately
+  /// *before* each new zoom value — so a stage that can act on it knows which
+  /// change carries a focal point and which (toolbar, keyboard) does not.
+  ///
+  /// Opt-in, and the text stage deliberately does not: it zooms the type size,
+  /// where "the character under your fingers stays put" is not what anyone is
+  /// asking for — a reader pinching a log wants more or fewer lines, and the
+  /// row they were on is exactly what should stay at the top.
+  final void Function(Offset focal)? onFocal;
 
   @override
   State<_PinchZoom> createState() => _PinchZoomState();
@@ -910,10 +1205,17 @@ class _PinchZoomState extends State<_PinchZoom> {
       onScaleStart: (_) => _start = widget.zoom.value,
       onScaleUpdate: (d) {
         if (d.pointerCount < 2) return;
-        widget.zoom.value = (_start * d.scale).clamp(
+        final next = (_start * d.scale).clamp(
           widget.range.min,
           widget.range.max,
         );
+        // A pinch that has run into the floor or the ceiling still updates
+        // every frame; announcing a focal point for a zoom that never happens
+        // would leave it waiting for the next change, which may well be a
+        // toolbar tap that belongs at the centre.
+        if (next == widget.zoom.value) return;
+        widget.onFocal?.call(d.localFocalPoint);
+        widget.zoom.value = next;
       },
       child: widget.child,
     );
@@ -923,12 +1225,16 @@ class _PinchZoomState extends State<_PinchZoom> {
 /// The "nothing to preview" card: the file's type, name and size, plus why it
 /// isn't on screen.
 class _FileCard extends StatelessWidget {
-  const _FileCard({required this.item, this.note});
+  const _FileCard({required this.item, this.note, this.action});
 
   final ViewerItem item;
 
   /// Overrides the default "no inline preview" line (e.g. "file is empty").
   final String? note;
+
+  /// Something to do about it, under the reason. Only the failures the user can
+  /// act on carry one — "this type has no preview" is a fact, not a setback.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -981,7 +1287,68 @@ class _FileCard extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: AppColors.inkFaint),
           ),
+          if (action != null) ...[const SizedBox(height: 16), action!],
         ],
+      ),
+    );
+  }
+}
+
+/// The one thing to do about a card's bad news — an amber pill under the
+/// reason, sized to its label.
+class _CardAction extends StatelessWidget {
+  const _CardAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        // Same token pairing as the toolbar's active state: the wash carries
+        // its own opacity, so it stays a wash on dark instead of solid amber.
+        color: AppColors.accentSoft,
+        shape: RoundedRectangleBorder(
+          side: const BorderSide(color: AppColors.accentLine),
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 15, color: AppColors.accentInk),
+                const SizedBox(width: 8),
+                // Flexible, not bare: the pill shrink-wraps its label, and a
+                // long translation (or a large text scale) would otherwise push
+                // the row straight out of the card it sits in.
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accentInk,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
