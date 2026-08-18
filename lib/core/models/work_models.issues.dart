@@ -41,6 +41,7 @@ class Issue extends Equatable {
     this.assigneeId,
     this.assigneeIds = const [],
     this.reporterId,
+    this.watcherIds = const [],
     this.reporterEmail,
     this.inboundSubject,
     this.tags = const [],
@@ -97,6 +98,12 @@ class Issue extends Equatable {
   final List<String> assigneeIds;
   final String? reporterId;
 
+  /// Everyone who subscribed to this issue and therefore gets notified about
+  /// *every* change to it. Purely an opt-in on top of the implicit assignee /
+  /// reporter notifications — it carries no permission, so it only ever holds
+  /// people who can already see the issue.
+  final List<String> watcherIds;
+
   /// Set when the issue was created from an inbound e-mail; also marks the issue
   /// as email-sourced (drives the "Reply by email" action).
   final String? reporterEmail;
@@ -140,6 +147,10 @@ class Issue extends Equatable {
 
   bool get resolved => resolvedAt != null;
 
+  /// Whether [userId] subscribed to this issue's changes.
+  bool isWatchedBy(String? userId) =>
+      userId != null && watcherIds.contains(userId);
+
   /// The id to use when building a shareable URL / route for this issue. Prefers
   /// the human-readable key (`ASTA-42`) so links read cleanly; falls back to the
   /// Mongo id for any legacy issue that predates readable keys. The backend
@@ -169,6 +180,7 @@ class Issue extends Equatable {
     assigneeId: json['assigneeId'] as String?,
     assigneeIds: _assigneeIds(json),
     reporterId: json['reporterId'] as String?,
+    watcherIds: _stringList(json['watcherIds']),
     reporterEmail: json['reporterEmail'] as String?,
     inboundSubject: json['inboundSubject'] as String?,
     tags: _stringList(json['tags']),
@@ -198,6 +210,7 @@ class Issue extends Equatable {
     String? state,
     String? assigneeId,
     List<String>? assigneeIds,
+    List<String>? watcherIds,
     Object? sprintId = _noChange,
     Object? storyPoints = _noChange,
     Object? parentId = _noChange,
@@ -216,6 +229,7 @@ class Issue extends Equatable {
     assigneeId: assigneeId ?? this.assigneeId,
     assigneeIds: assigneeIds ?? this.assigneeIds,
     reporterId: reporterId,
+    watcherIds: watcherIds ?? this.watcherIds,
     reporterEmail: reporterEmail,
     inboundSubject: inboundSubject,
     tags: tags,
@@ -247,6 +261,7 @@ class Issue extends Equatable {
     state,
     assigneeId,
     assigneeIds,
+    watcherIds,
     priority,
     sprintId,
     storyPoints,

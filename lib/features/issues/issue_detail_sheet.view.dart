@@ -159,16 +159,25 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   final Set<String> _deletedLabels = {};
   List<DirectoryUser> _users = const [];
   List<Sprint> _sprints = const [];
-  Map<String, String> get _names => {
-    for (final u in _users) u.id: u.displayName,
-  };
-  Map<String, String> get _avatars => {
-    for (final u in _users)
-      if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty) u.id: u.avatarUrl!,
-  };
+  // Id → name / avatar over the whole directory. Cached, not computed on
+  // access: a single build pass reads them from a dozen places (details card,
+  // hierarchy rows, comment feed, activity), and they only change where
+  // [_users] does — so [_setUsers] is the one place that refreshes them.
+  Map<String, String> _names = const {};
+  Map<String, String> _avatars = const {};
   Map<String, String> get _sprintNames => {
     for (final s in _sprints) s.id: s.name,
   };
+
+  /// Sole entry point for [_users] so the derived lookups can never go stale.
+  void _setUsers(List<DirectoryUser> users) {
+    _users = users;
+    _names = {for (final u in users) u.id: u.displayName};
+    _avatars = {
+      for (final u in users)
+        if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty) u.id: u.avatarUrl!,
+    };
+  }
 
   bool _loading = true;
   String? _error;
@@ -569,7 +578,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       _project = detail.project;
       // The aggregate ships only the users this issue references; the full
       // directory (for pickers) is hydrated after first paint below.
-      _users = detail.users;
+      _setUsers(detail.users);
       _activity = detail.activity;
       _activityTotal = detail.activityTotal;
       _activityPage = 0;
@@ -619,7 +628,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   Future<void> _hydrateSecondary(Issue issue) async {
     try {
       final all = await _userApi.users();
-      if (mounted && all.isNotEmpty) setState(() => _users = all);
+      if (mounted && all.isNotEmpty) setState(() => _setUsers(all));
     } catch (_) {
       // Keep the referenced-user subset from the aggregate.
     }
@@ -666,7 +675,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     try {
       final updated = await _issueApi.updateIssue(widget.issueId, patch);
       if (!mounted) return;
-      _issue = updated;
+      // Commit now rather than riding along on the `finally` rebuild: the
+      // activity refetch and the hierarchy reload below are two more round
+      // trips, and until this lands the sheet still hands the watch card its
+      // pre-patch watcher list.
+      setState(() => _issue = updated);
       _publishHeader(updated);
       _notifyChanged();
       // Refresh the change history so the new entry shows immediately (reset to
@@ -1575,6 +1588,8 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                   ];
                   final right = <Widget>[
                     _detailsCard(issue),
+                    const SizedBox(height: 14),
+                    _watchCard(issue),
                     // Deployment sits between Details and Timeline.
                     if (_project != null) ...[
                       const SizedBox(height: 14),
@@ -1627,6 +1642,8 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                       ],
                       const SizedBox(height: 14),
                       _detailsCard(issue),
+                      const SizedBox(height: 14),
+                      _watchCard(issue),
                       // Deployment sits between Details and Timeline.
                       if (_project != null) ...[
                         const SizedBox(height: 14),
@@ -2321,6 +2338,33 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       ),
     );
   }
+
+  /// Watch toggle + watcher roster. Sits directly under Details, where the
+  /// issue's other people (assignee, reporter) already are — a subscription is
+  /// a property of the issue, not a one-off action like archive or move.
+  Widget _watchCard(Issue issue) => IssueWatchCard(
+    issue: issue,
+    currentUserId: context.read<AuthBloc>().state.user?.id,
+    names: _names,
+    avatars: _avatars,
+    onWatchersChanged: (ids) {
+      if (!mounted) return;
+      final current = _issue;
+      // Keep this sheet's own copy in step so a reload (or the details card's
+      // next rebuild) doesn't resurrect the pre-toggle roster.
+      if (current == null ||
+          (current.watcherIds.length == ids.length &&
+              current.watcherIds.every(ids.contains))) {
+        return;
+      }
+      // Assigned without a rebuild on purpose: nothing in this ~3.5k-line body
+      // renders `watcherIds` (the card holds its own cubit state), while a
+      // setState here would rebuild the description renderer, the whole comment
+      // feed and every panel under the glass blur on each toggle. The field
+      // still has to be right — a later host rebuild feeds it back into sync().
+      _issue = current.copyWith(watcherIds: ids);
+    },
+  );
 
   /// Read-only display of an issue's story-point estimate.
   Widget _pointsValue(int? points) {

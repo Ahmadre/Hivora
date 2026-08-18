@@ -256,6 +256,7 @@
     "gantt": "Gantt",
     "timesheet": "Stundenzettel",
     "reports": "Berichte",
+    "watched": "Beobachtet",
     "knowledge": "Wissen",
     "notifications": "Mitteilungen",
     "settings": "Einstellungen",
@@ -720,6 +721,19 @@
       "today": "Heute",
       "tomorrow": "Morgen",
       "inDays": "in {{count}} T."
+    },
+    "watch": {
+      "title": "Beobachten",
+      "subtitleOn": "Du wirst über jede Änderung benachrichtigt",
+      "subtitleOff": "Du wirst nicht über Änderungen an diesem Vorgang benachrichtigt",
+      "implicitAssignee": "Du erhältst bereits Benachrichtigungen als Bearbeiter.",
+      "implicitReporter": "Du erhältst bereits Benachrichtigungen als Ersteller.",
+      "watchersTitle": "Beobachter",
+      "noWatchers": "Noch niemand beobachtet diesen Vorgang",
+      "watcherCount": "{{count}} Beobachter",
+      "watcherCount_plural": "{{count}} Beobachter",
+      "you": "Du",
+      "unknownWatcher": "Unbekannte:r Nutzer:in"
     }
   },
   "type": {
@@ -1671,6 +1685,8 @@
       "ISSUE_DELETED": "Vorgang gelöscht",
       "ISSUE_ARCHIVED": "Vorgang archiviert",
       "ISSUE_UNARCHIVED": "Vorgang wiederhergestellt",
+      "ISSUE_WATCHED": "Vorgang beobachtet",
+      "ISSUE_UNWATCHED": "Vorgang nicht mehr beobachtet",
       "PAT_CREATED": "Zugriffstoken erstellt",
       "PAT_REVOKED": "Zugriffstoken widerrufen",
       "PAT_DELETED": "Zugriffstoken gelöscht",
@@ -2104,6 +2120,10 @@
           "label": "Statusänderungen",
           "desc": "Beobachtete Vorgänge wandern über das Board"
         },
+        "watching": {
+          "label": "Beobachtete Vorgänge",
+          "desc": "Jede Änderung an einem Vorgang, den du beobachtest"
+        },
         "ingest": {
           "label": "Neue Vorgänge aus E-Mails",
           "desc": "Eine E-Mail wird zu einem neuen Vorgang in einem deiner Projekte"
@@ -2518,6 +2538,14 @@
       "worklog_write": "Arbeit erfassen",
       "search_read": "Suchen",
       "notifications_read": "Eigene Benachrichtigungen lesen"
+    }
+  },
+  "watched": {
+    "title": "Beobachtete Vorgänge",
+    "subtitle": "Alles, was du abonniert hast",
+    "empty": {
+      "title": "Nichts beobachtet",
+      "message": "Öffne einen Vorgang und schalte „Beobachten“ ein, um über jede Änderung informiert zu werden."
     }
   }
 }

@@ -27,6 +27,7 @@ import '../../features/issues/issue_detail_screen.dart';
 import '../../features/issues/issue_detail_sheet.dart' show IssueRouteArgs;
 import '../../features/issues/issue_filter.dart' show IssuesInitialView;
 import '../../features/issues/issues_screen.dart';
+import '../../features/issues/watched_issues_screen.dart';
 import '../../features/knowledge/knowledge_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/oauth/oauth_consent_screen.dart';
@@ -431,6 +432,11 @@ GoRouter buildRouter({
             path: '/timesheet',
             pageBuilder: (_, state) =>
                 _transition(state, const TimesheetScreen()),
+          ),
+          GoRoute(
+            path: '/watched',
+            pageBuilder: (_, state) =>
+                _transition(state, const WatchedIssuesScreen()),
           ),
           GoRoute(
             path: '/reports',

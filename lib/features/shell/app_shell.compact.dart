@@ -695,6 +695,7 @@ class _MoreSheet extends StatelessWidget {
   static const _items = [
     _Destination('/projects', 'nav.projects', LucideIcons.folder),
     _Destination('/teams', 'nav.teams', LucideIcons.usersRound),
+    _Destination('/watched', 'nav.watched', LucideIcons.eye),
     _Destination('/gantt', 'nav.gantt', LucideIcons.chartColumnStacked),
     _Destination('/timesheet', 'nav.timesheet', LucideIcons.table),
     _Destination('/reports', 'nav.reports', LucideIcons.chartLine),

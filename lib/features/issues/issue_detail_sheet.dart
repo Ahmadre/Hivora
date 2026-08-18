@@ -77,6 +77,7 @@ import 'epic_search_popover.dart';
 import 'issue_filter.dart' show kIssuePriorityCodes;
 import 'issue_form.dart' show showIssueForm;
 import 'issue_links_section.dart';
+import 'watch/issue_watch_card.dart';
 import 'issue_labels.dart';
 import 'issue_link_resolver.dart';
 import 'work_log_sheet.dart';

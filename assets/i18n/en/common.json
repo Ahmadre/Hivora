@@ -256,6 +256,7 @@
     "gantt": "Gantt",
     "timesheet": "Timesheet",
     "reports": "Reports",
+    "watched": "Watched",
     "knowledge": "Knowledge",
     "notifications": "Notifications",
     "settings": "Settings",
@@ -720,6 +721,19 @@
       "today": "Today",
       "tomorrow": "Tomorrow",
       "inDays": "{{count}}d"
+    },
+    "watch": {
+      "title": "Watch",
+      "subtitleOn": "You are notified about every change",
+      "subtitleOff": "You are not notified about changes here",
+      "implicitAssignee": "You already get notifications as the assignee.",
+      "implicitReporter": "You already get notifications as the reporter.",
+      "watchersTitle": "Watchers",
+      "noWatchers": "Nobody is watching this issue yet",
+      "watcherCount": "{{count}} watcher",
+      "watcherCount_plural": "{{count}} watchers",
+      "you": "You",
+      "unknownWatcher": "Unknown user"
     }
   },
   "type": {
@@ -1671,6 +1685,8 @@
       "ISSUE_DELETED": "Issue deleted",
       "ISSUE_ARCHIVED": "Issue archived",
       "ISSUE_UNARCHIVED": "Issue restored",
+      "ISSUE_WATCHED": "Issue watched",
+      "ISSUE_UNWATCHED": "Issue unwatched",
       "PAT_CREATED": "Access token created",
       "PAT_REVOKED": "Access token revoked",
       "PAT_DELETED": "Access token deleted",
@@ -2104,6 +2120,10 @@
           "label": "Status changes",
           "desc": "Watched issues move across the board"
         },
+        "watching": {
+          "label": "Watched issues",
+          "desc": "Every change to an issue you watch"
+        },
         "ingest": {
           "label": "New issues from e-mail",
           "desc": "An e-mail becomes a new issue in a project you're part of"
@@ -2518,6 +2538,14 @@
       "worklog_write": "Log work",
       "search_read": "Search",
       "notifications_read": "Read own notifications"
+    }
+  },
+  "watched": {
+    "title": "Watched issues",
+    "subtitle": "Everything you subscribed to",
+    "empty": {
+      "title": "Nothing watched yet",
+      "message": "Open an issue and turn on “Watch” to be notified about every change to it."
     }
   }
 }

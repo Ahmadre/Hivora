@@ -285,6 +285,43 @@ class IssueRepository {
     return data['canDelete'] as bool? ?? false;
   }
 
+  // --- Watching ---------------------------------------------------------------
+
+  /// Subscribes the caller to every change on the issue. Idempotent (204), and
+  /// a pure notification opt-in — it grants no access, so the server only
+  /// accepts it for issues the caller can already see.
+  Future<void> watchIssue(String id) => _api.post('/api/v1/issues/$id/watch');
+
+  /// Drops the caller's subscription again. Idempotent.
+  Future<void> unwatchIssue(String id) =>
+      _api.delete('/api/v1/issues/$id/watch');
+
+  /// One page of the issues the caller watches plus the backend total — the
+  /// "Watched" list's infinite scroll.
+  ///
+  /// Lives here rather than in `AccountRepository` even though the route is
+  /// `/me/*`: repositories in this app are grouped by the domain they return
+  /// (the timesheet and the notification feed are personal too), and the
+  /// account repository deals in account models — it would have to reach into
+  /// the work domain for this one endpoint.
+  Future<({List<Issue> items, int total})> watchedIssues({
+    int page = 0,
+    int size = 50,
+  }) async {
+    final data =
+        await _api.get(
+              '/api/v1/me/watched',
+              query: {'page': page, 'size': size},
+            )
+            as Map<String, dynamic>;
+    return (
+      items: ((data['content'] as List<dynamic>?) ?? [])
+          .map((i) => Issue.fromJson(i as Map<String, dynamic>))
+          .toList(),
+      total: data['totalElements'] as int? ?? 0,
+    );
+  }
+
   // --- Issue links (typed relationships) -------------------------------------
 
   /// All links touching the issue, oriented for it (perspective-correct verbs).
