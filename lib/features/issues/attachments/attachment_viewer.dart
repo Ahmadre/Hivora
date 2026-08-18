@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
@@ -98,17 +98,76 @@ Future<void> showAttachmentViewer(
   );
 }
 
-/// Zoom range and per-click step of the stage, per renderer. Images earn a deep
-/// range (inspect a screenshot pixel by pixel); text zooms the *type size*, so
-/// it needs to go below 100 % as well.
+/// Zoom range and per-click step of the stage, per renderer, and the single
+/// source of those bounds — the toolbar, the keyboard, the pinch handlers and
+/// the image stage all read them from here.
+///
+/// Every stage goes below 100 %. What that *buys* differs per renderer, which
+/// is why the floors do:
+///  • PDF zooms the page width, so at 1× a portrait page is exactly as wide as
+///    the window and therefore taller than it. 0.25 is what makes a whole page —
+///    and a multi-page overview — fit, and it matches what desktop PDF readers
+///    offer.
+///  • Text zooms the *type size*, so smaller simply means more lines on screen.
+///  • Images already show the whole picture at 1× (`BoxFit.contain`), so zooming
+///    out only makes them smaller than the window. The floor is here for
+///    consistency — a minus button greyed out at 100 % reads as broken, and the
+///    control should be symmetric with the plus — not because it reveals more.
 ({double min, double max, double step}) _zoomRange(AttachmentPreviewKind kind) {
   return switch (kind) {
-    AttachmentPreviewKind.image => (min: 1, max: 8, step: 1.5),
-    AttachmentPreviewKind.pdf => (min: 1, max: 5, step: 1.4),
+    AttachmentPreviewKind.image => (min: 0.5, max: 8, step: 1.5),
+    AttachmentPreviewKind.pdf => (min: 0.25, max: 5, step: 1.4),
     AttachmentPreviewKind.text ||
     AttachmentPreviewKind.maybeText => (min: 0.7, max: 3, step: 1.15),
     AttachmentPreviewKind.none => (min: 1, max: 1, step: 1),
   };
+}
+
+/// Where one axis of a viewport-sized child has to sit once it is scaled by
+/// [scale], given the translation the interaction [wanted].
+///
+/// `overflow` is how much of the child falls outside the window at this scale.
+/// Above 1× that is real, pannable content and the only job here is to keep the
+/// edges from tearing loose, so the wanted translation is clamped into it. At or
+/// below 1× it goes negative — the child is *smaller* than the window — and
+/// there is nothing to pan: `-overflow / 2` is `(extent − scale·extent) / 2`,
+/// the centred position. (Clamping with a negative overflow would also pass
+/// num.clamp a lower limit above its upper one, which it rejects outright.)
+///
+/// Pulled out of the image stage so both the animated zoom and the correction
+/// that runs after a pinch use the very same rule — and so it can be checked
+/// without a gesture.
+@visibleForTesting
+double zoomFitTranslation({
+  required double scale,
+  required double extent,
+  required double wanted,
+}) {
+  final overflow = (scale - 1) * extent;
+  if (overflow <= 0) return -overflow / 2;
+  return wanted.clamp(-overflow, 0.0);
+}
+
+/// Where a scroll axis has to jump so the content that was under [focal] stays
+/// under it, after the content grew by [factor].
+///
+/// The content coordinate under the focal point is `offset + focal`; scaling
+/// moves it to `(offset + focal) · factor`; putting that back under `focal`
+/// leaves `(offset + focal) · factor − focal`. Clamped to what the axis can
+/// actually scroll — the anchor is a preference, the scroll extent is a fact.
+///
+/// [maxExtent] of 0 means the content fits and the axis cannot scroll at all;
+/// callers must not jump such an axis (it belongs centred, not pinned to its
+/// start), which is why this returns the offset unchanged there.
+@visibleForTesting
+double zoomAnchoredOffset({
+  required double offset,
+  required double focal,
+  required double factor,
+  required double maxExtent,
+}) {
+  if (maxExtent <= 0) return offset;
+  return ((offset + focal) * factor - focal).clamp(0.0, maxExtent);
 }
 
 class _ViewerScaffold extends StatefulWidget {
