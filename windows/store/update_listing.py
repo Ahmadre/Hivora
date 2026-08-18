@@ -204,6 +204,9 @@ def main(argv=None):
                     help="show what would change; touch nothing")
     ap.add_argument("--languages", default="",
                     help="comma-separated listing languages (default: all)")
+    ap.add_argument("--inspect", default="", metavar="SUBMISSION_ID",
+                    help="print status, errors and certification reports for "
+                         "one submission (also a past, failed one), then stop")
     ap.add_argument("--dump", action="store_true",
                     help="print the listing text as Partner Center holds it, "
                          "then stop")
@@ -215,6 +218,17 @@ def main(argv=None):
     shots, notes = load_shots()
     text = load_text()
     store = Store(token())
+
+    if args.inspect:
+        st = store.status(args.inspect)
+        print(json.dumps(st, indent=2, ensure_ascii=False))
+        for rep in st.get("statusDetails", {}).get("certificationReports", []):
+            url = rep.get("reportUrl")
+            print(f"\nreport {rep.get('date')} -> {url}")
+            if url:
+                r = store.s.get(url, timeout=60)
+                print(f"  HTTP {r.status_code}\n{r.text[:4000]}")
+        return outcome("inspect")
 
     app = store.app()
     pending = app.get("pendingApplicationSubmission")
