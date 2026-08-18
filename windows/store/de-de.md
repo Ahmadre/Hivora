@@ -3,17 +3,23 @@
 Copy-paste-Vorlage für Partner Center → hinata → Store listing – German.
 Deutsche Entsprechung zu `en-us.md`; dieselben Windows-Korrekturen gelten.
 
-**Funktionsgleich zu macOS/iOS, technisch anders gelöst — Wortlaut so lassen:**
+**Dieses Listing beschreibt eine Windows-App und sonst nichts.** Die
+Zertifizierung 10.1.4.3 ist einmal an Text gescheitert, der aus der
+Apple-Fassung stammte. Also: keine andere Plattform, kein Gerät außer dem
+Windows-Desktop und keine Formulierung „auf Windows … genauso" — ein Vergleich
+nennt implizit die Plattform, mit der verglichen wird. Alles Folgende ist so
+geschrieben, als gäbe es Hinata nur für Windows.
 
 1. **Push funktioniert, aber nicht über Firebase.** `firebase_messaging` hat
    keine Windows-Implementierung; die Windows-App registriert stattdessen eine
    **WNS-Channel-URI**, der Connect-Gateway leitet an WNS weiter. Für Nutzer
-   identisch — die Formulierung der Apple-Fassung stimmt hier also.
+   identisch — das ist ein Build-Detail und gehört nicht in den Listing-Text;
+   dort steht nur, dass Benachrichtigungen funktionieren.
 2. **Drei Capabilities.** Das MSIX deklariert `internetClient`, `microphone` und
    `webcam` (plus das automatische `runFullTrust`). Der Berechtigungsblock unten
    entspricht exakt der Store-Anzeige „Diese App kann" — beides synchron halten,
    sobald sich eine Capability ändert.
-3. **Strg + K** statt ⌘K, und **„Auf Windows"** statt „Auf dem Mac".
+3. **Strg + K** statt ⌘K — im Text wie in den Screenshots.
 
 ---
 
@@ -27,41 +33,24 @@ Deutsche Entsprechung zu `en-us.md`; dieselben Windows-Korrekturen gelten.
 
 ## Beschreibung
 
-    Hinata ist ein quelloffener, selbst gehosteter Client für Projekt- und Vorgangsverwaltung. Du verbindest ihn mit deinem eigenen Hinata-Server – so bleibt die Arbeit deines Teams auf einer Infrastruktur, die du kontrollierst: ohne Preis pro Nutzer und ohne Board-Limit.
+**Quelle der Wahrheit: `windows/store/listing.json`** — genau dieser Text wird
+hochgeladen, deshalb steht er hier nicht doppelt. Dort lesen, dort ändern.
 
-    Eine App für jeden Bildschirm: Desktop, Tablet und Smartphone teilen sich eine vollständig responsive Oberfläche, die sich über Breakpoints nach dem Goldenen Schnitt anpasst – im hellen oder dunklen Design.
+**Keine fremde Plattform im Text.** Die Zertifizierung **10.1.4.3 App Quality –
+Description** ist am 17.08.2026 in beiden Sprach-Listings an zwei Resten aus der
+Apple-Fassung gescheitert:
 
-    DAS KANNST DU TUN
-    • Agile Boards – Drag & Drop über Spalten, WIP-Limits sowie Board-, Backlog- und Timeline-Ansicht
-    • Sprints – planen, durchführen und auswerten mit Kapazität, Story Points und Burndown
-    • Vorgänge – Hierarchie aus Epic → Story → Unteraufgabe, Abhängigkeiten, Labels und Archivierung
-    • Gantt & Timeline – Start-/Fälligkeitsdaten, Abhängigkeiten und Live-Fortschritt
-    • Berichte – Burndown, Velocity, Durchlaufzeit und Verteilungen
-    • Zeiterfassung – wöchentliche Zeiten je Aktivität
-    • Kommentare – Antwort-Threads, Emoji-Reaktionen und Sprachnotizen, live aktualisiert
-    • Anhänge – Dateien, Fotos und Videos per Drag & Drop mit Glass-Lightbox
-    • Wissensdatenbank – ein integriertes, hierarchisches Markdown-Wiki mit Smart Links
-    • Befehlspalette – Strg + K-Suche über alles
-    • Benachrichtigungen – in der App, per E-Mail und Push für Zuweisungen, @Erwähnungen und Fälligkeiten
+- *„Eine App für jeden Bildschirm: Desktop, Tablet und Smartphone …"* — beschreibt
+  Geräte, für die es die App hier nicht gibt; das Paket zielt nur auf
+  `Windows.Desktop`.
+- *„Auf Windows läuft Hinata als native Desktop-App mit dem vollen
+  Funktionsumfang."* — „auf Windows … voller Funktionsumfang" liest sich als
+  Vergleich mit einer anderen Plattform.
 
-    FÜR TEAMS GEMACHT
-    • Projekte & Teams mit projektbezogenen Workflows, Schlüsseln und Mitgliedern
-    • Anmeldung mit lokalen Zugangsdaten und optionaler Zwei-Faktor-Authentifizierung (TOTP) oder SSO (OpenID Connect, OAuth 2.0, SAML, LDAP)
-    • Selbstregistrierung mit E-Mail-Bestätigung und Passwort-vergessen
-    • Multi-Server: mehrere Server speichern und wechseln, jeder mit eigener sicherer Sitzung
-
-    DEINE DATEN, DEIN SERVER
-    Hinata sammelt selbst nichts. Alle Inhalte liegen auf dem Hinata-Server, mit dem du dich verbindest. Kein Tracking, keine Analyse.
-
-    Auf Windows läuft Hinata als native Desktop-App mit dem vollen Funktionsumfang.
-
-    Zur Anmeldung wird ein Hinata-Server benötigt. Wie du selbst hostest, erfährst du auf hinata.ahmadre.com.
-
-    BERECHTIGUNGEN & WARUM WIR SIE BENÖTIGEN
-    • Internet – um den Hinata-Server zu erreichen, mit dem du dich verbindest
-    • Mikrofon – Sprachkommentare und Ton für Videos, die du anhängst
-    • Kamera – ein Foto aufnehmen oder ein Video aufzeichnen, um es an einen Vorgang anzuhängen
-    Wir fragen jede Berechtigung erst ab, wenn du die zugehörige Funktion zum ersten Mal nutzt.
+Die Neufassung sagt dasselbe ohne Vergleich: eine native Windows-Desktop-App,
+die sich vom angedockten Fenster bis zum Vollbild neu anordnet. Außerdem fällt
+die Vier-Leerzeichen-Einrückung weg, die der alte Text aus dem Markdown-Codeblock
+mit nach Partner Center genommen hatte.
 
 ## Neuerungen in dieser Version
 

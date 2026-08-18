@@ -15,13 +15,15 @@ Flow (Microsoft Store submission API v1, "manage app submissions"):
   1. client-credentials token for https://manage.devcenter.microsoft.com
   2. GET the app  -> the pending submission id
   3. GET the submission, swap `Screenshot` images for the ones in screenshots/
-     (old ones go to PendingDelete, new ones to PendingUpload)
+     (old ones go to PendingDelete, new ones to PendingUpload) and overwrite the
+     listing fields that listing.json carries (currently: description)
   4. PUT the submission back
   5. PUT a ZIP of the new images to the submission's SAS `fileUploadUrl`
   6. POST /commit (only with --commit) and poll until certification starts
 
 Why the API and not the msstore CLI: `msstore publish` uploads *packages*. Store
-listing content - screenshots, captions - is only reachable through this API.
+listing content - screenshots, captions, description - is only reachable through
+this API.
 """
 from __future__ import annotations
 
@@ -38,6 +40,7 @@ import requests
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHOTS = os.path.join(HERE, "screenshots")
 CAPTIONS = os.path.join(HERE, "captions.json")
+LISTING = os.path.join(HERE, "listing.json")
 
 API = "https://manage.devcenter.microsoft.com/v1.0/my"
 RESOURCE = "https://manage.devcenter.microsoft.com"
@@ -134,12 +137,32 @@ def load_shots():
     return shots, cfg.get("notesForCertification", "")
 
 
-def already_applied(listing, shots):
-    """True when this listing already carries exactly these screenshots."""
-    live = {i["fileName"] for i in listing["baseListing"].get("images", [])
+def load_text():
+    """Per-language listing fields to push. Absent file = images only."""
+    if not os.path.exists(LISTING):
+        return {}
+    with open(LISTING, encoding="utf-8") as f:
+        cfg = json.load(f)
+    return {k.lower(): v for k, v in cfg.items() if not k.startswith("_")}
+
+
+def already_applied(listing, shots, text):
+    """True when this listing already carries these screenshots AND this text."""
+    base = listing["baseListing"]
+    live = {i["fileName"] for i in base.get("images", [])
             if i.get("imageType") == IMAGE_TYPE
             and i.get("fileStatus") != "PendingDelete"}
-    return live == {s["file"] for s in shots}
+    if live != {s["file"] for s in shots}:
+        return False
+    return all(base.get(k) == v for k, v in (text or {}).items())
+
+
+def swap_text(listing, text):
+    """Overwrite only the fields listing.json actually carries."""
+    base = listing["baseListing"]
+    changed = [k for k, v in (text or {}).items() if base.get(k) != v]
+    base.update(text or {})
+    return changed
 
 
 def swap_images(listing, shots, lang):
@@ -190,6 +213,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     shots, notes = load_shots()
+    text = load_text()
     store = Store(token())
 
     app = store.app()
@@ -241,13 +265,16 @@ def main(argv=None):
                       f"{i.get('fileName')}  |  {i.get('description', '')}")
         return outcome("dump")
 
-    if all(already_applied(listings[l], shots) for l in langs):
+    if all(already_applied(listings[l], shots, text.get(l.lower()))
+           for l in langs):
         print("listings already carry these screenshots — nothing to do")
         return outcome("already-applied")
 
     for lang in langs:
         retired = swap_images(listings[lang], shots, lang.lower())
-        print(f"  {lang}: {retired} screenshot(s) removed, {len(shots)} added")
+        fields = swap_text(listings[lang], text.get(lang.lower()))
+        print(f"  {lang}: {retired} screenshot(s) removed, {len(shots)} added"
+              + (f", text rewritten: {', '.join(fields)}" if fields else ""))
 
     if notes and notes not in (sub.get("notesForCertification") or ""):
         existing = (sub.get("notesForCertification") or "").strip()

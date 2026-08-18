@@ -3,17 +3,21 @@
 Copy-paste source for Partner Center → hinata → Store listing – English.
 Kept in the repo so the listing is reviewable and reproducible.
 
-**Feature parity with macOS/iOS, reached by different means — keep the wording:**
+**This listing describes a Windows app and nothing else.** Certification 10.1.4.3
+failed once on copy carried over from the Apple listing, so: no other platform,
+no device that is not a Windows desktop, and no "on Windows … the same" phrasing
+— a comparison implies the platform it compares to. Everything below is written
+as if Windows were the only place Hinata exists.
 
 1. **Push works, but not through Firebase.** `firebase_messaging` has no Windows
    implementation; the Windows build registers a **WNS channel URI** instead and
-   the Connect gateway routes to WNS. User-visible behaviour is the same, so the
-   Apple wording is accurate here.
+   the Connect gateway routes to WNS. It is a build detail, not listing copy —
+   the listing just says notifications work.
 2. **Three capabilities.** The MSIX declares `internetClient`, `microphone` and
    `webcam` (plus the automatic `runFullTrust`). The permission block below
    matches exactly what the Store shows under "This app can" — keep the two in
    sync whenever a capability is added or removed.
-3. **Ctrl + K**, not ⌘K — and "On Windows", not "On the Mac".
+3. **Ctrl + K**, never ⌘K — in the copy and in the screenshots.
 
 ---
 
@@ -27,41 +31,22 @@ Kept in the repo so the listing is reviewable and reproducible.
 
 ## Description
 
-    Hinata is an open-source, self-hosted project- and issue-tracking client. You connect it to your own Hinata Server, so your team's work stays on infrastructure you control — with no per-user pricing and no board limits.
+**Source of truth: `windows/store/listing.json`** — that is the text the lane
+actually pushes, so it is not duplicated here. Read it there, edit it there.
 
-    One app, every screen: desktop, tablet and phone share a single, fully responsive interface that adapts through golden-ratio breakpoints, in a light or dark theme.
+**Keep every other platform out of it.** Certification **10.1.4.3 App Quality –
+Description** failed on 2026-08-17 (both language listings) on two leftovers
+from the Apple copy:
 
-    WHAT YOU CAN DO
-    • Agile boards — drag & drop across columns, WIP limits, and Board, Backlog and Timeline views
-    • Sprints — plan, run and review with capacity, story points and burndown
-    • Issues — Epic → Story → Sub-task hierarchy, dependencies, labels and archiving
-    • Gantt & Timeline — start/due dates, dependencies and live progress
-    • Reports — burndown, velocity, cycle time and distribution charts
-    • Timesheets — weekly time tracking by activity
-    • Comments — threaded replies, emoji reactions and voice notes, updating live
-    • Attachments — drag-and-drop files, photos and videos with a glass lightbox
-    • Knowledge base — a built-in, hierarchical Markdown wiki with smart links
-    • Command palette — Ctrl + K global search across everything
-    • Notifications — in-app, e-mail and push for assignments, @mentions and due dates
+- *"One app, every screen: desktop, tablet and phone …"* — describes the app on
+  devices nobody can buy it on here; the package targets `Windows.Desktop` only.
+- *"On Windows, Hinata runs as a native desktop app with the same full feature
+  set."* — "on Windows … the same" reads as a comparison with another platform.
 
-    BUILT FOR TEAMS
-    • Projects & teams with per-project workflows, keys and members
-    • Sign in with local credentials and optional two-factor (TOTP), or SSO (OpenID Connect, OAuth 2.0, SAML, LDAP)
-    • Self-registration with e-mail verification, and forgot-password
-    • Multi-server: save several servers and switch between them, each with its own secure session
-
-    YOUR DATA, YOUR SERVER
-    Hinata collects nothing for itself. All content lives on the Hinata Server you connect to. There is no tracking and no analytics.
-
-    On Windows, Hinata runs as a native desktop app with the same full feature set.
-
-    Requires a Hinata Server to sign in. Learn how to self-host at hinata.ahmadre.com.
-
-    PERMISSIONS & WHY WE NEED THEM
-    • Internet — to reach the Hinata Server you connect to
-    • Microphone — voice comments and sound for videos you attach
-    • Camera — take a photo or record a video to attach to an issue
-    We ask for each permission only when you first use the feature that needs it.
+The replacement says the same thing without the comparison: a native Windows
+desktop app that lays out from a snapped window to full screen. It also drops
+the four-space indentation the old copy carried into Partner Center from being
+pasted out of a Markdown code block.
 
 ## What's new in this version
 
