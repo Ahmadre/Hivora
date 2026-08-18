@@ -28,6 +28,7 @@ this API.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -134,6 +135,11 @@ def load_shots():
         for lang, cap in s["captions"].items():
             if len(cap) > 200:
                 die(f"caption for {s['file']} [{lang}] is {len(cap)} chars (max 200)")
+        # The Store name carries a content hash: repainting an image without
+        # renaming it would otherwise look "already applied" and never upload.
+        with open(path, "rb") as f:
+            digest = hashlib.sha256(f.read()).hexdigest()[:8]
+        s["storeName"] = f"{digest}_{s['file']}"
     return shots, cfg.get("notesForCertification", "")
 
 
@@ -152,7 +158,7 @@ def already_applied(listing, shots, text):
     live = {i["fileName"] for i in base.get("images", [])
             if i.get("imageType") == IMAGE_TYPE
             and i.get("fileStatus") != "PendingDelete"}
-    if live != {s["file"] for s in shots}:
+    if live != {s["storeName"] for s in shots}:
         return False
     return all(base.get(k) == v for k, v in (text or {}).items())
 
@@ -179,7 +185,7 @@ def swap_images(listing, shots, lang):
         kept.append(img)
     for s in shots:
         kept.append({
-            "fileName": s["file"],
+            "fileName": s["storeName"],
             "fileStatus": "PendingUpload",
             "imageType": IMAGE_TYPE,
             "description": s["captions"].get(lang, s["captions"]["en-us"]),
@@ -192,7 +198,7 @@ def zip_images(shots):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for s in shots:
-            z.write(os.path.join(SHOTS, s["file"]), s["file"])
+            z.write(os.path.join(SHOTS, s["file"]), s["storeName"])
     return buf.getvalue()
 
 

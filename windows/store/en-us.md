@@ -110,8 +110,9 @@ Same check as above: this is displayed publicly on the listing.
 
 ### Screenshots — `windows/store/screenshots/`
 
-Six 2560 × 1440 desktop shots, in listing order, with the captions in
-`captions.json` (en-us + de-de). Upload them with **Actions → "Windows listing
+Five 2560 × 1440 desktop shots, in listing order, with the captions in
+`captions.json` (en-us + de-de). Each is uploaded under a content-hashed file
+name, so repainting an image always reaches Partner Center. Upload them with **Actions → "Windows listing
 (screenshots)"**; `windows/store/update_listing.py` writes them into the pending
 Partner Center submission through the Store submission API, for every language.
 
@@ -123,12 +124,23 @@ app in a plain Windows 11 window (title bar with minimize / maximize / close) on
 the brand backdrop, and nothing else: Store guidance for the screenshot slots is
 also explicit that they carry no extra logos, icons or marketing copy.
 
-Two things to keep in mind when regenerating them:
+**The 2026-08-17 report kept 10.1.1.3 open**, on the replacement images — the
+policy is read strictly, down to the pixels, so nothing from another platform may
+survive anywhere in the frame. What was still in them, and is now gone:
+
+- **⌘ in the demo content.** Two issue titles read "Wire ⌘K palette to project
+  quick-switch". Fixed at the root in the server's `DemoSeeder`, and repainted in
+  the two affected captures (`TEXT_PATCHES` in the generator).
+- **Apple Color Emoji.** The comments screen shows reaction chips, which the Mac
+  captures render in Apple's artwork. That screen is out of the set until a
+  capture exists that does not come from a Mac.
+
+Also keep in mind:
 
 - The search hint must read **Ctrl K**, not ⌘K. The app renders it per platform
   (`searchShortcutLabel` in `lib/features/shell/app_shell.dart`) — before
-  2026-08-16 it was hardcoded to ⌘K on every platform, which is what the old
-  screenshots showed.
+  2026-08-16 it was hardcoded to ⌘K on every platform, which is what the first
+  set of screenshots showed.
 - Captions are per language; the app UI in the images is English for both
   listings.
 

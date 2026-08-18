@@ -111,7 +111,7 @@ stehen soll — die Angabe ist öffentlich sichtbar.
 ## Bilder
 
 Identisch zur englischen Fassung — Store-Grafiken sind sprachunabhängig und
-liegen in `windows/store/images/`. Auch die sechs Screenshots aus
+liegen in `windows/store/images/`. Auch die fünf Screenshots aus
 `windows/store/screenshots/` sind für beide Listings dieselben; **deutsch ist
 nur die Bildunterschrift** (`captions.json`), die App-Oberfläche auf den Bildern
 ist englisch.
@@ -128,3 +128,15 @@ zeigen. Der aktuelle Satz zeigt die App in einem schlichten Windows-11-Fenster
 (Titelleiste mit Minimieren / Maximieren / Schließen), ohne Zusatz-Logos und
 ohne Werbetext — auch das verlangt Microsofts Leitfaden für die Screenshot-Slots.
 Die Suchleiste muss dabei **Ctrl K** zeigen, nicht ⌘K.
+
+**Der Report vom 17.08.2026 hat 10.1.1.3 erneut beanstandet** — diesmal an den
+Ersatzbildern. Die Richtlinie wird streng gelesen, bis in die Pixel: nichts von
+einer fremden Plattform darf irgendwo im Bild überleben. Was noch drin war und
+jetzt draußen ist:
+
+- **⌘ in den Demo-Daten.** Zwei Vorgangstitel lauteten „Wire ⌘K palette to
+  project quick-switch". An der Wurzel im `DemoSeeder` des Servers behoben und in
+  den zwei betroffenen Aufnahmen nachgesetzt (`TEXT_PATCHES` im Generator).
+- **Apple Color Emoji.** Der Kommentar-Screen zeigt Reaktions-Chips, die die
+  Mac-Aufnahmen in Apples Emoji-Grafik rendern. Dieser Screen bleibt draußen, bis
+  es eine Aufnahme gibt, die nicht vom Mac stammt.

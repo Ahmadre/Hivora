@@ -1,5 +1,5 @@
 {
-  "_comment": "Store listing screenshots for Partner Center, in listing order. Each caption is the image's `description` (Store limit: 200 characters).",
+  "_comment": "Store listing screenshots for Partner Center, in listing order. Each caption is the image's `description` (Store limit: 200 characters). The Store file name is prefixed with a content hash by update_listing.py, so re-uploading changed pixels under the same name cannot silently no-op.",
   "screenshots": [
     {
       "file": "01_dashboard.png",
@@ -35,14 +35,7 @@
         "en-us": "Reports that matter: burndown, velocity, cycle time and issue distribution.",
         "de-de": "Aussagekräftige Reports: Burndown, Velocity, Cycle Time und Verteilung der Vorgänge."
       }
-    },
-    {
-      "file": "06_comments.png",
-      "captions": {
-        "en-us": "Threaded comments with replies, emoji reactions and voice notes, updating live.",
-        "de-de": "Kommentar-Threads mit Antworten, Emoji-Reaktionen und Sprachnotizen — live aktualisiert."
-      }
     }
   ],
-  "notesForCertification": "Screenshot update (policy 10.1.1.3): every listing image now shows the Windows desktop build of Hinata in a standard Windows 11 window - title bar with minimize, maximize and close. No other platform's UI or devices appear in the metadata."
+  "notesForCertification": "Screenshot and description update after the 2026-08-17 report. Every listing image is the Windows desktop build of Hinata in a standard Windows 11 window (title bar with minimize, maximize and close); no other platform's UI, devices, artwork or symbols appear in the images or in the description."
 }
