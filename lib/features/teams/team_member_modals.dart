@@ -67,6 +67,7 @@ mixin _ProjectLookup {
   String pName(String id) => projectsById[id]?.name ?? id;
   String pKey(String id) => projectsById[id]?.key ?? '?';
   Color pColor(String id) => projectHexColor(projectsById[id]?.color);
+  String? pAvatar(String id) => projectsById[id]?.avatarUrl;
 }
 
 class _AddMembersBody extends StatefulWidget {
@@ -328,6 +329,7 @@ class _AddMembersBodyState extends State<_AddMembersBody> with _ProjectLookup {
         projectName: pName,
         projectKey: pKey,
         projectColor: pColor,
+        projectAvatar: pAvatar,
       ),
     ];
   }
@@ -451,6 +453,7 @@ class _ManageMemberBodyState extends State<_ManageMemberBody>
             projectName: pName,
             projectKey: pKey,
             projectColor: pColor,
+            projectAvatar: pAvatar,
           ),
           if (_error != null) ...[
             const SizedBox(height: 14),

@@ -1807,6 +1807,17 @@
     "expand": "Ausklappen"
   },
   "teams": {
+    "avatar": {
+      "label": "Bild",
+      "title": "Teambild",
+      "subtitle": "Lade ein neues Bild hoch oder entferne das aktuelle.",
+      "change": "Bild hochladen",
+      "remove": "Bild entfernen",
+      "updated": "Teambild aktualisiert",
+      "removed": "Teambild entfernt",
+      "failed": "Das Teambild konnte nicht geändert werden",
+      "hint": "PNG, JPG oder GIF. Das Bild wird quadratisch zugeschnitten; ohne Bild behält das Team sein Symbol."
+    },
     "title": "Teams",
     "summary": "{{count}} Teams · Personen & Projektzugriff koordinieren",
     "new": "Neues Team",
@@ -1928,6 +1939,17 @@
     "keyTaken": "Schlüssel bereits vergeben."
   },
   "projectSettings": {
+    "avatar": {
+      "label": "Bild",
+      "title": "Projektbild",
+      "subtitle": "Lade ein neues Bild hoch oder entferne das aktuelle.",
+      "change": "Bild hochladen",
+      "remove": "Bild entfernen",
+      "updated": "Projektbild aktualisiert",
+      "removed": "Projektbild entfernt",
+      "failed": "Das Projektbild konnte nicht geändert werden",
+      "hint": "PNG, JPG oder GIF. Das Bild wird quadratisch zugeschnitten; ohne Bild behält das Projekt sein Kürzel-Symbol."
+    },
     "title": "Projekteinstellungen",
     "untitled": "Unbenanntes Projekt",
     "required": "Pflicht",

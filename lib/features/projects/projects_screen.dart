@@ -17,6 +17,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/hue_colors.dart';
 import '../../core/util/keys.dart';
+import '../../core/widgets/entity_avatar.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
 import '../sprint/modals/glass_modal.dart';
@@ -294,21 +295,29 @@ class _ProjectCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.soft(glyphColor),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  project.key,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontMono,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: glyphColor,
+              // The project's picture when it has one, the mono-key square
+              // otherwise — same 44px footprint either way, so the card's
+              // header row never shifts.
+              EntityAvatar(
+                avatarUrl: project.avatarUrl,
+                size: 44,
+                radius: 12,
+                fallback: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.soft(glyphColor),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    project.key,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontMono,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: glyphColor,
+                    ),
                   ),
                 ),
               ),

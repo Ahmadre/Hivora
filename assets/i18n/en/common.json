@@ -1807,6 +1807,17 @@
     "expand": "Expand"
   },
   "teams": {
+    "avatar": {
+      "label": "Picture",
+      "title": "Team picture",
+      "subtitle": "Upload a new image or remove the current one.",
+      "change": "Upload an image",
+      "remove": "Remove image",
+      "updated": "Team picture updated",
+      "removed": "Team picture removed",
+      "failed": "Couldn't update the team picture",
+      "hint": "PNG, JPG or GIF. The image is cropped to a square; without one the team keeps its icon."
+    },
     "title": "Teams",
     "summary": "{{count}} teams · coordinate people & project access",
     "new": "New team",
@@ -1928,6 +1939,17 @@
     "keyTaken": "Key already in use."
   },
   "projectSettings": {
+    "avatar": {
+      "label": "Picture",
+      "title": "Project picture",
+      "subtitle": "Upload a new image or remove the current one.",
+      "change": "Upload an image",
+      "remove": "Remove image",
+      "updated": "Project picture updated",
+      "removed": "Project picture removed",
+      "failed": "Couldn't update the project picture",
+      "hint": "PNG, JPG or GIF. The image is cropped to a square; without one the project keeps its key glyph."
+    },
     "title": "Project settings",
     "untitled": "Untitled project",
     "required": "Required",

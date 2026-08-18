@@ -191,6 +191,7 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
             leading: ProjectKeyGlyph(
               label: p.key,
               color: projectHexColor(p.color),
+              avatarUrl: p.avatarUrl,
               size: 32,
               radius: 8,
             ),

@@ -5,6 +5,7 @@ import '../../core/i18n/i18n.dart';
 import '../../core/models/team_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/entity_avatar.dart';
 
 // ════════════════════════════════════════════════════════════════════════
 //  Teams design kit — glyphs, role/access chips, the shared hue palette and
@@ -84,7 +85,13 @@ Color projectHexColor(String? hex) {
   return const Color(0xFF5B6FD6);
 }
 
-/// Tinted rounded-square team glyph with the team's icon.
+/// Tinted rounded-square team glyph with the team's icon — or the team's
+/// uploaded picture, in the very same footprint.
+///
+/// Every place a team is shown already builds this, so teaching the glyph about
+/// [Team.avatarUrl] is what makes the picture appear on the overview cards, the
+/// detail header and the pickers at once, instead of threading a new widget
+/// through each of them.
 class TeamGlyph extends StatelessWidget {
   const TeamGlyph({
     super.key,
@@ -99,36 +106,38 @@ class TeamGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = teamHueColor(team.colorHue);
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppColors.soft(color),
-        borderRadius: BorderRadius.circular(radius),
+    return EntityAvatar(
+      avatarUrl: team.avatarUrl,
+      size: size,
+      radius: radius,
+      fallback: TeamIconGlyph(
+        icon: team.icon,
+        color: teamHueColor(team.colorHue),
+        size: size,
+        radius: radius,
       ),
-      alignment: Alignment.center,
-      child: Icon(teamIcon(team.icon), size: size * 0.46, color: color),
     );
   }
 }
 
-/// Key-letter glyph for a project (mono key on a tinted square).
-class ProjectKeyGlyph extends StatelessWidget {
-  const ProjectKeyGlyph({
+/// The icon-only team glyph, without the picture lookup.
+///
+/// Split out of [TeamGlyph] so the forms that preview a *not yet saved* colour
+/// and icon (the create/edit modal) can draw exactly the same square from loose
+/// values instead of inventing their own.
+class TeamIconGlyph extends StatelessWidget {
+  const TeamIconGlyph({
     super.key,
-    required this.label,
+    required this.icon,
     required this.color,
-    this.size = 36,
-    this.radius = 10,
-    this.fontSize = 12,
+    this.size = 44,
+    this.radius = 13,
   });
 
-  final String label;
+  final String icon;
   final Color color;
   final double size;
   final double radius;
-  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -140,15 +149,61 @@ class ProjectKeyGlyph extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.clip,
-        style: TextStyle(
-          fontFamily: AppTheme.fontMono,
-          fontWeight: FontWeight.w600,
-          fontSize: fontSize,
-          color: color,
+      child: Icon(teamIcon(icon), size: size * 0.46, color: color),
+    );
+  }
+}
+
+/// Key-letter glyph for a project (mono key on a tinted square) — or the
+/// project's uploaded picture, in the very same footprint.
+///
+/// [avatarUrl] is optional because this glyph is also drawn for things that are
+/// not a saved project yet (the key being typed in the create form), and for
+/// project ids a caller only knows by key and colour.
+class ProjectKeyGlyph extends StatelessWidget {
+  const ProjectKeyGlyph({
+    super.key,
+    required this.label,
+    required this.color,
+    this.avatarUrl,
+    this.size = 36,
+    this.radius = 10,
+    this.fontSize = 12,
+  });
+
+  final String label;
+  final Color color;
+
+  /// Server-owned picture URL of the project, when there is one.
+  final String? avatarUrl;
+  final double size;
+  final double radius;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return EntityAvatar(
+      avatarUrl: avatarUrl,
+      size: size,
+      radius: radius,
+      fallback: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppColors.soft(color),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: TextStyle(
+            fontFamily: AppTheme.fontMono,
+            fontWeight: FontWeight.w600,
+            fontSize: fontSize,
+            color: color,
+          ),
         ),
       ),
     );

@@ -49,6 +49,32 @@ class TeamRepository {
 
   Future<void> deleteTeam(String id) => _api.delete('/api/v1/teams/$id');
 
+  /// Uploads a new team picture and returns its fresh URL.
+  ///
+  /// The server center-crops and re-encodes, then answers a URL carrying a new
+  /// `?v=` token — storing that in state is what makes the picture swap without
+  /// a restart, because the changed URL is a different avatar-cache key. The
+  /// picture is *not* part of the team PATCH body; it is owned by these
+  /// endpoints alone.
+  Future<String> uploadTeamAvatar(
+    String id,
+    MultipartFile file, {
+    void Function(double pct)? onProgress,
+  }) async =>
+      ((await _api.upload(
+                '/api/v1/teams/$id/avatar',
+                file,
+                onSendProgress: onProgress == null
+                    ? null
+                    : (sent, total) => onProgress(total > 0 ? sent / total : 0),
+              ))
+              as Map<String, dynamic>)['avatarUrl']
+          as String;
+
+  /// Removes the team picture; the team falls back to its icon glyph.
+  Future<void> deleteTeamAvatar(String id) =>
+      _api.delete('/api/v1/teams/$id/avatar');
+
   /// Adds [userIds] to the team with a single [role] + [access] for the batch.
   Future<Team> addTeamMembers(
     String teamId,

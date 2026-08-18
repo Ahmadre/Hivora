@@ -358,6 +358,7 @@ class _ProjectRow extends StatelessWidget {
               ProjectKeyGlyph(
                 label: project.key,
                 color: color,
+                avatarUrl: project.avatarUrl,
                 size: 40,
                 radius: 11,
               ),

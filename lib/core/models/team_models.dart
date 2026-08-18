@@ -103,6 +103,7 @@ class Team extends Equatable {
     this.createdAt,
     this.projectIds = const [],
     this.members = const [],
+    this.avatarUrl,
   });
 
   final String id;
@@ -115,6 +116,11 @@ class Team extends Equatable {
   final DateTime? createdAt;
   final List<String> projectIds;
   final List<TeamMembership> members;
+
+  /// Server-owned URL of the team picture, or null while the team still shows
+  /// its tinted icon glyph. Carries a `?v=` cache buster and the BlurHash as
+  /// `bh=`, exactly like a person's avatar — never send it back in a PATCH.
+  final String? avatarUrl;
 
   int get adminCount => members.where((m) => m.isAdmin).length;
 
@@ -140,6 +146,7 @@ class Team extends Equatable {
     members: ((json['members'] as List<dynamic>?) ?? const [])
         .map((m) => TeamMembership.fromJson(m as Map<String, dynamic>))
         .toList(),
+    avatarUrl: json['avatarUrl'] as String?,
   );
 
   @override
@@ -152,6 +159,7 @@ class Team extends Equatable {
     icon,
     projectIds,
     members,
+    avatarUrl,
   ];
 }
 

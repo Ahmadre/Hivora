@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show MultipartFile;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -7,9 +8,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/hue_colors.dart';
 import '../../../core/util/keys.dart';
+import '../../../core/widgets/entity_avatar_editor.dart';
 import 'settings_common.dart';
 
-/// General card: name (required), key (required, uppercase), description, accent.
+/// General card: picture, name (required), key (required, uppercase),
+/// description, accent.
 class GeneralSection extends StatelessWidget {
   const GeneralSection({
     super.key,
@@ -20,6 +23,10 @@ class GeneralSection extends StatelessWidget {
     required this.keyError,
     required this.selectedHue,
     required this.onHue,
+    required this.avatarUrl,
+    required this.onUploadAvatar,
+    required this.onRemoveAvatar,
+    required this.onAvatarChanged,
   });
 
   final TextEditingController nameController;
@@ -30,6 +37,20 @@ class GeneralSection extends StatelessWidget {
   final int selectedHue;
   final ValueChanged<int> onHue;
 
+  /// Server-owned project picture, or null while the key glyph stands in.
+  final String? avatarUrl;
+
+  /// Stores a newly picked picture and answers its fresh URL.
+  final Future<String> Function(MultipartFile file) onUploadAvatar;
+
+  /// Drops the current picture.
+  final Future<void> Function() onRemoveAvatar;
+
+  /// The picture's new URL, or null after a removal. Not part of the settings
+  /// draft: the upload endpoints commit on their own, so there is nothing for
+  /// the save bar to pick up.
+  final ValueChanged<String?> onAvatarChanged;
+
   @override
   Widget build(BuildContext context) {
     return SettingsSection(
@@ -37,6 +58,16 @@ class GeneralSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          FieldLabel(text: context.t('projectSettings.avatar.label')),
+          _AvatarRow(
+            avatarUrl: avatarUrl,
+            projectKey: keyController.text,
+            hue: selectedHue,
+            onUpload: onUploadAvatar,
+            onRemove: onRemoveAvatar,
+            onChanged: onAvatarChanged,
+          ),
+          const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
               final stacked = constraints.maxWidth < 480;
@@ -83,6 +114,73 @@ class GeneralSection extends StatelessWidget {
           _Swatches(selectedHue: selectedHue, onHue: onHue),
         ],
       ),
+    );
+  }
+}
+
+/// The project picture next to the line explaining what happens to it.
+///
+/// The glyph behind it is the same mono-key square the project cards draw, so
+/// removing the picture visibly returns the project to what it looked like
+/// before — and the key/colour being edited above are reflected live.
+class _AvatarRow extends StatelessWidget {
+  const _AvatarRow({
+    required this.avatarUrl,
+    required this.projectKey,
+    required this.hue,
+    required this.onUpload,
+    required this.onRemove,
+    required this.onChanged,
+  });
+
+  final String? avatarUrl;
+  final String projectKey;
+  final int hue;
+  final Future<String> Function(MultipartFile file) onUpload;
+  final Future<void> Function() onRemove;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        EntityAvatarField(
+          avatarUrl: avatarUrl,
+          size: 64,
+          radius: 18,
+          strings: EntityAvatarStrings.project,
+          fallback: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: hueSoft(hue),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              projectKey.isEmpty ? 'KEY' : projectKey,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: TextStyle(
+                fontFamily: AppTheme.fontMono,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                color: hueChipText(hue),
+              ),
+            ),
+          ),
+          onUpload: onUpload,
+          onRemove: onRemove,
+          onChanged: onChanged,
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            context.t('projectSettings.avatar.hint'),
+            style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+          ),
+        ),
+      ],
     );
   }
 }

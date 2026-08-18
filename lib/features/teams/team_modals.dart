@@ -9,6 +9,7 @@ import '../../core/models/team_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/util/keys.dart';
+import '../../core/widgets/entity_avatar_editor.dart';
 import '../deletion/delete_flows.dart';
 import 'team_modal_kit.dart';
 import 'team_widgets.dart';
@@ -81,6 +82,11 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
   );
   late int _hue = widget.existing?.colorHue ?? 70;
   late String _icon = widget.existing?.icon ?? 'hexagon';
+
+  /// Picture of the team being edited. Uploads land immediately (the endpoints
+  /// are separate from the team PATCH), so this only mirrors what the server
+  /// already stored — it is never sent with the form.
+  late String? _avatarUrl = widget.existing?.avatarUrl;
   bool _busy = false;
   String? _error;
 
@@ -198,6 +204,37 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
     }
   }
 
+  /// The 52px identity square: a live preview of the colour + icon being
+  /// picked, and — once the team exists — the picture upload itself.
+  ///
+  /// A team being *created* has no id yet, so there is nothing to upload
+  /// against; it stays the plain preview and gets its picture from the settings
+  /// tab afterwards.
+  Widget _identityGlyph(Color color) {
+    final preview = Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppColors.soft(color),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      alignment: Alignment.center,
+      child: Icon(teamIcon(_icon), size: 26, color: color),
+    );
+    final team = widget.existing;
+    if (team == null) return preview;
+    return EntityAvatarField(
+      avatarUrl: _avatarUrl,
+      size: 52,
+      radius: 15,
+      strings: EntityAvatarStrings.team,
+      fallback: preview,
+      onUpload: (file) => widget.repo.uploadTeamAvatar(team.id, file),
+      onRemove: () => widget.repo.deleteTeamAvatar(team.id),
+      onChanged: (url) => setState(() => _avatarUrl = url),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = teamHueColor(_hue);
@@ -214,16 +251,7 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: AppColors.soft(color),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                alignment: Alignment.center,
-                child: Icon(teamIcon(_icon), size: 26, color: color),
-              ),
+              _identityGlyph(color),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

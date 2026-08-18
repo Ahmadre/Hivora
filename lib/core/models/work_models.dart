@@ -99,6 +99,7 @@ class Project extends Equatable {
     this.archived = false,
     this.git,
     this.extraRepos = const [],
+    this.avatarUrl,
   });
 
   final String id;
@@ -118,6 +119,11 @@ class Project extends Equatable {
   final List<ProjectLabel> labels;
   final String color;
   final bool archived;
+
+  /// Server-owned URL of the project picture, or null while the project still
+  /// shows its mono-key glyph. Carries a `?v=` cache buster and the BlurHash as
+  /// `bh=`, exactly like a person's avatar — never send it back in a PATCH.
+  final String? avatarUrl;
 
   /// Per-project **primary** Git repository connection, or `null` when no repo
   /// is linked. Holds the project-wide automation + branch template.
@@ -173,6 +179,7 @@ class Project extends Equatable {
     archived: json['archived'] as bool? ?? false,
     git: GitConnection.fromJson(json['git'] as Map<String, dynamic>?),
     extraRepos: _gitList(json['extraRepos']),
+    avatarUrl: json['avatarUrl'] as String?,
   );
 
   static List<GitConnection> _gitList(Object? raw) {
@@ -197,6 +204,8 @@ class Project extends Equatable {
     bool? archived,
     GitConnection? git,
     List<GitConnection>? extraRepos,
+    String? avatarUrl,
+    bool clearAvatar = false,
   }) => Project(
     id: id,
     key: key ?? this.key,
@@ -211,6 +220,10 @@ class Project extends Equatable {
     archived: archived ?? this.archived,
     git: git ?? this.git,
     extraRepos: extraRepos ?? this.extraRepos,
+    // The picture is server-owned and never part of the settings draft, so it
+    // has to survive every unrelated copy — but removing it must still be
+    // expressible, hence the explicit [clearAvatar] flag.
+    avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
   );
 
   /// Returns a copy with the Git repositories replaced — the primary [git]
@@ -234,6 +247,7 @@ class Project extends Equatable {
         archived: archived,
         git: git,
         extraRepos: extraRepos ?? this.extraRepos,
+        avatarUrl: avatarUrl,
       );
 
   @override
@@ -251,6 +265,7 @@ class Project extends Equatable {
     archived,
     git,
     extraRepos,
+    avatarUrl,
   ];
 }
 

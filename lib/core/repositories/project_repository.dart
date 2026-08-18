@@ -108,6 +108,32 @@ class ProjectRepository {
             as Map<String, dynamic>,
       );
 
+  /// Uploads a new project picture and returns its fresh URL.
+  ///
+  /// The server center-crops and re-encodes, then answers a URL carrying a new
+  /// `?v=` token — storing that in state is what makes the picture swap without
+  /// a restart, because the changed URL is a different avatar-cache key. The
+  /// picture is *not* part of the project PATCH body (and therefore not part of
+  /// the settings draft); it is owned by these endpoints alone.
+  Future<String> uploadProjectAvatar(
+    String id,
+    MultipartFile file, {
+    void Function(double pct)? onProgress,
+  }) async =>
+      ((await _api.upload(
+                '/api/v1/projects/$id/avatar',
+                file,
+                onSendProgress: onProgress == null
+                    ? null
+                    : (sent, total) => onProgress(total > 0 ? sent / total : 0),
+              ))
+              as Map<String, dynamic>)['avatarUrl']
+          as String;
+
+  /// Removes the project picture; the project falls back to its key glyph.
+  Future<void> deleteProjectAvatar(String id) =>
+      _api.delete('/api/v1/projects/$id/avatar');
+
   /// Permanently removes a label from the project and every issue using it.
   Future<void> deleteProjectLabel(
     String projectId,

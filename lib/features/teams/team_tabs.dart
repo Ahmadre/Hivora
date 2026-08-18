@@ -10,6 +10,7 @@ import '../../core/models/core_models.dart';
 import '../../core/models/team_models.dart';
 import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/entity_avatar_editor.dart';
 import '../../core/widgets/hive_loader.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_widgets.dart';
@@ -292,7 +293,13 @@ class _MiniProjectRow extends StatelessWidget {
     final color = projectHexColor(project.color);
     return Row(
       children: [
-        ProjectKeyGlyph(label: project.key, color: color, size: 36, radius: 10),
+        ProjectKeyGlyph(
+          label: project.key,
+          color: color,
+          avatarUrl: project.avatarUrl,
+          size: 36,
+          radius: 10,
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(

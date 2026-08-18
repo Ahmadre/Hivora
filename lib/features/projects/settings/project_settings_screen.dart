@@ -16,6 +16,7 @@ import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/hue_colors.dart';
+import '../../../core/widgets/entity_avatar.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/hive_loader.dart';
 import '../../search/search_tokens.dart';
@@ -169,6 +170,18 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
 
   // ── identity ──────────────────────────────────────────────────────────
   void _onHue(int hue) => _mutate((d) => d.copyWith(color: hexForHue(hue)));
+
+  /// Records the picture the avatar endpoints just committed.
+  ///
+  /// Written into *both* the draft and the saved snapshot on purpose: the
+  /// picture is not part of the PATCH body, so it must never show up as an
+  /// unsaved change in the save bar (`_dirty` compares the two).
+  void _onAvatar(String? url) {
+    setState(() {
+      _saved = _saved?.copyWith(avatarUrl: url, clearAvatar: url == null);
+      _draft = _draft?.copyWith(avatarUrl: url, clearAvatar: url == null);
+    });
+  }
 
   // ── members & leads ───────────────────────────────────────────────────
   Future<void> _addMembers() async {
@@ -474,6 +487,14 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       keyError: keyErr,
       selectedHue: hueForHex(draft.color),
       onHue: _onHue,
+      avatarUrl: draft.avatarUrl,
+      onUploadAvatar: (file) => context
+          .read<ProjectRepository>()
+          .uploadProjectAvatar(widget.projectId, file),
+      onRemoveAvatar: () => context
+          .read<ProjectRepository>()
+          .deleteProjectAvatar(widget.projectId),
+      onAvatarChanged: _onAvatar,
     );
     final members = MembersSection(
       memberIds: draft.memberIds,
@@ -697,21 +718,29 @@ class _Header extends StatelessWidget {
     final hue = hueForHex(draft.color);
     return Row(
       children: [
-        Container(
-          width: 54,
-          height: 54,
-          decoration: BoxDecoration(
-            color: hueSoft(hue),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            draft.key.isEmpty ? '—' : draft.key,
-            style: TextStyle(
-              fontFamily: AppTheme.fontMono,
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-              color: hueChipText(hue),
+        // The picture, when there is one — this is the page that edits it, so
+        // the header would otherwise still show the key square while the field
+        // below it already shows the new image.
+        EntityAvatar(
+          avatarUrl: draft.avatarUrl,
+          size: 54,
+          radius: 15,
+          fallback: Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: hueSoft(hue),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              draft.key.isEmpty ? '—' : draft.key,
+              style: TextStyle(
+                fontFamily: AppTheme.fontMono,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: hueChipText(hue),
+              ),
             ),
           ),
         ),

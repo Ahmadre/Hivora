@@ -15,8 +15,11 @@ class TeamSettingsTab extends StatelessWidget {
   final Future<void> Function() onReload;
 
   Future<void> _edit(BuildContext context) async {
-    final saved = await showEditTeamModal(context, data.team);
-    if (saved == true) await onReload();
+    await showEditTeamModal(context, data.team);
+    // Reload regardless of the outcome: the picture inside that modal is stored
+    // the moment it is uploaded, independently of the form's save button, so
+    // "cancelled" no longer implies "nothing changed".
+    await onReload();
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -67,6 +70,10 @@ class TeamSettingsTab extends StatelessWidget {
                 onAction: () => _edit(context),
               ),
               const SizedBox(height: 8),
+              _SettingRow(
+                k: context.t('teams.avatar.label'),
+                vWidget: _TeamAvatarSetting(team: team, onReload: onReload),
+              ),
               _SettingRow(k: context.t('teams.name'), v: team.name),
               _SettingRow(k: context.t('teams.key'), v: team.key, mono: true),
               _SettingRow(
@@ -203,6 +210,72 @@ class TeamSettingsTab extends StatelessWidget {
       if (s.hue == hue) return context.t(s.nameKey);
     }
     return context.t('teams.color.custom');
+  }
+}
+
+/// The team picture in the settings identity card: tap to upload or remove.
+///
+/// Keeps the URL the upload answered with as a local override so the new
+/// picture is on screen the instant it is stored, rather than one page reload
+/// later — the reload still runs, to refresh the header glyph and the rest of
+/// the detail page, and hands back the very same URL.
+class _TeamAvatarSetting extends StatefulWidget {
+  const _TeamAvatarSetting({required this.team, required this.onReload});
+
+  final Team team;
+  final Future<void> Function() onReload;
+
+  @override
+  State<_TeamAvatarSetting> createState() => _TeamAvatarSettingState();
+}
+
+class _TeamAvatarSettingState extends State<_TeamAvatarSetting> {
+  String? _url;
+  bool _local = false;
+
+  @override
+  void didUpdateWidget(_TeamAvatarSetting old) {
+    super.didUpdateWidget(old);
+    // A reload (ours or somebody else's edit) is the newer truth.
+    if (old.team.avatarUrl != widget.team.avatarUrl) _local = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final team = widget.team;
+    final repo = context.read<TeamRepository>();
+    return Row(
+      children: [
+        EntityAvatarField(
+          avatarUrl: _local ? _url : team.avatarUrl,
+          size: 64,
+          radius: 18,
+          strings: EntityAvatarStrings.team,
+          fallback: TeamIconGlyph(
+            icon: team.icon,
+            color: teamHueColor(team.colorHue),
+            size: 64,
+            radius: 18,
+          ),
+          onUpload: (file) => repo.uploadTeamAvatar(team.id, file),
+          onRemove: () => repo.deleteTeamAvatar(team.id),
+          onChanged: (url) {
+            setState(() {
+              _url = url;
+              _local = true;
+            });
+            widget.onReload();
+          },
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Text(
+            context.t('teams.avatar.hint'),
+            style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -586,6 +586,7 @@ class AccessPicker extends StatelessWidget {
     required this.projectName,
     required this.projectKey,
     required this.projectColor,
+    this.projectAvatar,
   });
 
   final Team team;
@@ -597,6 +598,10 @@ class AccessPicker extends StatelessWidget {
   final String Function(String id) projectName;
   final String Function(String id) projectKey;
   final Color Function(String id) projectColor;
+
+  /// The project's picture URL, when the caller can resolve one. Optional so a
+  /// caller that only knows keys and colours still compiles.
+  final String? Function(String id)? projectAvatar;
 
   @override
   Widget build(BuildContext context) {
@@ -659,6 +664,7 @@ class AccessPicker extends StatelessWidget {
                           leading: ProjectKeyGlyph(
                             label: projectKey(projects[i]),
                             color: projectColor(projects[i]),
+                            avatarUrl: projectAvatar?.call(projects[i]),
                             size: 30,
                             radius: 8,
                             fontSize: 11,

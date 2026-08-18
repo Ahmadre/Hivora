@@ -368,7 +368,17 @@ class _ConfirmModalState extends State<_ConfirmModal> {
 enum AvatarAction { change, remove }
 
 /// A small glass chooser for the avatar: change or remove the current photo.
-Future<AvatarAction?> showAvatarActions(BuildContext context) {
+///
+/// Teams and projects have a picture too and use the very same affordance, so
+/// the four labels are i18n *keys* the caller may override — the defaults are
+/// the account's own wording.
+Future<AvatarAction?> showAvatarActions(
+  BuildContext context, {
+  String titleKey = 'account.avatar.title',
+  String subtitleKey = 'account.avatar.subtitle',
+  String changeKey = 'account.avatar.change',
+  String removeKey = 'account.avatar.remove',
+}) {
   return showGlassModal<AvatarAction>(
     context,
     width: 380,
@@ -381,8 +391,8 @@ Future<AvatarAction?> showAvatarActions(BuildContext context) {
       children: [
         GlassModalHeader(
           icon: LucideIcons.image,
-          title: context.t('account.avatar.title'),
-          subtitle: context.t('account.avatar.subtitle'),
+          title: context.t(titleKey),
+          subtitle: context.t(subtitleKey),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 4, 22, 18),
@@ -391,14 +401,14 @@ Future<AvatarAction?> showAvatarActions(BuildContext context) {
             children: [
               _AvatarActionTile(
                 icon: LucideIcons.upload,
-                label: context.t('account.avatar.change'),
+                label: context.t(changeKey),
                 onTap: () =>
                     Navigator.of(modalContext).pop(AvatarAction.change),
               ),
               const SizedBox(height: 8),
               _AvatarActionTile(
                 icon: LucideIcons.trash2,
-                label: context.t('account.avatar.remove'),
+                label: context.t(removeKey),
                 danger: true,
                 onTap: () =>
                     Navigator.of(modalContext).pop(AvatarAction.remove),
