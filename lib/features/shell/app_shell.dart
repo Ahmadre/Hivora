@@ -75,6 +75,7 @@ const _primary = [
 ];
 
 const _secondary = [
+  _Destination('/watched', 'nav.watched', LucideIcons.eye),
   _Destination('/gantt', 'nav.gantt', LucideIcons.chartColumnStacked),
   _Destination('/timesheet', 'nav.timesheet', LucideIcons.table),
   _Destination('/reports', 'nav.reports', LucideIcons.chartLine),
