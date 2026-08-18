@@ -30,6 +30,10 @@ on:
         description: 'Only report what would change'
         type: boolean
         default: false
+      dump:
+        description: 'Only print the listing text Partner Center holds'
+        type: boolean
+        default: false
       tolerate_busy:
         description: 'Do not fail if the submission is locked by an ingestion run'
         type: boolean
@@ -83,10 +87,12 @@ jobs:
           LANGUAGES: ${{ inputs.languages }}
           COMMIT: ${{ inputs.commit }}
           DRY_RUN: ${{ inputs.dry_run }}
+          DUMP: ${{ inputs.dump }}
           TOLERATE_BUSY: ${{ inputs.tolerate_busy }}
         run: |
           flags=""
           if [ "$COMMIT" = "true" ]; then flags="$flags --commit"; fi
           if [ "$DRY_RUN" = "true" ]; then flags="$flags --dry-run"; fi
+          if [ "$DUMP" = "true" ]; then flags="$flags --dump"; fi
           if [ "$TOLERATE_BUSY" = "true" ]; then flags="$flags --tolerate-busy"; fi
           python windows/store/update_listing.py --languages "$LANGUAGES" $flags

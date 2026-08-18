@@ -181,6 +181,9 @@ def main(argv=None):
                     help="show what would change; touch nothing")
     ap.add_argument("--languages", default="",
                     help="comma-separated listing languages (default: all)")
+    ap.add_argument("--dump", action="store_true",
+                    help="print the listing text as Partner Center holds it, "
+                         "then stop")
     ap.add_argument("--tolerate-busy", action="store_true",
                     help="exit 0 when the submission is locked by an ingestion "
                          "run (for the scheduled retry)")
@@ -222,6 +225,21 @@ def main(argv=None):
             f"{', '.join(sorted(listings)) or 'none'}")
     if not langs:
         die("submission has no store listings")
+
+    if args.dump:
+        for lang in langs:
+            base = listings[lang]["baseListing"]
+            print(f"\n===== {lang} =====")
+            for key in ("title", "description", "features", "keywords",
+                        "releaseNotes", "shortDescription", "copyrightAndTrademarkInfo",
+                        "privacyPolicy", "websiteUrl", "supportContact"):
+                if key in base:
+                    print(f"--- {key} ---\n{base[key]}")
+            print("--- images ---")
+            for i in base.get("images", []):
+                print(f"  {i.get('imageType'):16} {i.get('fileStatus'):14} "
+                      f"{i.get('fileName')}  |  {i.get('description', '')}")
+        return outcome("dump")
 
     if all(already_applied(listings[l], shots) for l in langs):
         print("listings already carry these screenshots — nothing to do")
