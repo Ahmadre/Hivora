@@ -25,9 +25,10 @@ enum _IssueMenuAction { watch, reply, move, delete }
 ///
 /// Watching is a menu entry rather than a button of its own (or a card in the
 /// details column, where it used to sit and cost the narrow right column a
-/// whole block): it is a one-tap subscription, not a field of the issue.
-/// Underneath the actions the menu shows who is subscribed — the same pairing
-/// Jira puts behind its watch action.
+/// whole block): it is a one-tap subscription, not a field of the issue. Its
+/// row opens a second glass popover — the subscription, why you may already be
+/// notified, and the roster are a section of their own, not three more rows in
+/// a list of actions.
 class _IssueActionsMenu extends StatelessWidget {
   const _IssueActionsMenu({
     required this.onMove,
@@ -70,16 +71,13 @@ class _IssueActionsMenu extends StatelessWidget {
   Widget _menu(BuildContext context, {required bool watching}) {
     final watch = this.watch;
     final removal = _removalLook(archived: archived, canDelete: canDelete);
-    // The watch row is a group of its own at the top (Jira's order), so
-    // whichever action comes after it opens the next group.
+    // The watch row is a group of its own at the top, so whichever action
+    // comes after it opens the next group.
     final afterWatch = watch != null;
 
     return GlassPopupMenu<_IssueMenuAction?>(
       value: null,
-      width: 280,
-      footerBuilder: watch == null
-          ? null
-          : (_) => IssueWatchMenuFooter(data: watch),
+      width: 260,
       items: [
         if (watch != null)
           issueWatchMenuItem(
@@ -125,7 +123,7 @@ class _IssueActionsMenu extends StatelessWidget {
       onSelected: (action) {
         switch (action) {
           case _IssueMenuAction.watch:
-            watch?.onToggle();
+            if (watch != null) _openWatchPopover(context, watch);
           case _IssueMenuAction.reply:
             onReply?.call();
           case _IssueMenuAction.move:
@@ -156,6 +154,21 @@ class _IssueActionsMenu extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Opens the watch popover where the "…" menu just stood.
+///
+/// [context] is this button's own element, still mounted: the menu closes
+/// before reporting a selection, but the top bar holding the anchor does not go
+/// anywhere. A Rect.zero fallback is harmless — the panel clamps itself
+/// on-screen — while a torn-down context is not, so that case bails out.
+void _openWatchPopover(BuildContext context, IssueWatchMenuData watch) {
+  if (!context.mounted) return;
+  final box = context.findRenderObject() as RenderBox?;
+  final anchor = (box != null && box.hasSize)
+      ? box.localToGlobal(Offset.zero) & box.size
+      : Rect.zero;
+  showIssueWatchPopover(context, anchorRect: anchor, data: watch);
 }
 
 class _RouteTopBar extends StatelessWidget {

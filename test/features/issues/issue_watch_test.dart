@@ -271,8 +271,10 @@ void main() {
     });
   });
 
-  group('the watch menu', () {
-    testWidgets('flips the row\'s verb and reports the tap', (tester) async {
+  group('the watch popover', () {
+    testWidgets('opens from the "…" menu and flips its verb on tap', (
+      tester,
+    ) async {
       final gate = Completer<void>();
       final repo = _FakeIssueRepository(gate: gate);
       final cubit = _cubit(repo);
@@ -283,25 +285,37 @@ void main() {
 
       await tester.tap(find.text('menu'));
       await tester.pumpAndSettle();
-      // Not watching yet: the row offers to start, and says so with the crossed
-      // out eye. Widget tests render i18n keys, so assert on the key.
-      expect(find.text('issues.watch.start'), findsOneWidget);
+      // The menu itself only carries the door — no toggle, no roster — but its
+      // glyph still says whether the caller is watching, and a chevron says
+      // the row leads somewhere.
+      expect(find.text('issues.watch.title'), findsOneWidget);
       expect(find.byIcon(LucideIcons.eyeOff), findsOneWidget);
+      expect(find.byIcon(LucideIcons.chevronRight), findsOneWidget);
+      expect(find.text('issues.watch.start'), findsNothing);
+      expect(find.text('Mia'), findsNothing);
+
+      await tester.tap(find.text('issues.watch.title'));
+      await tester.pumpAndSettle();
+      // …which opens the panel with all three parts.
+      expect(find.text('issues.watch.start'), findsOneWidget);
+      expect(find.text('issues.watch.watchersTitle'), findsOneWidget);
+      expect(find.text('Mia'), findsOneWidget);
 
       await tester.tap(find.text('issues.watch.start'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      // Optimistic, and the panel stays open to show it: the verb flips and
+      // the caller joins the roster.
+      expect(find.text('issues.watch.stop'), findsOneWidget);
+      expect(find.byIcon(LucideIcons.eye), findsOneWidget);
+      expect(find.textContaining('issues.watch.you'), findsOneWidget);
+
       gate.complete();
       await tester.pumpAndSettle();
       expect(repo.watched, ['i1']);
-
-      // Reopened, the same row now offers to stop.
-      await tester.tap(find.text('menu'));
-      await tester.pumpAndSettle();
       expect(find.text('issues.watch.stop'), findsOneWidget);
-      expect(find.byIcon(LucideIcons.eye), findsOneWidget);
     });
 
-    testWidgets('rolls the row back when the server refuses', (tester) async {
+    testWidgets('rolls the verb back when the server refuses', (tester) async {
       final gate = Completer<void>();
       final repo = _FakeIssueRepository(
         failure: ApiFailure('Kein Zugriff'),
@@ -310,36 +324,28 @@ void main() {
       final cubit = _cubit(repo);
       addTearDown(cubit.close);
       await tester.pumpWidget(
-        _menuHost(cubit, _issue(watcherIds: const ['u2'])),
+        _panelHost(cubit, _issue(watcherIds: const ['u2'])),
       );
 
-      await tester.tap(find.text('menu'));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('issues.watch.start'));
-      await tester.pumpAndSettle();
-      // Optimistic: subscribed while the call is still out.
+      await tester.pump();
       expect(cubit.watching, isTrue);
+      expect(find.text('issues.watch.stop'), findsOneWidget);
 
       gate.complete();
-      // Settle, not a single frame: the refusal reaches the anchor over the
-      // cubit's stream, and the row it rebuilds is what the next open shows.
       await tester.pumpAndSettle();
       expect(cubit.watching, isFalse);
       expect(cubit.state.errorKey, 'Kein Zugriff');
-
-      // …and the row is back to offering the subscribe it never got.
-      await tester.tap(find.text('menu'));
-      await tester.pumpAndSettle();
       expect(find.text('issues.watch.start'), findsOneWidget);
     });
 
-    testWidgets('lists the watchers under the actions, "you" first', (
+    testWidgets('lists the watchers under the action, "you" first', (
       tester,
     ) async {
       final repo = _FakeIssueRepository();
       final cubit = _cubit(repo, watcherIds: const ['u2', 'u1']);
       addTearDown(cubit.close);
-      await tester.pumpWidget(_footerHost(cubit, _issue()));
+      await tester.pumpWidget(_panelHost(cubit, _issue()));
 
       // The caller's row carries the "you" marker on the same line as the name.
       expect(find.textContaining('Rebar'), findsOneWidget);
@@ -358,29 +364,35 @@ void main() {
       final repo = _FakeIssueRepository();
       final empty = _cubit(repo, watcherIds: const []);
       addTearDown(empty.close);
-      await tester.pumpWidget(_footerHost(empty, _issue()));
+      await tester.pumpWidget(_panelHost(empty, _issue()));
       expect(find.text('issues.watch.noWatchers'), findsOneWidget);
 
       // A watcher the directory never resolved (deactivated, or not hydrated
       // yet) is named as unknown rather than shown as a raw id.
       final stranger = _cubit(repo, watcherIds: const ['u404']);
       addTearDown(stranger.close);
-      await tester.pumpWidget(_footerHost(stranger, _issue()));
+      await tester.pumpWidget(_panelHost(stranger, _issue()));
       expect(find.text('issues.watch.unknownWatcher'), findsOneWidget);
       expect(find.text('u404'), findsNothing);
     });
 
-    testWidgets('stops listing at twenty and counts the rest', (tester) async {
+    testWidgets('scrolls a long roster instead of growing', (tester) async {
       final repo = _FakeIssueRepository();
       final crowd = _cubit(
         repo,
-        watcherIds: [for (var i = 0; i < 25; i++) 'u$i'],
+        watcherIds: [for (var i = 0; i < 40; i++) 'u$i'],
       );
       addTearDown(crowd.close);
-      await tester.pumpWidget(_footerHost(crowd, _issue()));
+      await tester.pumpWidget(_panelHost(crowd, _issue()));
 
-      expect(find.byType(HiveAvatar), findsNWidgets(20));
-      expect(find.text('issues.watch.moreWatchers'), findsOneWidget);
+      // Lazily built: the roster is a ListView, so only the visible slice of
+      // those 40 rows exists.
+      expect(find.byType(HiveAvatar), findsWidgets);
+      expect(
+        tester.widgetList<HiveAvatar>(find.byType(HiveAvatar)).length,
+        lessThan(40),
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('explains that an assignee is already covered', (tester) async {
@@ -388,7 +400,7 @@ void main() {
       final cubit = _cubit(repo);
       addTearDown(cubit.close);
       await tester.pumpWidget(
-        _footerHost(cubit, _issue(assigneeIds: const ['u1'])),
+        _panelHost(cubit, _issue(assigneeIds: const ['u1'])),
       );
 
       expect(find.text('issues.watch.implicitAssignee'), findsOneWidget);
@@ -401,10 +413,10 @@ void main() {
       final repo = _FakeIssueRepository();
       final cubit = _cubit(repo);
       addTearDown(cubit.close);
-      await tester.pumpWidget(_footerHost(cubit, _issue(reporterId: 'u1')));
+      await tester.pumpWidget(_panelHost(cubit, _issue(reporterId: 'u1')));
       expect(find.text('issues.watch.implicitReporter'), findsOneWidget);
 
-      await tester.pumpWidget(_footerHost(cubit, _issue(reporterId: 'u9')));
+      await tester.pumpWidget(_panelHost(cubit, _issue(reporterId: 'u9')));
       expect(find.text('issues.watch.implicitReporter'), findsNothing);
       expect(find.text('issues.watch.implicitAssignee'), findsNothing);
     });
@@ -452,18 +464,27 @@ IssueWatchMenuData _menuData(IssueWatchCubit cubit, Issue issue) =>
       avatarFor: (_) => null,
     );
 
-/// The roster block on its own, in the scroll area the menu panel gives it.
-Widget _footerHost(IssueWatchCubit cubit, Issue issue) => MaterialApp(
+/// The popover's body on its own, in a box the size the overlay gives it.
+Widget _panelHost(IssueWatchCubit cubit, Issue issue) => MaterialApp(
   debugShowCheckedModeBanner: false,
   home: Scaffold(
-    body: SingleChildScrollView(
-      child: IssueWatchMenuFooter(data: _menuData(cubit, issue)),
+    body: Center(
+      child: SizedBox(
+        width: 320,
+        height: 440,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: IssueWatchPanel(data: _menuData(cubit, issue))),
+          ],
+        ),
+      ),
     ),
   ),
 );
 
-/// The whole section as the top bars compose it: the watch row inside a glass
-/// popup menu, with the roster underneath.
+/// The whole path the user takes: the "…" menu's watch row, and the popover it
+/// opens — wired exactly as the issue top bars wire it.
 Widget _menuHost(IssueWatchCubit cubit, Issue issue) {
   final data = _menuData(cubit, issue);
   return MaterialApp(
@@ -482,8 +503,11 @@ Widget _menuHost(IssueWatchCubit cubit, Issue issue) {
                 enabled: data.meId != null,
               ),
             ],
-            footerBuilder: (_) => IssueWatchMenuFooter(data: data),
-            onSelected: (_) => data.onToggle(),
+            onSelected: (_) => showIssueWatchPopover(
+              context,
+              anchorRect: Rect.zero,
+              data: data,
+            ),
             child: const Text('menu'),
           ),
         ),

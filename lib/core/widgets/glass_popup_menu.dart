@@ -16,6 +16,7 @@ class GlassMenuItem<T> {
     required this.value,
     required this.label,
     this.leading,
+    this.trailing,
     this.color,
     this.dividerAbove = false,
     this.enabled = true,
@@ -30,6 +31,10 @@ class GlassMenuItem<T> {
 
   /// Optional leading glyph/avatar shown left of the label.
   final Widget? leading;
+
+  /// Optional trailing glyph — a chevron on a row that opens a further popover,
+  /// say. Yields to the check mark when the row is the selected value.
+  final Widget? trailing;
 
   /// Optional label colour — e.g. a danger tint for a destructive action.
   /// Falls back to the standard ink colour when null.
@@ -436,6 +441,9 @@ class _MenuRowState<T> extends State<_MenuRow<T>> {
                 size: 17,
                 color: AppColors.accentStrong,
               ),
+            ] else if (widget.item.trailing != null) ...[
+              const SizedBox(width: 8),
+              Opacity(opacity: disabled ? 0.4 : 1, child: widget.item.trailing),
             ],
           ],
         ),
