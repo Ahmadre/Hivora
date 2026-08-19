@@ -689,6 +689,17 @@
     },
     "moreActions": "Weitere Aktionen",
     "selectedCount": "{{count}} ausgewählt",
+    "export": {
+      "action": "Exportieren …",
+      "title": "Vorgang exportieren",
+      "print": "Drucken",
+      "pdf": "Als PDF exportieren",
+      "xlsx": "Als Excel-Datei exportieren",
+      "docx": "Als Word-Datei exportieren",
+      "xml": "Als XML-Datei exportieren",
+      "started": "Download gestartet",
+      "failed": "Der Export konnte nicht gespeichert werden. Bitte erneut versuchen."
+    },
     "clone": {
       "action": "Klonen …",
       "title": "{{id}} klonen",
@@ -1727,7 +1738,8 @@
       "MCP_OAUTH_AUTHORIZED": "MCP-OAuth-Autorisierung erteilt",
       "UNKNOWN": "Unbekanntes Ereignis",
       "ISSUE_MOVED": "Vorgang verschoben",
-      "ISSUE_CLONED": "Vorgang geklont"
+      "ISSUE_CLONED": "Vorgang geklont",
+      "ISSUE_EXPORTED": "Vorgang exportiert"
     },
     "meta": {
       "oldRole": "Vorherige Rolle",

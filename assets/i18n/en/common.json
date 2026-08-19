@@ -689,6 +689,17 @@
     },
     "moreActions": "More actions",
     "selectedCount": "{{count}} selected",
+    "export": {
+      "action": "Export …",
+      "title": "Export issue",
+      "print": "Print",
+      "pdf": "Export as PDF",
+      "xlsx": "Export as Excel",
+      "docx": "Export as Word",
+      "xml": "Export as XML",
+      "started": "Download started",
+      "failed": "The export could not be saved. Please try again."
+    },
     "clone": {
       "action": "Clone…",
       "title": "Clone {{id}}",
@@ -1727,7 +1738,8 @@
       "MCP_OAUTH_AUTHORIZED": "MCP OAuth authorization granted",
       "UNKNOWN": "Unknown event",
       "ISSUE_MOVED": "Issue moved",
-      "ISSUE_CLONED": "Issue cloned"
+      "ISSUE_CLONED": "Issue cloned",
+      "ISSUE_EXPORTED": "Issue exported"
     },
     "meta": {
       "oldRole": "Previous role",

@@ -1491,6 +1491,74 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (issue != null) await _confirmDelete(issue);
   }
 
+  /// Opens the export submenu at [anchor] and carries out what was chosen.
+  ///
+  /// Every format is rendered by the server, so all five entries are the same
+  /// request with a different suffix — and printing is that request for the PDF
+  /// followed by the platform's print dialog, which is why a printed issue and
+  /// a downloaded one can never look different.
+  ///
+  /// The busy flag is the one the top bars already show a spinner for: laying
+  /// out a Word document takes long enough to need saying, and this way it is
+  /// said where the user is looking.
+  Future<void> exportIssue(Rect anchor) async {
+    final issue = _issue;
+    if (issue == null || _busy) return;
+    final choice = await showIssueExportMenu(context, anchorRect: anchor);
+    if (choice == null || !mounted) return;
+    // Captured before the first await: on iPad the share sheet is a popover
+    // that needs the bounds of what opened it, and a render object is only
+    // valid on the frame it was read in.
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = (box != null && box.hasSize)
+        ? box.localToGlobal(Offset.zero) & box.size
+        : null;
+    final api = context.read<ApiClient>();
+    setState(() => _busy = true);
+    try {
+      final extension = choice.extension ?? IssueExportChoice.pdf.extension!;
+      final bytes = await fetchIssueExport(api, issue.id, extension);
+      if (!mounted) return;
+      if (choice == IssueExportChoice.print) {
+        // layoutPdf, not sharePdf: this opens the print dialog rather than the
+        // share sheet. onLayout hands back the bytes already fetched — the
+        // callback runs again on every page-format change, and re-fetching
+        // there would re-render the document on the server each time.
+        await Printing.layoutPdf(
+          onLayout: (_) async => bytes,
+          name: issueExportFileName(issue, 'pdf'),
+        );
+        return;
+      }
+      final outcome = await downloadBytes(
+        issueExportFileName(issue, extension),
+        bytes,
+        choice.mimeType!,
+        sharePositionOrigin: origin,
+      );
+      if (!mounted) return;
+      switch (outcome) {
+        case DownloadOutcome.browser:
+          _toast('issues.export.started', kind: GlassToastKind.info);
+        case DownloadOutcome.failed:
+          _toast('issues.export.failed');
+        // Native: the OS share sheet is the feedback, and a deliberate dismiss
+        // is not a failure worth a toast.
+        case DownloadOutcome.shared:
+        case DownloadOutcome.dismissed:
+          break;
+      }
+    } on ApiFailure catch (failure) {
+      // The server's own words — refused, throttled, or gone — rather than one
+      // generic sentence for all three.
+      _toast(failure.message);
+    } catch (_) {
+      _toast('errors.unexpected');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   /// Opens the clone dialog and, on success, lands on the copy.
   ///
   /// Landing there is the point: a clone the user has to go and find on the
@@ -1615,6 +1683,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                 link: issueWebLink(_issueApi.apiBaseUrl, issue.linkId),
                 onMinimize: widget.canMinimize ? _minimizeToModal : null,
                 onDelete: () => _confirmDelete(issue),
+                onExport: exportIssue,
                 onClone: () => cloneIssue(),
                 onMove: () => moveIssue(),
                 onClose: _closeRoute,
@@ -2724,6 +2793,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               link: issueWebLink(_issueApi.apiBaseUrl, issue.linkId),
               onMinimize: widget.canMinimize ? _minimizeToModal : null,
               onDelete: () => _confirmDelete(issue),
+              onExport: exportIssue,
               onClone: () => cloneIssue(),
               onMove: () => moveIssue(),
               onClose: _closeRoute,
