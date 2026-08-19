@@ -327,7 +327,7 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
       child: Column(
         children: [
           if (hasEpicWarning || _includeEpicChildren)
-            _OptionRow(
+            GlassOptionRow(
               title: context.t('issues.move.takeEpicChildren'),
               subtitle: context.t('issues.move.takeEpicChildrenHint'),
               value: _includeEpicChildren,
@@ -341,7 +341,7 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
                     },
             ),
           if (hasSprintWarning)
-            _OptionRow(
+            GlassOptionRow(
               title: context.t('issues.move.keepSprint'),
               subtitle: context.t('issues.move.keepSprintHint'),
               value: _keepSprint,
@@ -587,56 +587,6 @@ class _WarningRow extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OptionRow extends StatelessWidget {
-  const _OptionRow({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1.35,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          HiveSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

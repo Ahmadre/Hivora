@@ -1491,6 +1491,54 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (issue != null) await _confirmDelete(issue);
   }
 
+  /// Opens the clone dialog and, on success, lands on the copy.
+  ///
+  /// Landing there is the point: a clone the user has to go and find on the
+  /// board is a clone they will assume did not happen. Which way we get there
+  /// follows the host — the sheet is replaced by the copy's sheet, the full page
+  /// pushes the copy on top so back still returns to the original.
+  Future<void> cloneIssue() async {
+    final issue = _issue;
+    if (issue == null) return;
+    final me = context.read<AuthBloc>().state.user;
+    // Taken before the dialog: after it, this context has been through an async
+    // gap, and the navigator's own context is the one thing that outlives the
+    // sheet we are about to close.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final host = navigator.context;
+    final copy = await showIssueCloneDialog(
+      context,
+      issue: issue,
+      users: _users,
+      repository: _issueApi,
+      meId: me?.id,
+      multiAssignee:
+          context.read<AppConfigBloc>().state.meta?.multiAssignee ?? false,
+    );
+    if (copy == null || !mounted) return;
+    // A new issue in the project: every board, backlog and list showing it is
+    // now stale.
+    _notifyChanged();
+    if (widget.header != null) {
+      // Close this sheet, then open the copy's — in that order, and without an
+      // await between them. Both live on the root navigator, so showing first
+      // and popping after pops the sheet just opened and leaves the user
+      // staring at the original. Popping first deactivates this context, which
+      // is why the new sheet is opened from the navigator's own: it sits below
+      // the app's providers and outlives any route above it.
+      if (navigator.canPop()) navigator.pop();
+      if (host.mounted) {
+        showIssueDetailSheet(
+          host,
+          issueId: copy.id,
+          onChanged: widget.onChanged,
+        );
+      }
+      return;
+    }
+    GoRouter.of(context).push('/issues/${copy.id}');
+  }
+
   /// Opens the move-to-another-project wizard for this issue and reloads on
   /// success — the issue keeps its id but gets a new readable id, project and
   /// status, so every panel on this screen has to be re-read.
@@ -1567,6 +1615,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                 link: issueWebLink(_issueApi.apiBaseUrl, issue.linkId),
                 onMinimize: widget.canMinimize ? _minimizeToModal : null,
                 onDelete: () => _confirmDelete(issue),
+                onClone: () => cloneIssue(),
                 onMove: () => moveIssue(),
                 onClose: _closeRoute,
                 onReply: _replyEmailAction(issue),
@@ -2699,6 +2748,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               link: issueWebLink(_issueApi.apiBaseUrl, issue.linkId),
               onMinimize: widget.canMinimize ? _minimizeToModal : null,
               onDelete: () => _confirmDelete(issue),
+              onClone: () => cloneIssue(),
               onMove: () => moveIssue(),
               onClose: _closeRoute,
               onReply: _replyEmailAction(issue),

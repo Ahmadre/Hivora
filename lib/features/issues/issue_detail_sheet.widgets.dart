@@ -3,7 +3,7 @@ part of 'issue_detail_sheet.dart';
 // ─────────────────────────── Top bar ───────────────────────────────────────
 
 /// Actions collapsed into the "…" overflow menu of the issue top bars.
-enum _IssueMenuAction { watch, reply, move, delete }
+enum _IssueMenuAction { watch, reply, clone, move, delete }
 
 /// The delete/archive/restore affordance shared by both top bars: label,
 /// icon and tint depend on the archived state and the delete permission.
@@ -20,7 +20,7 @@ enum _IssueMenuAction { watch, reply, move, delete }
   color: canDelete && !archived ? AppColors.danger : AppColors.accentStrong,
 );
 
-/// "…" overflow button for the issue top bars, bundling watch · reply · move ·
+/// "…" overflow button for the issue top bars, bundling watch · reply · clone · move ·
 /// delete/archive into one liquid-glass popover so the bar stays tidy.
 ///
 /// Watching is a menu entry rather than a button of its own (or a card in the
@@ -31,6 +31,7 @@ enum _IssueMenuAction { watch, reply, move, delete }
 /// a list of actions.
 class _IssueActionsMenu extends StatelessWidget {
   const _IssueActionsMenu({
+    required this.onClone,
     required this.onMove,
     required this.onDelete,
     required this.canDelete,
@@ -38,6 +39,11 @@ class _IssueActionsMenu extends StatelessWidget {
     this.onReply,
     this.watch,
   });
+
+  /// Opens the clone dialog. Available on archived issues too: the copy is a
+  /// live issue whatever the original's state, and cloning is how a shelved
+  /// ticket gets picked back up.
+  final VoidCallback onClone;
 
   /// Opens the move-to-another-project wizard. Always available: moving is a
   /// normal member action, gated per project by the server.
@@ -98,6 +104,12 @@ class _IssueActionsMenu extends StatelessWidget {
             dividerAbove: afterWatch,
           ),
         GlassMenuItem(
+          value: _IssueMenuAction.clone,
+          label: context.t('issues.clone.action'),
+          leading: Icon(LucideIcons.copy, size: 16, color: AppColors.inkSoft),
+          dividerAbove: afterWatch && onReply == null,
+        ),
+        GlassMenuItem(
           value: _IssueMenuAction.move,
           label: context.t('issues.move.action'),
           leading: Icon(
@@ -110,7 +122,6 @@ class _IssueActionsMenu extends StatelessWidget {
           disabledReason: archived
               ? context.t('issues.move.archivedHint')
               : null,
-          dividerAbove: afterWatch && onReply == null,
         ),
         GlassMenuItem(
           value: _IssueMenuAction.delete,
@@ -126,6 +137,8 @@ class _IssueActionsMenu extends StatelessWidget {
             if (watch != null) _openWatchPopover(context, watch);
           case _IssueMenuAction.reply:
             onReply?.call();
+          case _IssueMenuAction.clone:
+            onClone();
           case _IssueMenuAction.move:
             onMove();
           case _IssueMenuAction.delete:
@@ -179,6 +192,7 @@ class _RouteTopBar extends StatelessWidget {
     required this.link,
     this.onMinimize,
     required this.onDelete,
+    required this.onClone,
     required this.onMove,
     required this.onClose,
     this.onReply,
@@ -195,6 +209,9 @@ class _RouteTopBar extends StatelessWidget {
   /// (null for direct deep-links, which have no modal to return to).
   final VoidCallback? onMinimize;
   final VoidCallback onDelete;
+
+  /// Opens the clone dialog.
+  final VoidCallback onClone;
 
   /// Opens the move-to-another-project wizard.
   final VoidCallback onMove;
@@ -267,11 +284,12 @@ class _RouteTopBar extends StatelessWidget {
                   color: AppColors.inkSoft,
                 ),
               ),
-            // Secondary actions (watch · move · reply · remove) live in one "…"
+            // Secondary actions (watch · clone · move · reply · remove) live in one "…"
             // popover so the bar keeps a fixed shape regardless of which are
             // available.
             _IssueActionsMenu(
               onReply: onReply,
+              onClone: onClone,
               onMove: onMove,
               onDelete: onDelete,
               canDelete: canDelete,

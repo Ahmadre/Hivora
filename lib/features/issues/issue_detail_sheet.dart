@@ -61,7 +61,13 @@ import '../knowledge/markdown/smart_link_resolver.dart';
 import '../sprint/modals/estimate_dialog.dart' show showStoryPointsDialog;
 import '../sprint/modals/glass_modal.dart'
     show
+        GlassField,
+        GlassInfoLine,
+        GlassModalFooter,
+        GlassModalHeader,
+        GlassOptionRow,
         GlassToastKind,
+        glassInputDecoration,
         glassWoltSurface,
         kGlassPopoverBreakpoint,
         showGlassErrorToast,
@@ -87,6 +93,7 @@ part 'issue_detail_sheet.view.dart';
 part 'issue_detail_sheet.dialogs.dart';
 part 'issue_detail_sheet.create.dart';
 part 'issue_detail_sheet.widgets.dart';
+part 'issue_detail_sheet.clone.dart';
 
 /// Row height of the full-screen route's pinned top bar (below the status bar).
 /// Shared so [IssueDetailScreen] can offset its scroll content by exactly this
@@ -229,6 +236,7 @@ Future<void> showIssueDetailSheet(
               );
             },
             onDelete: () => bodyKey.currentState?.confirmDeleteIssue(),
+            onClone: () => bodyKey.currentState?.cloneIssue(),
             onMove: () => bodyKey.currentState?.moveIssue(),
             onClose: () => Navigator.of(modalContext).maybePop(),
             canDelete: bodyKey.currentState?.canDelete ?? false,
@@ -342,6 +350,7 @@ class _SheetActions extends StatelessWidget {
     required this.onMaximize,
     required this.onDelete,
     required this.onClose,
+    required this.onClone,
     required this.onMove,
     this.onReply,
     this.watch,
@@ -351,6 +360,9 @@ class _SheetActions extends StatelessWidget {
 
   final VoidCallback onMaximize;
   final VoidCallback onDelete;
+
+  /// Opens the clone dialog.
+  final VoidCallback onClone;
 
   /// Opens the move-to-another-project wizard.
   final VoidCallback onMove;
@@ -378,11 +390,12 @@ class _SheetActions extends StatelessWidget {
           onPressed: onMaximize,
           icon: Icon(LucideIcons.maximize2, size: 19, color: AppColors.inkSoft),
         ),
-        // Secondary actions (watch · move · reply · remove) share one "…"
+        // Secondary actions (watch · clone · move · reply · remove) share one "…"
         // popover so the header keeps a fixed shape regardless of which are
         // available.
         _IssueActionsMenu(
           onReply: onReply,
+          onClone: onClone,
           onMove: onMove,
           onDelete: onDelete,
           canDelete: canDelete,
