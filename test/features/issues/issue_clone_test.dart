@@ -4,7 +4,7 @@
 /// summary has to be valid before the user ever touches it — the server bounds
 /// the title at 300 characters, and a prefix that pushes a long title past that
 /// would turn "clone" into a validation error nobody caused. And the request
-/// itself has to say exactly what the two switches said, because every field
+/// itself has to say exactly what the three switches said, because every field
 /// the dialog does not send is a field the server decides on its own.
 library;
 
@@ -91,7 +91,7 @@ void main() {
   });
 
   group('IssueRepository.cloneIssue', () {
-    test('posts the four choices the dialog collects and nothing else', () async {
+    test('posts the five choices the dialog collects and nothing else', () async {
       final api = _FakeApi();
       final repo = IssueRepository(api);
 
@@ -99,6 +99,7 @@ void main() {
         'i1',
         title: 'CLONE - Kalender',
         assigneeIds: ['u2'],
+        includeAttachments: true,
         includeLinks: true,
         includeSprint: false,
       );
@@ -109,6 +110,7 @@ void main() {
       expect(api.lastBody, {
         'title': 'CLONE - Kalender',
         'assigneeIds': ['u2'],
+        'includeAttachments': true,
         'includeLinks': true,
         'includeSprint': false,
       });
@@ -123,6 +125,7 @@ void main() {
         'i1',
         title: 'CLONE - unassigned',
         assigneeIds: const [],
+        includeAttachments: false,
         includeLinks: false,
         includeSprint: false,
       );
@@ -141,6 +144,7 @@ void main() {
           'i1',
           title: 'CLONE - Kalender',
           assigneeIds: const [],
+          includeAttachments: false,
           includeLinks: false,
           includeSprint: false,
         ),

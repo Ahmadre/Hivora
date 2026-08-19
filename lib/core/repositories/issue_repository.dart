@@ -221,6 +221,7 @@ class IssueRepository {
     String id, {
     required String title,
     required List<String> assigneeIds,
+    required bool includeAttachments,
     required bool includeLinks,
     required bool includeSprint,
   }) async => Issue.fromJson(
@@ -229,6 +230,7 @@ class IssueRepository {
           body: {
             'title': title,
             'assigneeIds': assigneeIds,
+            'includeAttachments': includeAttachments,
             'includeLinks': includeLinks,
             'includeSprint': includeSprint,
           },

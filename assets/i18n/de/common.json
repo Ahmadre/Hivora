@@ -697,6 +697,8 @@
       "required": "Pflichtfeld",
       "summaryHint": "Wie die Kopie heißen soll",
       "include": "Einbeziehen",
+      "attachments": "Anhänge",
+      "attachmentsHint": "Übernimmt die Dateien des Originals in die Kopie. Bleibt der Schalter aus, startet sie ohne Anhänge.",
       "links": "Verknüpfungen",
       "linksHint": "Übernimmt die Verknüpfungen und Abhängigkeiten des Originals. Die Verknüpfung zum Original wird immer angelegt.",
       "sprint": "Sprint-Werte",

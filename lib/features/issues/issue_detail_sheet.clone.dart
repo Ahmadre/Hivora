@@ -85,6 +85,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
     text: cloneTitlePrefill(widget.issue.title),
   );
   late List<String> _assigneeIds = List.of(widget.issue.assigneeIds);
+  bool _includeAttachments = false;
   bool _includeLinks = false;
   bool _includeSprint = false;
   bool _busy = false;
@@ -99,7 +100,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
     // The confirm button lives or dies on this field being non-empty, so the
     // footer has to hear about it — but only about *that*, not about every
     // keystroke. Rebuilding the dialog per character redraws a header, three
-    // fields, two switches and an avatar, and re-runs a dozen translations, to
+    // fields, three switches and an avatar, and re-runs a dozen translations, to
     // change nothing at all: the field opens prefilled, so the answer flips at
     // most when it is cleared and typed into again.
     _title.addListener(() {
@@ -174,6 +175,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
         widget.issue.id,
         title: title,
         assigneeIds: _assigneeIds,
+        includeAttachments: _includeAttachments,
         includeLinks: _includeLinks,
         includeSprint: _includeSprint,
       );
@@ -251,6 +253,14 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
                   label: context.t('issues.clone.include'),
                   child: Column(
                     children: [
+                      GlassOptionRow(
+                        title: context.t('issues.clone.attachments'),
+                        subtitle: context.t('issues.clone.attachmentsHint'),
+                        value: _includeAttachments,
+                        onChanged: _busy
+                            ? null
+                            : (on) => setState(() => _includeAttachments = on),
+                      ),
                       GlassOptionRow(
                         title: context.t('issues.clone.links'),
                         subtitle: context.t('issues.clone.linksHint'),
