@@ -100,7 +100,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
     // The confirm button lives or dies on this field being non-empty, so the
     // footer has to hear about it — but only about *that*, not about every
     // keystroke. Rebuilding the dialog per character redraws a header, three
-    // fields, two switches and an avatar, and re-runs a dozen translations, to
+    // fields, three switches and an avatar, and re-runs a dozen translations, to
     // change nothing at all: the field opens prefilled, so the answer flips at
     // most when it is cleared and typed into again.
     _title.addListener(() {

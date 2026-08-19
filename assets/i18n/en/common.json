@@ -698,7 +698,7 @@
       "summaryHint": "What the copy is called",
       "include": "Include",
       "attachments": "Attachments",
-      "attachmentsHint": "Copies the original's files onto the copy. Off, the copy starts with none.",
+      "attachmentsHint": "Copies the original's files onto the copy. Left off, the copy starts with no files.",
       "links": "Links",
       "linksHint": "Copies the original's issue links and dependencies. The link back to the original is always created.",
       "sprint": "Sprint values",

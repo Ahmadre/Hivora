@@ -4,7 +4,7 @@
 /// summary has to be valid before the user ever touches it — the server bounds
 /// the title at 300 characters, and a prefix that pushes a long title past that
 /// would turn "clone" into a validation error nobody caused. And the request
-/// itself has to say exactly what the two switches said, because every field
+/// itself has to say exactly what the three switches said, because every field
 /// the dialog does not send is a field the server decides on its own.
 library;
 
