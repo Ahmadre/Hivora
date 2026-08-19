@@ -197,6 +197,12 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   /// trash vs. archive affordance.
   bool get canDelete => _canDelete;
 
+  /// Who is watching this issue, plus the caller's own subscription. Owned here
+  /// rather than by the "…" menu that renders it: three separate top bars host
+  /// that menu (wolt sheet, wide route, compact route), each in its own subtree
+  /// and each rebuilding on its own schedule, and they must all agree.
+  late final IssueWatchCubit _watch;
+
   // Inline editing + activity filter state.
   bool _editingTitle = false;
   bool _editingDesc = false;
@@ -227,6 +233,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   @override
   void initState() {
     super.initState();
+    _watch = IssueWatchCubit(
+      repository: _issueApi,
+      issueId: widget.issueId,
+      userId: context.read<AuthBloc>().state.user?.id,
+    );
     WidgetsBinding.instance.addObserver(this);
     _commentFocus.addListener(_onCommentFocusChanged);
     // Auto-load older comments as the user scrolls toward the top of the thread.
@@ -266,6 +277,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     _commentFocus.dispose();
     _titleCtrl.dispose();
     _descCtrl.dispose();
+    _watch.close();
     super.dispose();
   }
 
@@ -506,6 +518,16 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (_hostAlive) widget.composerRev?.value++;
   }
 
+  /// Adopts a fresh server copy of the issue. Every path that lands one goes
+  /// through here so the watch roster can't be left behind on the one that
+  /// forgets it — the cubit re-applies the caller's own committed subscription
+  /// on top, so a payload that left the server *before* the last toggle (a
+  /// title PATCH answered with a pre-watch roster, say) can't undo it.
+  void _adoptIssue(Issue issue) {
+    _issue = issue;
+    _watch.sync(issue.watcherIds);
+  }
+
   /// Publishes the latest issue to the host's top-bar `header` notifier, guarded
   /// against the host having disposed it (same lifetime caveat as [_bumpComposer]).
   void _publishHeader(Issue issue) {
@@ -570,7 +592,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       // The sheet/route can close mid-load — the host then disposes `header` and
       // `composerRev`. Bail if we were unmounted during the await.
       if (!mounted) return;
-      _issue = detail.issue;
+      _adoptIssue(detail.issue);
       _comments = detail.comments.toList();
       _commentsTotal = detail.commentsTotal;
       _pinned = detail.pinnedComments;
@@ -662,7 +684,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       if (!mounted) return;
       setState(() {
         _workItems = results[0] as List<WorkItem>;
-        _issue = results[1] as Issue;
+        _adoptIssue(results[1] as Issue);
       });
     } catch (_) {
       // Non-critical; totals catch up on the next full load.
@@ -677,9 +699,8 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       if (!mounted) return;
       // Commit now rather than riding along on the `finally` rebuild: the
       // activity refetch and the hierarchy reload below are two more round
-      // trips, and until this lands the sheet still hands the watch card its
-      // pre-patch watcher list.
-      setState(() => _issue = updated);
+      // trips, and until this lands the sheet still shows the pre-patch issue.
+      setState(() => _adoptIssue(updated));
       _publishHeader(updated);
       _notifyChanged();
       // Refresh the change history so the new entry shows immediately (reset to
@@ -741,7 +762,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   /// ready) in the Development summary.
   void _applyGitIssue(Issue updated) {
     if (!mounted) return;
-    setState(() => _issue = updated);
+    setState(() => _adoptIssue(updated));
     _publishHeader(updated);
     _notifyChanged();
     _refreshActivity();
@@ -1549,6 +1570,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                 onMove: () => moveIssue(),
                 onClose: _closeRoute,
                 onReply: _replyEmailAction(issue),
+                watch: watchMenu,
                 canDelete: _canDelete,
               ),
             Padding(
@@ -1588,8 +1610,6 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                   ];
                   final right = <Widget>[
                     _detailsCard(issue),
-                    const SizedBox(height: 14),
-                    _watchCard(issue),
                     // Deployment sits between Details and Timeline.
                     if (_project != null) ...[
                       const SizedBox(height: 14),
@@ -1642,8 +1662,6 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                       ],
                       const SizedBox(height: 14),
                       _detailsCard(issue),
-                      const SizedBox(height: 14),
-                      _watchCard(issue),
                       // Deployment sits between Details and Timeline.
                       if (_project != null) ...[
                         const SizedBox(height: 14),
@@ -2339,32 +2357,43 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     );
   }
 
-  /// Watch toggle + watcher roster. Sits directly under Details, where the
-  /// issue's other people (assignee, reporter) already are — a subscription is
-  /// a property of the issue, not a one-off action like archive or move.
-  Widget _watchCard(Issue issue) => IssueWatchCard(
-    issue: issue,
-    currentUserId: context.read<AuthBloc>().state.user?.id,
-    names: _names,
-    avatars: _avatars,
-    onWatchersChanged: (ids) {
-      if (!mounted) return;
-      final current = _issue;
-      // Keep this sheet's own copy in step so a reload (or the details card's
-      // next rebuild) doesn't resurrect the pre-toggle roster.
-      if (current == null ||
-          (current.watcherIds.length == ids.length &&
-              current.watcherIds.every(ids.contains))) {
-        return;
-      }
-      // Assigned without a rebuild on purpose: nothing in this ~3.5k-line body
-      // renders `watcherIds` (the card holds its own cubit state), while a
-      // setState here would rebuild the description renderer, the whole comment
-      // feed and every panel under the glass blur on each toggle. The field
-      // still has to be right — a later host rebuild feeds it back into sync().
-      _issue = current.copyWith(watcherIds: ids);
-    },
-  );
+  /// The watch section of the top bars' "…" menu — the toggle row and the
+  /// roster under it. Null until the issue is loaded (there is nothing to watch
+  /// yet); read afresh on every top-bar build, since the directory that resolves
+  /// the roster's names hydrates after first paint.
+  IssueWatchMenuData? get watchMenu {
+    final issue = _issue;
+    if (issue == null) return null;
+    return IssueWatchMenuData(
+      cubit: _watch,
+      issue: issue,
+      onToggle: toggleWatch,
+      nameFor: (id) => _names[id],
+      avatarFor: (id) => _avatars[id],
+    );
+  }
+
+  /// Subscribes or unsubscribes the caller. Unlike the switch this replaced,
+  /// the control is gone from the screen the moment it is tapped (the menu
+  /// closes), so the outcome is said out loud either way — the optimistic flip
+  /// alone would leave a refused toggle looking like nothing happened.
+  Future<void> toggleWatch() async {
+    if (_watch.userId == null || _watch.state.busy) return;
+    final wasWatching = _watch.watching;
+    await _watch.toggle();
+    if (!mounted) return;
+    // Set for exactly one state after a failed toggle; `_toast` localises a
+    // fallback key and passes an already-localised backend message through.
+    final error = _watch.state.errorKey;
+    if (error != null) {
+      _toast(error);
+      return;
+    }
+    _toast(
+      wasWatching ? 'issues.watch.toastOff' : 'issues.watch.toastOn',
+      kind: GlassToastKind.success,
+    );
+  }
 
   /// Read-only display of an issue's story-point estimate.
   Widget _pointsValue(int? points) {
@@ -2673,6 +2702,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               onMove: () => moveIssue(),
               onClose: _closeRoute,
               onReply: _replyEmailAction(issue),
+              watch: watchMenu,
               canDelete: _canDelete,
             ),
           ),
@@ -3345,7 +3375,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       // the fresh issue so its tag chips reflect the removal.
       try {
         final fresh = await _issueApi.issue(widget.issueId);
-        if (mounted) setState(() => _issue = fresh);
+        if (mounted) setState(() => _adoptIssue(fresh));
       } catch (_) {
         /* next full load reflects server truth */
       }
@@ -3481,7 +3511,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       try {
         final restored = await _issueApi.unarchiveIssue(issue.id);
         if (!mounted) return;
-        setState(() => _issue = restored);
+        setState(() => _adoptIssue(restored));
         _publishHeader(restored);
         _notifyChanged();
       } on ApiFailure catch (failure) {

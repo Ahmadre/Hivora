@@ -77,7 +77,8 @@ import 'epic_search_popover.dart';
 import 'issue_filter.dart' show kIssuePriorityCodes;
 import 'issue_form.dart' show showIssueForm;
 import 'issue_links_section.dart';
-import 'watch/issue_watch_card.dart';
+import 'watch/issue_watch_cubit.dart';
+import 'watch/issue_watch_menu.dart';
 import 'issue_labels.dart';
 import 'issue_link_resolver.dart';
 import 'work_log_sheet.dart';
@@ -232,6 +233,10 @@ Future<void> showIssueDetailSheet(
             onClose: () => Navigator.of(modalContext).maybePop(),
             canDelete: bodyKey.currentState?.canDelete ?? false,
             archived: issue?.archived ?? false,
+            // Read per build (not captured): the body owns the watch cubit and
+            // only has one once it has loaded the issue — which is what pushes
+            // the `header` update this builder is running for.
+            watch: bodyKey.currentState?.watchMenu,
             // Reply-by-email: only for email-sourced issues, gated on the flag.
             onReply: issue != null && issue.isEmailSourced && emailReplyEnabled
                 ? () => showEmailReplySheet(
@@ -339,6 +344,7 @@ class _SheetActions extends StatelessWidget {
     required this.onClose,
     required this.onMove,
     this.onReply,
+    this.watch,
     this.canDelete = false,
     this.archived = false,
   });
@@ -353,6 +359,9 @@ class _SheetActions extends StatelessWidget {
   /// Non-null only for email-sourced issues with the `emailReply` flag enabled;
   /// opens the reply-by-email composer.
   final VoidCallback? onReply;
+
+  /// The watch section of the "…" menu; null until the body has loaded.
+  final IssueWatchMenuData? watch;
 
   /// Whether the current user may hard-delete (trash icon); regular members
   /// only see the archive affordance, archived issues a restore one.
@@ -369,14 +378,16 @@ class _SheetActions extends StatelessWidget {
           onPressed: onMaximize,
           icon: Icon(LucideIcons.maximize2, size: 19, color: AppColors.inkSoft),
         ),
-        // Secondary actions (move · reply · remove) share one "…" popover so
-        // the header keeps a fixed shape regardless of which are available.
+        // Secondary actions (watch · move · reply · remove) share one "…"
+        // popover so the header keeps a fixed shape regardless of which are
+        // available.
         _IssueActionsMenu(
           onReply: onReply,
           onMove: onMove,
           onDelete: onDelete,
           canDelete: canDelete,
           archived: archived,
+          watch: watch,
         ),
         IconButton(
           tooltip: context.t('common.cancel'),

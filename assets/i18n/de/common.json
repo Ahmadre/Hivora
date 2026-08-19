@@ -725,17 +725,16 @@
       "inDays": "in {{count}} T."
     },
     "watch": {
-      "title": "Beobachten",
-      "subtitleOn": "Du wirst über jede Änderung benachrichtigt",
-      "subtitleOff": "Du wirst nicht über Änderungen an diesem Vorgang benachrichtigt",
+      "start": "Beobachtung beginnen",
+      "stop": "Beobachtung beenden",
       "implicitAssignee": "Du erhältst bereits Benachrichtigungen als Bearbeiter.",
       "implicitReporter": "Du erhältst bereits Benachrichtigungen als Ersteller.",
-      "watchersTitle": "Beobachter",
+      "watchersTitle": "Beobachter dieses Vorgangs",
       "noWatchers": "Noch niemand beobachtet diesen Vorgang",
-      "watcherCount": "{{count}} Beobachter",
-      "watcherCount_plural": "{{count}} Beobachter",
       "you": "Du",
-      "unknownWatcher": "Unbekannte:r Nutzer:in"
+      "unknownWatcher": "Unbekannte:r Nutzer:in",
+      "toastOn": "Du beobachtest diesen Vorgang jetzt",
+      "toastOff": "Du beobachtest diesen Vorgang nicht mehr"
     }
   },
   "type": {

@@ -725,17 +725,16 @@
       "inDays": "{{count}}d"
     },
     "watch": {
-      "title": "Watch",
-      "subtitleOn": "You are notified about every change",
-      "subtitleOff": "You are not notified about changes here",
+      "start": "Start watching",
+      "stop": "Stop watching",
       "implicitAssignee": "You already get notifications as the assignee.",
       "implicitReporter": "You already get notifications as the reporter.",
-      "watchersTitle": "Watchers",
+      "watchersTitle": "Watchers of this issue",
       "noWatchers": "Nobody is watching this issue yet",
-      "watcherCount": "{{count}} watcher",
-      "watcherCount_plural": "{{count}} watchers",
       "you": "You",
-      "unknownWatcher": "Unknown user"
+      "unknownWatcher": "Unknown user",
+      "toastOn": "You are now watching this issue",
+      "toastOff": "You are no longer watching this issue"
     }
   },
   "type": {

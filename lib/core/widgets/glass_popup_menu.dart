@@ -65,6 +65,7 @@ class GlassPopupMenu<T> extends StatefulWidget {
     this.width = 240,
     this.offset = 8,
     this.onOpenChanged,
+    this.footerBuilder,
   });
 
   /// The rows to show.
@@ -92,6 +93,12 @@ class GlassPopupMenu<T> extends StatefulWidget {
   /// points at the words the menu now covers, so it has to step aside while
   /// the menu is up; nothing else can know when that is.
   final ValueChanged<bool>? onOpenChanged;
+
+  /// Optional block rendered below the rows, inside the same panel and the same
+  /// scroll area — for context that belongs to the menu but isn't an action
+  /// (e.g. who is watching the issue the actions above act on). Built when the
+  /// menu opens, not when the anchor rebuilds, so it costs nothing until seen.
+  final WidgetBuilder? footerBuilder;
 
   @override
   State<GlassPopupMenu<T>> createState() => _GlassPopupMenuState<T>();
@@ -136,6 +143,7 @@ class _GlassPopupMenuState<T> extends State<GlassPopupMenu<T>> {
           value: widget.value,
           width: widget.width,
           gap: widget.offset,
+          footerBuilder: widget.footerBuilder,
         ),
         transitionBuilder: (_, _, _, child) => child,
       );
@@ -170,6 +178,7 @@ class _GlassPopupMenuDialog<T> extends StatelessWidget {
     required this.value,
     required this.width,
     required this.gap,
+    this.footerBuilder,
   });
 
   final Rect anchorRect;
@@ -177,6 +186,7 @@ class _GlassPopupMenuDialog<T> extends StatelessWidget {
   final T value;
   final double width;
   final double gap;
+  final WidgetBuilder? footerBuilder;
 
   static const double _margin = 12;
   static const double _radius = 18;
@@ -274,8 +284,12 @@ class _GlassPopupMenuDialog<T> extends StatelessWidget {
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
             shrinkWrap: true,
-            itemCount: items.length,
-            itemBuilder: (_, i) {
+            // The footer rides in the same list rather than under it, so a long
+            // one scrolls with the rows instead of fighting them for the
+            // panel's height.
+            itemCount: items.length + (footerBuilder == null ? 0 : 1),
+            itemBuilder: (context, i) {
+              if (i == items.length) return footerBuilder!(context);
               final item = items[i];
               final row = _MenuRow<T>(
                 tokens: tokens,

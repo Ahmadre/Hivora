@@ -3,7 +3,7 @@ part of 'issue_detail_sheet.dart';
 // ─────────────────────────── Top bar ───────────────────────────────────────
 
 /// Actions collapsed into the "…" overflow menu of the issue top bars.
-enum _IssueMenuAction { reply, move, delete }
+enum _IssueMenuAction { watch, reply, move, delete }
 
 /// The delete/archive/restore affordance shared by both top bars: label,
 /// icon and tint depend on the archived state and the delete permission.
@@ -20,9 +20,14 @@ enum _IssueMenuAction { reply, move, delete }
   color: canDelete && !archived ? AppColors.danger : AppColors.accentStrong,
 );
 
-/// "…" overflow button for the issue top bars. Shown only when the issue has
-/// more than the removal action (i.e. reply-by-email is available), bundling
-/// reply + delete/archive into one liquid-glass popover so the bar stays tidy.
+/// "…" overflow button for the issue top bars, bundling watch · reply · move ·
+/// delete/archive into one liquid-glass popover so the bar stays tidy.
+///
+/// Watching is a menu entry rather than a button of its own (or a card in the
+/// details column, where it used to sit and cost the narrow right column a
+/// whole block): it is a one-tap subscription, not a field of the issue.
+/// Underneath the actions the menu shows who is subscribed — the same pairing
+/// Jira puts behind its watch action.
 class _IssueActionsMenu extends StatelessWidget {
   const _IssueActionsMenu({
     required this.onMove,
@@ -30,6 +35,7 @@ class _IssueActionsMenu extends StatelessWidget {
     required this.canDelete,
     required this.archived,
     this.onReply,
+    this.watch,
   });
 
   /// Opens the move-to-another-project wizard. Always available: moving is a
@@ -42,13 +48,46 @@ class _IssueActionsMenu extends StatelessWidget {
   /// Non-null only for email-sourced issues with the `emailReply` flag on.
   final VoidCallback? onReply;
 
+  /// The watch section (toggle row + roster), or null before the body has
+  /// loaded the issue — the menu's other actions are still available then.
+  final IssueWatchMenuData? watch;
+
   @override
   Widget build(BuildContext context) {
+    final watch = this.watch;
+    if (watch == null) return _menu(context, watching: false);
+    // Rebuilds this anchor whenever the roster changes, so the row's verb and
+    // the list under it are right the next time the menu opens — including
+    // after a toggle made from the *other* top bar (sheet and route share one
+    // cubit, and the sheet's bar is a subtree of its own).
+    return BlocBuilder<IssueWatchCubit, IssueWatchState>(
+      bloc: watch.cubit,
+      builder: (context, state) =>
+          _menu(context, watching: state.isWatchedBy(watch.meId)),
+    );
+  }
+
+  Widget _menu(BuildContext context, {required bool watching}) {
+    final watch = this.watch;
     final removal = _removalLook(archived: archived, canDelete: canDelete);
+    // The watch row is a group of its own at the top (Jira's order), so
+    // whichever action comes after it opens the next group.
+    final afterWatch = watch != null;
+
     return GlassPopupMenu<_IssueMenuAction?>(
       value: null,
-      width: 250,
+      width: 280,
+      footerBuilder: watch == null
+          ? null
+          : (_) => IssueWatchMenuFooter(data: watch),
       items: [
+        if (watch != null)
+          issueWatchMenuItem(
+            context,
+            value: _IssueMenuAction.watch,
+            watching: watching,
+            enabled: watch.meId != null,
+          ),
         if (onReply != null)
           GlassMenuItem(
             value: _IssueMenuAction.reply,
@@ -58,6 +97,7 @@ class _IssueActionsMenu extends StatelessWidget {
               size: 16,
               color: AppColors.accentStrong,
             ),
+            dividerAbove: afterWatch,
           ),
         GlassMenuItem(
           value: _IssueMenuAction.move,
@@ -72,6 +112,7 @@ class _IssueActionsMenu extends StatelessWidget {
           disabledReason: archived
               ? context.t('issues.move.archivedHint')
               : null,
+          dividerAbove: afterWatch && onReply == null,
         ),
         GlassMenuItem(
           value: _IssueMenuAction.delete,
@@ -83,6 +124,8 @@ class _IssueActionsMenu extends StatelessWidget {
       ],
       onSelected: (action) {
         switch (action) {
+          case _IssueMenuAction.watch:
+            watch?.onToggle();
           case _IssueMenuAction.reply:
             onReply?.call();
           case _IssueMenuAction.move:
@@ -126,6 +169,7 @@ class _RouteTopBar extends StatelessWidget {
     required this.onMove,
     required this.onClose,
     this.onReply,
+    this.watch,
     this.canDelete = false,
   });
 
@@ -146,6 +190,9 @@ class _RouteTopBar extends StatelessWidget {
   /// Non-null only for email-sourced issues with the `emailReply` flag enabled;
   /// opens the reply-by-email composer.
   final VoidCallback? onReply;
+
+  /// The watch section of the "…" menu; null until the issue is loaded.
+  final IssueWatchMenuData? watch;
 
   /// Whether the current user may hard-delete: picks the trash icon over the
   /// archive icon (regular members only archive; archived issues restore).
@@ -207,14 +254,16 @@ class _RouteTopBar extends StatelessWidget {
                   color: AppColors.inkSoft,
                 ),
               ),
-            // Secondary actions (move · reply · remove) live in one "…" popover
-            // so the bar keeps a fixed shape regardless of which are available.
+            // Secondary actions (watch · move · reply · remove) live in one "…"
+            // popover so the bar keeps a fixed shape regardless of which are
+            // available.
             _IssueActionsMenu(
               onReply: onReply,
               onMove: onMove,
               onDelete: onDelete,
               canDelete: canDelete,
               archived: issue.archived,
+              watch: watch,
             ),
           ],
         ),

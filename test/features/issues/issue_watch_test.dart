@@ -4,7 +4,7 @@
 /// The toggle flips before the round trip finishes — that is the whole point
 /// of it — so the only thing standing between a refused call and a lie on
 /// screen is the rollback. It is tested at both levels: the cubit's state
-/// sequence, and the switch the user actually looks at.
+/// sequence, and the "…"-menu row the user actually taps.
 library;
 
 import 'dart:async';
@@ -16,9 +16,9 @@ import 'package:hinata/core/api/api_client.dart';
 import 'package:hinata/core/events/issue_events.dart';
 import 'package:hinata/core/models/work_models.dart';
 import 'package:hinata/core/repositories/issue_repository.dart';
-import 'package:hinata/core/widgets/hive_widgets.dart';
-import 'package:hinata/features/issues/watch/issue_watch_card.dart';
+import 'package:hinata/core/widgets/glass_popup_menu.dart';
 import 'package:hinata/features/issues/watch/issue_watch_cubit.dart';
+import 'package:hinata/features/issues/watch/issue_watch_menu.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
@@ -270,61 +270,113 @@ void main() {
     });
   });
 
-  group('the watch card', () {
-    testWidgets('flips the switch on tap and shows the watcher count', (
-      tester,
-    ) async {
+  group('the watch menu', () {
+    testWidgets('flips the row\'s verb and reports the tap', (tester) async {
       final gate = Completer<void>();
       final repo = _FakeIssueRepository(gate: gate);
-      await tester.pumpWidget(_host(repo, _issue(watcherIds: const ['u2'])));
+      final cubit = _cubit(repo);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(
+        _menuHost(cubit, _issue(watcherIds: const ['u2'])),
+      );
 
+      await tester.tap(find.text('menu'));
+      await tester.pumpAndSettle();
+      // Not watching yet: the row offers to start, and says so with the crossed
+      // out eye. Widget tests render i18n keys, so assert on the key.
+      expect(find.text('issues.watch.start'), findsOneWidget);
       expect(find.byIcon(LucideIcons.eyeOff), findsOneWidget);
-      expect(find.text('issues.watch.watcherCount'), findsOneWidget);
 
-      await tester.tap(find.byType(HiveSwitch));
-      await tester.pump();
-
-      // Optimistic: on while the call is still out.
-      expect(find.byIcon(LucideIcons.eye), findsOneWidget);
-
+      await tester.tap(find.text('issues.watch.start'));
+      await tester.pumpAndSettle();
       gate.complete();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(repo.watched, ['i1']);
+
+      // Reopened, the same row now offers to stop.
+      await tester.tap(find.text('menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('issues.watch.stop'), findsOneWidget);
       expect(find.byIcon(LucideIcons.eye), findsOneWidget);
     });
 
-    testWidgets('puts the switch back when the server refuses', (tester) async {
+    testWidgets('rolls the row back when the server refuses', (tester) async {
       final gate = Completer<void>();
       final repo = _FakeIssueRepository(
         failure: ApiFailure('Kein Zugriff'),
         gate: gate,
       );
-      await tester.pumpWidget(_host(repo, _issue(watcherIds: const ['u2'])));
+      final cubit = _cubit(repo);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(
+        _menuHost(cubit, _issue(watcherIds: const ['u2'])),
+      );
 
-      await tester.tap(find.byType(HiveSwitch));
-      await tester.pump();
-      expect(find.byIcon(LucideIcons.eye), findsOneWidget);
+      await tester.tap(find.text('menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('issues.watch.start'));
+      await tester.pumpAndSettle();
+      // Optimistic: subscribed while the call is still out.
+      expect(cubit.watching, isTrue);
 
-      // Let the refusal land: the switch returns to off and stays there.
       gate.complete();
-      await tester.pump();
-      expect(find.byIcon(LucideIcons.eyeOff), findsOneWidget);
-      expect(find.byIcon(LucideIcons.eye), findsNothing);
-      // …and the reason is shown. Widget tests render i18n keys, and a backend
-      // message passes through `t` untouched — either way it is the raw string.
-      expect(find.text('Kein Zugriff'), findsOneWidget);
+      // Settle, not a single frame: the refusal reaches the anchor over the
+      // cubit's stream, and the row it rebuilds is what the next open shows.
+      await tester.pumpAndSettle();
+      expect(cubit.watching, isFalse);
+      expect(cubit.state.errorKey, 'Kein Zugriff');
 
-      // Sit out the toast's own lifetime so its timer doesn't outlive the test.
-      await tester.pump(const Duration(seconds: 6));
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(tester.takeException(), isNull);
+      // …and the row is back to offering the subscribe it never got.
+      await tester.tap(find.text('menu'));
+      await tester.pumpAndSettle();
+      expect(find.text('issues.watch.start'), findsOneWidget);
+    });
+
+    testWidgets('lists the watchers under the actions, "you" first', (
+      tester,
+    ) async {
+      final repo = _FakeIssueRepository();
+      final cubit = _cubit(repo, watcherIds: const ['u2', 'u1']);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(_footerHost(cubit, _issue()));
+
+      // The caller's row carries the "you" marker on the same line as the name.
+      expect(find.textContaining('Rebar'), findsOneWidget);
+      expect(find.text('Mia'), findsOneWidget);
+      expect(find.textContaining('issues.watch.you'), findsOneWidget);
+      // Server order is u2, u1 — the caller is pulled to the top.
+      final rebar = tester.getTopLeft(find.textContaining('Rebar')).dy;
+      final mia = tester.getTopLeft(find.text('Mia')).dy;
+      expect(rebar, lessThan(mia));
+      expect(find.text('issues.watch.noWatchers'), findsNothing);
+    });
+
+    testWidgets('says so when nobody watches, and names an unknown one', (
+      tester,
+    ) async {
+      final repo = _FakeIssueRepository();
+      final empty = _cubit(repo, watcherIds: const []);
+      addTearDown(empty.close);
+      await tester.pumpWidget(_footerHost(empty, _issue()));
+      expect(find.text('issues.watch.noWatchers'), findsOneWidget);
+
+      // A watcher the directory never resolved (deactivated, or not hydrated
+      // yet) is named as unknown rather than shown as a raw id.
+      final stranger = _cubit(repo, watcherIds: const ['u404']);
+      addTearDown(stranger.close);
+      await tester.pumpWidget(_footerHost(stranger, _issue()));
+      expect(find.text('issues.watch.unknownWatcher'), findsOneWidget);
+      expect(find.text('u404'), findsNothing);
     });
 
     testWidgets('explains that an assignee is already covered', (tester) async {
       final repo = _FakeIssueRepository();
-      await tester.pumpWidget(_host(repo, _issue(assigneeIds: const ['u1'])));
+      final cubit = _cubit(repo);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(
+        _footerHost(cubit, _issue(assigneeIds: const ['u1'])),
+      );
 
-      // Widget tests render i18n keys, so assert on the key, not on prose.
       expect(find.text('issues.watch.implicitAssignee'), findsOneWidget);
       expect(find.text('issues.watch.implicitReporter'), findsNothing);
     });
@@ -333,31 +385,14 @@ void main() {
       tester,
     ) async {
       final repo = _FakeIssueRepository();
-      await tester.pumpWidget(_host(repo, _issue(reporterId: 'u1')));
+      final cubit = _cubit(repo);
+      addTearDown(cubit.close);
+      await tester.pumpWidget(_footerHost(cubit, _issue(reporterId: 'u1')));
       expect(find.text('issues.watch.implicitReporter'), findsOneWidget);
 
-      await tester.pumpWidget(_host(repo, _issue(reporterId: 'u9')));
+      await tester.pumpWidget(_footerHost(cubit, _issue(reporterId: 'u9')));
       expect(find.text('issues.watch.implicitReporter'), findsNothing);
       expect(find.text('issues.watch.implicitAssignee'), findsNothing);
-    });
-
-    testWidgets('reports the committed roster back to its host', (
-      tester,
-    ) async {
-      final repo = _FakeIssueRepository();
-      final reported = <List<String>>[];
-      await tester.pumpWidget(
-        _host(
-          repo,
-          _issue(watcherIds: const ['u2']),
-          onWatchersChanged: reported.add,
-        ),
-      );
-
-      await tester.tap(find.byType(HiveSwitch));
-      await tester.pump();
-
-      expect(reported.last, ['u2', 'u1']);
     });
   });
 }
@@ -390,24 +425,54 @@ IssueWatchCubit _cubit(
   watcherIds: watcherIds,
 );
 
-Widget _host(
-  IssueRepository repo,
-  Issue issue, {
-  ValueChanged<List<String>>? onWatchersChanged,
-}) => MaterialApp(
+/// The directory as the detail sheet resolves it — deliberately missing a
+/// watcher, the way it is for anyone the issue doesn't otherwise reference.
+const _directory = {'u1': 'Rebar', 'u2': 'Mia'};
+
+IssueWatchMenuData _menuData(IssueWatchCubit cubit, Issue issue) =>
+    IssueWatchMenuData(
+      cubit: cubit,
+      issue: issue,
+      onToggle: cubit.toggle,
+      nameFor: (id) => _directory[id],
+      avatarFor: (_) => null,
+    );
+
+/// The roster block on its own, as the "…" menu renders it.
+Widget _footerHost(IssueWatchCubit cubit, Issue issue) => MaterialApp(
   debugShowCheckedModeBanner: false,
-  home: RepositoryProvider<IssueRepository>.value(
-    value: repo,
-    child: Scaffold(
-      body: IssueWatchCard(
-        issue: issue,
-        currentUserId: 'u1',
-        names: const {'u1': 'Rebar', 'u2': 'Mia'},
-        onWatchersChanged: onWatchersChanged,
+  home: Scaffold(body: IssueWatchMenuFooter(data: _menuData(cubit, issue))),
+);
+
+/// The whole section as the top bars compose it: the watch row inside a glass
+/// popup menu, with the roster underneath.
+Widget _menuHost(IssueWatchCubit cubit, Issue issue) {
+  final data = _menuData(cubit, issue);
+  return MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      body: Center(
+        child: BlocBuilder<IssueWatchCubit, IssueWatchState>(
+          bloc: cubit,
+          builder: (context, state) => GlassPopupMenu<String?>(
+            value: null,
+            items: [
+              issueWatchMenuItem(
+                context,
+                value: 'watch',
+                watching: state.isWatchedBy(data.meId),
+                enabled: data.meId != null,
+              ),
+            ],
+            footerBuilder: (_) => IssueWatchMenuFooter(data: data),
+            onSelected: (_) => data.onToggle(),
+            child: const Text('menu'),
+          ),
+        ),
       ),
     ),
-  ),
-);
+  );
+}
 
 /// Records the calls the toggle makes and can be told to refuse them.
 class _FakeIssueRepository implements IssueRepository {
