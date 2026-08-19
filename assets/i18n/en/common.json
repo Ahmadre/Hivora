@@ -690,7 +690,7 @@
     "moreActions": "More actions",
     "selectedCount": "{{count}} selected",
     "export": {
-      "action": "Export …",
+      "action": "Export…",
       "title": "Export issue",
       "print": "Print",
       "pdf": "Export as PDF",

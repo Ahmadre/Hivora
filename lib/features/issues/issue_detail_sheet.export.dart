@@ -100,13 +100,23 @@ Future<Uint8List> fetchIssueExport(
   );
 }
 
-/// The download's file name, mirroring what the server puts in
-/// `Content-Disposition` — the byte fetch does not surface response headers,
-/// and the list export names its files the same way.
+/// Longest stem a saved export is named with, before the extension — the
+/// server's own ceiling, so both sides cut a long title at the same place.
+const int _kExportNameChars = 80;
+
+/// The download's file name, built by the same rule the server uses for
+/// `Content-Disposition`: everything that is not a letter or a digit becomes a
+/// dash, letters of any script survive, and a long title is cut.
+///
+/// Repeated here rather than read off the response because a byte fetch does
+/// not surface headers. The rule is small and it is pinned on both sides, so
+/// the file the user saves is called what the server said it was.
 String issueExportFileName(Issue issue, String extension) {
   final stem = '${issue.readableId} ${issue.title}'
       .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
-  final safe = stem.isEmpty ? 'issue' : stem;
-  return '${safe.length > 80 ? safe.substring(0, 80).replaceAll(RegExp(r'-+$'), '') : safe}.$extension';
+  final cut = stem.length > _kExportNameChars
+      ? stem.substring(0, _kExportNameChars).replaceAll(RegExp(r'-+$'), '')
+      : stem;
+  return '${cut.isEmpty ? 'issue' : cut}.$extension';
 }
