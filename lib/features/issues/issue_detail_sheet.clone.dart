@@ -2,7 +2,8 @@ part of 'issue_detail_sheet.dart';
 
 // ─────────────────────────── Clone dialog ──────────────────────────────────
 
-/// The prefix a cloned summary is offered with, mirroring the server constant.
+/// The prefix a cloned summary is offered with. The server stores whatever
+/// title it is sent, so this prefill is the only place the convention lives.
 ///
 /// Deliberately the same string in every language: it is written into a title
 /// that a whole organisation reads and searches, so a per-user prefix would
@@ -113,10 +114,11 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
     super.dispose();
   }
 
-  String? _nameOf(String id) => widget.users
-      .cast<DirectoryUser?>()
-      .firstWhere((user) => user?.id == id, orElse: () => null)
-      ?.displayName;
+  /// Display names by id, the way the create form keeps them. Built once: the
+  /// directory is handed to this dialog, not loaded while it is open.
+  late final Map<String, String> _names = {
+    for (final user in widget.users) user.id: user.displayName,
+  };
 
   Future<void> _pickAssignee(Rect anchor) async {
     final wide = MediaQuery.sizeOf(context).width >= kGlassPopoverBreakpoint;
@@ -192,7 +194,6 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
 
   @override
   Widget build(BuildContext context) {
-    final canClone = _canClone;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -226,7 +227,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
                     maxLines: 2,
                     minLines: 1,
                     textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => canClone ? _clone() : null,
+                    onSubmitted: (_) => _canClone ? _clone() : null,
                     inputFormatters: const [IssueTitleLengthLimit()],
                     decoration: glassInputDecoration(
                       hint: context.t('issues.clone.summaryHint'),
@@ -241,7 +242,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
                         : 'issues.assignee',
                   ),
                   child: _ClonePersonField(
-                    names: [for (final id in _assigneeIds) _nameOf(id) ?? '?'],
+                    names: [for (final id in _assigneeIds) _names[id] ?? '?'],
                     onTap: _busy ? null : _pickAssignee,
                   ),
                 ),
@@ -289,7 +290,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
           confirmLabel: context.t('issues.clone.confirm'),
           confirmIcon: LucideIcons.copy,
           busy: _busy,
-          onConfirm: canClone ? _clone : null,
+          onConfirm: _canClone ? _clone : null,
         ),
       ],
     );
@@ -301,7 +302,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
 /// Not [LengthLimitingTextInputFormatter], which counts grapheme clusters: the
 /// server's bound counts UTF-16 code units, so a title of 300 emoji passes the
 /// field and comes back a 400. Counting the same units the server does means
-/// the limit is felt while typing rather than after pressing Klonen.
+/// the limit is felt while typing rather than after pressing Clone.
 class IssueTitleLengthLimit extends TextInputFormatter {
   const IssueTitleLengthLimit();
 
@@ -361,32 +362,12 @@ class _ClonePersonField extends StatelessWidget {
   }
 
   Widget _value(BuildContext context) {
-    if (names.isEmpty) {
-      return Text(
-        context.t('issues.unassigned'),
-        style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
-      );
-    }
     if (names.length > 1) {
       return Align(
         alignment: Alignment.centerLeft,
         child: HiveAvatarStack(names: names, size: 26),
       );
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        HiveAvatar(name: names.first, size: 22),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            names.first,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
-    );
+    return _person(names.firstOrNull, fallback: context.t('issues.unassigned'));
   }
 }

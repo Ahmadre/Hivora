@@ -697,11 +697,11 @@
       "required": "Pflichtfeld",
       "summaryHint": "Wie die Kopie heißen soll",
       "include": "Einbeziehen",
-      "links": "Links",
+      "links": "Verknüpfungen",
       "linksHint": "Übernimmt die Verknüpfungen und Abhängigkeiten des Originals. Die Verknüpfung zum Original wird immer angelegt.",
       "sprint": "Sprint-Werte",
-      "sprintHint": "Legt die Kopie in den Sprint des Originals. Aus liegt sie im Backlog.",
-      "reporterNote": "Sie werden als Autor des geklonten Vorgangs eingetragen. Kommentare, Arbeitszeiten und Verlauf bleiben beim Original.",
+      "sprintHint": "Legt die Kopie in den Sprint des Originals. Bleibt der Schalter aus, startet sie im Backlog.",
+      "reporterNote": "Du wirst als Autor des geklonten Vorgangs eingetragen. Kommentare, Arbeitszeiten und Verlauf bleiben beim Original.",
       "confirm": "Klonen"
     },
     "move": {

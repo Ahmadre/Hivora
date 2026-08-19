@@ -20,8 +20,8 @@ enum _IssueMenuAction { watch, reply, clone, move, delete }
   color: canDelete && !archived ? AppColors.danger : AppColors.accentStrong,
 );
 
-/// "…" overflow button for the issue top bars, bundling watch · reply · clone · move ·
-/// delete/archive into one liquid-glass popover so the bar stays tidy.
+/// "…" overflow button for the issue top bars, bundling watch · reply · clone ·
+/// move · delete/archive into one liquid-glass popover so the bar stays tidy.
 ///
 /// Watching is a menu entry rather than a button of its own (or a card in the
 /// details column, where it used to sit and cost the narrow right column a
@@ -284,9 +284,9 @@ class _RouteTopBar extends StatelessWidget {
                   color: AppColors.inkSoft,
                 ),
               ),
-            // Secondary actions (watch · clone · move · reply · remove) live in one "…"
-            // popover so the bar keeps a fixed shape regardless of which are
-            // available.
+            // Secondary actions (watch · clone · move · reply · remove) live in
+            // one "…" popover so the bar keeps a fixed shape regardless of
+            // which are available.
             _IssueActionsMenu(
               onReply: onReply,
               onClone: onClone,
@@ -834,6 +834,35 @@ class _DocumentedIn extends StatelessWidget {
 }
 
 // ─────────────────────────── People picker ─────────────────────────────────
+
+/// One person as a value: avatar + name, or [fallback] when there is nobody.
+///
+/// Lives here rather than on one screen because the detail view, the create
+/// form and the clone dialog all render an assignee — three copies of what a
+/// person looks like in a field is how they drift apart.
+Widget _person(String? name, {required String fallback, String? imageUrl}) {
+  if (name == null || name.isEmpty) {
+    return Text(
+      fallback,
+      style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
+    );
+  }
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      HiveAvatar(name: name, imageUrl: imageUrl, size: 22),
+      const SizedBox(width: 8),
+      Flexible(
+        child: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+      ),
+    ],
+  );
+}
 
 class _PeoplePicker extends StatefulWidget {
   const _PeoplePicker({
