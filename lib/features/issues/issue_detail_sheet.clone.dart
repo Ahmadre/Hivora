@@ -216,9 +216,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
                     minLines: 1,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => canClone ? _clone() : null,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(kIssueTitleMaxChars),
-                    ],
+                    inputFormatters: const [IssueTitleLengthLimit()],
                     decoration: glassInputDecoration(
                       hint: context.t('issues.clone.summaryHint'),
                     ),
@@ -284,6 +282,27 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
         ),
       ],
     );
+  }
+}
+
+/// Caps the summary at what the server accepts.
+///
+/// Not [LengthLimitingTextInputFormatter], which counts grapheme clusters: the
+/// server's bound counts UTF-16 code units, so a title of 300 emoji passes the
+/// field and comes back a 400. Counting the same units the server does means
+/// the limit is felt while typing rather than after pressing Klonen.
+class IssueTitleLengthLimit extends TextInputFormatter {
+  const IssueTitleLengthLimit();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.length <= kIssueTitleMaxChars) return newValue;
+    // Refusing the edit rather than truncating it: a paste that would overflow
+    // leaves what was already there instead of a silently clipped tail.
+    return oldValue;
   }
 }
 

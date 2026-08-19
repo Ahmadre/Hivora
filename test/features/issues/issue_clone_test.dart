@@ -62,6 +62,34 @@ void main() {
     });
   });
 
+  group('the summary length cap', () {
+    const cap = IssueTitleLengthLimit();
+
+    TextEditingValue v(String text) => TextEditingValue(text: text);
+
+    test('lets anything inside the bound through', () {
+      expect(cap.formatEditUpdate(v('a' * 299), v('a' * 300)).text, 'a' * 300);
+    });
+
+    /// The server counts UTF-16 code units. A grapheme-counting cap would let
+    /// 300 emoji (600 units) through and turn Klonen into a 400.
+    test('counts the units the server counts, not characters', () {
+      final tooLong = v('🐝' * 151); // 302 UTF-16 units, 151 characters
+      final before = v('🐝' * 150);
+
+      expect(cap.formatEditUpdate(before, tooLong).text, before.text);
+    });
+
+    test('an overflowing paste leaves what was there, not a clipped tail', () {
+      final before = v('CLONE - keep me');
+
+      expect(
+        cap.formatEditUpdate(before, v('x' * 400)).text,
+        'CLONE - keep me',
+      );
+    });
+  });
+
   group('IssueRepository.cloneIssue', () {
     test('posts the four choices the dialog collects and nothing else', () async {
       final api = _FakeApi();
