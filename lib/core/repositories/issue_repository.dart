@@ -211,6 +211,31 @@ class IssueRepository {
 
   Future<void> deleteIssue(String id) => _api.delete('/api/v1/issues/$id');
 
+  /// Creates a copy of [id] in the same project and returns it.
+  ///
+  /// Only the four things the clone dialog collects are sent; what the copy
+  /// inherits from the original — and what it deliberately does not — is the
+  /// server's decision, so this stays a thin call rather than a second place
+  /// where "what a clone is" is written down.
+  Future<Issue> cloneIssue(
+    String id, {
+    required String title,
+    required List<String> assigneeIds,
+    required bool includeLinks,
+    required bool includeSprint,
+  }) async => Issue.fromJson(
+    await _api.post(
+          '/api/v1/issues/$id/clone',
+          body: {
+            'title': title,
+            'assigneeIds': assigneeIds,
+            'includeLinks': includeLinks,
+            'includeSprint': includeSprint,
+          },
+        )
+        as Map<String, dynamic>,
+  );
+
   /// Asks what moving [issueIds] into [targetProjectId] would do — which issues
   /// travel (sub-tasks always come along), how each source status maps onto the
   /// target workflow, and what detaches. Writes nothing.

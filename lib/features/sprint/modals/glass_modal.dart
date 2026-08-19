@@ -12,6 +12,7 @@ import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/hive_widgets.dart';
 import '../../search/search_tokens.dart';
 
 part 'glass_modal.fields.dart';

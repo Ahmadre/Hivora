@@ -140,6 +140,65 @@ class GlassInfoLine extends StatelessWidget {
   }
 }
 
+/// One "include this too" row: a title, a sentence saying what leaving it off
+/// means, and the app's single toggle.
+///
+/// A switch rather than a checkbox on purpose. [HiveSwitch] is the one toggle
+/// the app has, so a checkbox here would be a second visual language for the
+/// same yes/no — and every one of these rows sits next to other switches.
+class GlassOptionRow extends StatelessWidget {
+  const GlassOptionRow({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+
+  /// Null disables the row — the option exists but cannot be changed right now.
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    height: 1.35,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          HiveSwitch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
 /// Header row shared by every sprint modal: an amber icon tile, title + sub,
 /// and a close button.
 class GlassModalHeader extends StatelessWidget {

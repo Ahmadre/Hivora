@@ -689,6 +689,21 @@
     },
     "moreActions": "Weitere Aktionen",
     "selectedCount": "{{count}} ausgewählt",
+    "clone": {
+      "action": "Klonen …",
+      "title": "{{id}} klonen",
+      "sub": "Legt eine Kopie dieses Vorgangs im selben Projekt an.",
+      "summary": "Zusammenfassung",
+      "required": "Pflichtfeld",
+      "summaryHint": "Wie die Kopie heißen soll",
+      "include": "Einbeziehen",
+      "links": "Verknüpfungen",
+      "linksHint": "Übernimmt die Verknüpfungen und Abhängigkeiten des Originals. Die Verknüpfung zum Original wird immer angelegt.",
+      "sprint": "Sprint-Werte",
+      "sprintHint": "Legt die Kopie in den Sprint des Originals. Bleibt der Schalter aus, startet sie im Backlog.",
+      "reporterNote": "Du wirst als Autor des geklonten Vorgangs eingetragen. Kommentare, Arbeitszeiten und Verlauf bleiben beim Original.",
+      "confirm": "Klonen"
+    },
     "move": {
       "action": "In Projekt verschieben …",
       "title": "{{count}} Vorgang/Vorgänge verschieben",
@@ -1709,7 +1724,8 @@
       "MCP_ATTACHMENT_READ": "Anhang über MCP gelesen",
       "MCP_OAUTH_AUTHORIZED": "MCP-OAuth-Autorisierung erteilt",
       "UNKNOWN": "Unbekanntes Ereignis",
-      "ISSUE_MOVED": "Vorgang verschoben"
+      "ISSUE_MOVED": "Vorgang verschoben",
+      "ISSUE_CLONED": "Vorgang geklont"
     },
     "meta": {
       "oldRole": "Vorherige Rolle",

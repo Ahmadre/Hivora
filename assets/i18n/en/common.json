@@ -689,6 +689,21 @@
     },
     "moreActions": "More actions",
     "selectedCount": "{{count}} selected",
+    "clone": {
+      "action": "Clone…",
+      "title": "Clone {{id}}",
+      "sub": "Creates a copy of this issue in the same project.",
+      "summary": "Summary",
+      "required": "Required",
+      "summaryHint": "What the copy is called",
+      "include": "Include",
+      "links": "Links",
+      "linksHint": "Copies the original's issue links and dependencies. The link back to the original is always created.",
+      "sprint": "Sprint values",
+      "sprintHint": "Puts the copy in the original's sprint. Left off, the copy starts in the backlog.",
+      "reporterNote": "You are recorded as the author of the cloned issue. Comments, work log and history stay with the original.",
+      "confirm": "Clone"
+    },
     "move": {
       "action": "Move to project…",
       "title": "Move {{count}} issue(s)",
@@ -1709,7 +1724,8 @@
       "MCP_ATTACHMENT_READ": "Attachment read via MCP",
       "MCP_OAUTH_AUTHORIZED": "MCP OAuth authorization granted",
       "UNKNOWN": "Unknown event",
-      "ISSUE_MOVED": "Issue moved"
+      "ISSUE_MOVED": "Issue moved",
+      "ISSUE_CLONED": "Issue cloned"
     },
     "meta": {
       "oldRole": "Previous role",

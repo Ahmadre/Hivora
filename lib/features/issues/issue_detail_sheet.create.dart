@@ -654,30 +654,6 @@ class IssueCreateBodyState extends State<IssueCreateBody> {
     );
   }
 
-  Widget _person(String? name, {required String fallback, String? imageUrl}) {
-    if (name == null || name.isEmpty) {
-      return Text(
-        fallback,
-        style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
-      );
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        HiveAvatar(name: name, imageUrl: imageUrl, size: 22),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _dateValue(DateTime? date, {required bool isStart}) {
     if (date == null) {
       return Text(
