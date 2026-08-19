@@ -731,6 +731,8 @@
       "implicitReporter": "Du erhältst bereits Benachrichtigungen als Ersteller.",
       "watchersTitle": "Beobachter dieses Vorgangs",
       "noWatchers": "Noch niemand beobachtet diesen Vorgang",
+      "moreWatchers": "+{{count}} weitere",
+      "moreWatchers_plural": "+{{count}} weitere",
       "you": "Du",
       "unknownWatcher": "Unbekannte:r Nutzer:in",
       "toastOn": "Du beobachtest diesen Vorgang jetzt",

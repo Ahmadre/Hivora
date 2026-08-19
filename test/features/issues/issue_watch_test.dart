@@ -17,6 +17,7 @@ import 'package:hinata/core/events/issue_events.dart';
 import 'package:hinata/core/models/work_models.dart';
 import 'package:hinata/core/repositories/issue_repository.dart';
 import 'package:hinata/core/widgets/glass_popup_menu.dart';
+import 'package:hinata/core/widgets/hive_widgets.dart';
 import 'package:hinata/features/issues/watch/issue_watch_cubit.dart';
 import 'package:hinata/features/issues/watch/issue_watch_menu.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -369,6 +370,19 @@ void main() {
       expect(find.text('u404'), findsNothing);
     });
 
+    testWidgets('stops listing at twenty and counts the rest', (tester) async {
+      final repo = _FakeIssueRepository();
+      final crowd = _cubit(
+        repo,
+        watcherIds: [for (var i = 0; i < 25; i++) 'u$i'],
+      );
+      addTearDown(crowd.close);
+      await tester.pumpWidget(_footerHost(crowd, _issue()));
+
+      expect(find.byType(HiveAvatar), findsNWidgets(20));
+      expect(find.text('issues.watch.moreWatchers'), findsOneWidget);
+    });
+
     testWidgets('explains that an assignee is already covered', (tester) async {
       final repo = _FakeIssueRepository();
       final cubit = _cubit(repo);
@@ -438,10 +452,14 @@ IssueWatchMenuData _menuData(IssueWatchCubit cubit, Issue issue) =>
       avatarFor: (_) => null,
     );
 
-/// The roster block on its own, as the "…" menu renders it.
+/// The roster block on its own, in the scroll area the menu panel gives it.
 Widget _footerHost(IssueWatchCubit cubit, Issue issue) => MaterialApp(
   debugShowCheckedModeBanner: false,
-  home: Scaffold(body: IssueWatchMenuFooter(data: _menuData(cubit, issue))),
+  home: Scaffold(
+    body: SingleChildScrollView(
+      child: IssueWatchMenuFooter(data: _menuData(cubit, issue)),
+    ),
+  ),
 );
 
 /// The whole section as the top bars compose it: the watch row inside a glass

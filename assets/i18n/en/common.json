@@ -731,6 +731,8 @@
       "implicitReporter": "You already get notifications as the reporter.",
       "watchersTitle": "Watchers of this issue",
       "noWatchers": "Nobody is watching this issue yet",
+      "moreWatchers": "+{{count}} more",
+      "moreWatchers_plural": "+{{count}} more",
       "you": "You",
       "unknownWatcher": "Unknown user",
       "toastOn": "You are now watching this issue",

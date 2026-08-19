@@ -77,6 +77,12 @@ GlassMenuItem<T> issueWatchMenuItem<T>(
   ),
 );
 
+/// How many watchers the roster lists before it stops and counts the rest. A
+/// popover is not a list surface: on any real issue this is a handful of
+/// people, and an issue the whole org subscribed to must not turn one tap into
+/// a hundred-row layout pass.
+const int _maxListedWatchers = 20;
+
 /// The watcher roster under the menu's actions — the block Jira shows beneath
 /// its watch action, moved into the same popover so the top bar keeps a single
 /// button. Listens to the cubit, so a toggle made from the other top bar (the
@@ -99,6 +105,8 @@ class IssueWatchMenuFooter extends StatelessWidget {
           for (final id in state.watcherIds)
             if (id != me) id,
         ];
+        final listed = ordered.take(_maxListedWatchers).toList();
+        final beyond = ordered.length - listed.length;
         final hintKey = data.implicitHintKey;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,7 +159,7 @@ class IssueWatchMenuFooter extends StatelessWidget {
                 ),
               )
             else
-              for (final id in ordered)
+              for (final id in listed)
                 _WatcherRow(
                   tokens: tokens,
                   // Watchers are the one group the detail aggregate does not
@@ -164,6 +172,18 @@ class IssueWatchMenuFooter extends StatelessWidget {
                   isMe: id == me,
                   fallbackSeed: id,
                 ),
+            if (beyond > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+                child: Text(
+                  context.t(
+                    'issues.watch.moreWatchers',
+                    count: beyond,
+                    variables: {'count': beyond},
+                  ),
+                  style: TextStyle(fontSize: 12, color: tokens.inkFaint),
+                ),
+              ),
           ],
         );
       },
