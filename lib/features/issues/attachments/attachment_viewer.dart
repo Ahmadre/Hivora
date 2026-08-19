@@ -24,6 +24,89 @@ import 'attachment_kind.dart';
 
 part 'attachment_viewer.pages.dart';
 
+/// Every colour the viewer paints, pinned to the dark end of the app's tokens.
+///
+/// The stage is near-black in *both* app themes — a lightbox shows its content
+/// on a dark ground — so the chrome floating over it has to be authored for a
+/// dark room whatever the app is set to. It was not: the bars read
+/// `AppColors.inkSoft` & friends, and in light mode that put a dark violet-grey
+/// on a lens that had carried the near-black stage through to a dull mid-grey.
+/// The header line and the zoom bar measured 1.3:1 against it — legible only if
+/// you already knew what they said (HIN-52).
+///
+/// Wrapping the viewer in [theme] is only half of the fix. It gets the *glass*
+/// right, because [GlassFloatingSurface] resolves its tokens from the ambient
+/// [Theme]; it does nothing at all for [AppColors], whose neutral getters
+/// resolve against `AppColors.brightness` — a mutable global written once per
+/// frame from the app's resolved theme in `app.dart`, which no local [Theme]
+/// can reach.
+///
+/// So this class is the other half, and it is the *only* palette this file and
+/// its part may use: reaching for an `AppColors` getter here is the bug, not a
+/// shortcut. The values are the `…Dark` constants behind those very getters, so
+/// light mode now reads the way dark mode always did — which was the mode that
+/// was right. With one deliberate exception: [faint] is *not*
+/// `AppColors.inkFaintDark` but a lighter tone of it, and since it took over
+/// every place that token held, dark mode moved too — the text viewer's
+/// line-number gutter went 3.76:1 → 5.55:1 on the dark paper and [_FileCard]'s
+/// reason line 3.42:1 → 5.05:1 on the card. Both were under AA before; see
+/// [faint]'s own doc for the measurements. `attachment_viewer_test.dart` fails
+/// if a theme-dependent getter reappears in either file.
+abstract final class _ViewerInk {
+  /// The Material theme the whole viewer subtree runs under, so the glass, the
+  /// inherited text styles, the scrollbars and the selection handles are all
+  /// resolved for the dark stage. Built once: [AppTheme.dark] seeds a
+  /// [ColorScheme] and that is too much work for a rebuild.
+  static final ThemeData theme = AppTheme.dark();
+
+  /// Primary text: the filename, the file's own body text, the nav arrows.
+  static const ink = AppColors.inkDark;
+
+  /// Secondary text and the ordinary (enabled) glyphs on the glass.
+  static const soft = AppColors.inkSoftDark;
+
+  /// Small print on a viewer surface, the *disabled* glyphs on the glass, and
+  /// the one edge in here that has to be found against the stage.
+  ///
+  /// Deliberately not `AppColors.inkFaintDark`: measured against the glass this
+  /// floats on, that token sits at 3.3:1 — inside the noise of a translucent
+  /// surface — and at 3.4:1 on the "no preview" card, under AA for text in both
+  /// places. This sits halfway between it and [soft]: ≥ 4.8:1 on the pill,
+  /// ≥ 5.0:1 on the card, while still reading a visible step below [soft] so a
+  /// disabled button says "not right now" rather than disappearing.
+  ///
+  /// It is also what outlines [_FileCard], the one surface in here that has no
+  /// glass rim to find it by: 4.7:1 against the lighter of the two backdrops
+  /// and 6.0:1 against the darker, where [hairline] — a seam meant to be read
+  /// *on* a surface, not against a stage — manages 1.2:1.
+  static const faint = Color(0xFF8B89A6);
+
+  /// The text viewer's paper.
+  static const canvas = AppColors.canvasDark;
+
+  /// Recessed fills: the page counter, a picture thumbnail's backing.
+  static const canvas2 = AppColors.canvas2Dark;
+
+  /// The "no preview / render failed" card.
+  static const surface = AppColors.surfaceDark;
+
+  /// Borders and the toolbar's divider.
+  static const hairline = AppColors.hairlineDark;
+
+  /// Active / call-to-action fill. Carries its own translucency, so it stays a
+  /// wash over the glass instead of a slab of amber.
+  static const accentSoft = AppColors.accentSoftDark;
+
+  /// Foreground on [accentSoft]. The brighter amber, not [accentStrong]: the
+  /// deep one sinks into a dark wash.
+  static const accentInk = AppColors.accent;
+
+  // Constant across both app themes already — routed through here so that the
+  // viewer has exactly one place colour comes from.
+  static const accentLine = AppColors.accentLine;
+  static const accentStrong = AppColors.accentStrong;
+}
+
 /// One entry shown in the viewer. [url] is the authenticated API download path
 /// used to fetch the content for inline previews (images, PDFs, text); types we
 /// can't preview render a type card instead.
@@ -168,6 +251,22 @@ double zoomAnchoredOffset({
 }) {
   if (maxExtent <= 0) return offset;
   return ((offset + focal) * factor - focal).clamp(0.0, maxExtent);
+}
+
+/// What the viewer paints behind everything, at rest, for the app's
+/// [brightness] — alpha included, because the page underneath shows through it.
+///
+/// The one colour in the viewer that still follows the app, and the reason
+/// every other one may not: both ends are dark, so the chrome is pinned to a
+/// dark palette ([_ViewerInk]) and measured against the lighter of the two.
+/// Over a light app the backdrop lifts to a deep indigo rather than slamming to
+/// black; over a dark one it goes the whole way.
+@visibleForTesting
+Color viewerStageColor(Brightness brightness) {
+  final dark = brightness == Brightness.dark;
+  return (dark ? const Color(0xFF07060E) : const Color(0xFF14122A)).withValues(
+    alpha: dark ? 0.97 : 0.94,
+  );
 }
 
 class _ViewerScaffold extends StatefulWidget {
@@ -429,6 +528,12 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
       context,
       context.t('issues.attachments.viewer.copied'),
       kind: GlassToastKind.success,
+      // The one piece of viewer chrome the [Theme] below cannot reach: the
+      // toast goes into the *root* overlay, above this route, so its context
+      // descends from the app and not from us. Left to itself it would light a
+      // light-mode pill on the near-black stage and put dark ink on it — the
+      // very bug this file is otherwise the fix for (HIN-52).
+      brightness: Brightness.dark,
     );
   }
 
@@ -437,80 +542,89 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
   Widget build(BuildContext context) {
     final anim = ModalRoute.of(context)!.animation!;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    // Read *above* the theme installed below, on purpose: the backdrop is the
+    // one thing in here that still follows the app, and it is the reason
+    // everything else cannot. See [_ViewerInk].
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    return Focus(
-      focusNode: _focus,
-      onKeyEvent: _onKey,
-      // A route from showGeneralDialog has no Material of its own, and text
-      // without one falls back to the framework's error style.
-      child: Material(
-        type: MaterialType.transparency,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Backdrop. Deliberately dark in both themes: pictures and PDF pages
-            // read against a dark surround, and the text view brings its own
-            // theme-coloured "paper" so it stays legible either way.
-            ValueListenableBuilder<Offset>(
-              valueListenable: _drag,
-              builder: (context, drag, _) => AnimatedBuilder(
-                animation: anim,
-                builder: (context, _) => ColoredBox(
-                  color:
-                      (dark ? const Color(0xFF07060E) : const Color(0xFF14122A))
-                          .withValues(
-                            alpha:
-                                (dark ? 0.97 : 0.94) *
-                                anim.value.clamp(0.0, 1.0) *
-                                (1 - 0.5 * _dismissProgress(drag)),
-                          ),
+    return Theme(
+      data: _ViewerInk.theme,
+      child: Focus(
+        focusNode: _focus,
+        onKeyEvent: _onKey,
+        // A route from showGeneralDialog has no Material of its own, and text
+        // without one falls back to the framework's error style.
+        child: Material(
+          type: MaterialType.transparency,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Backdrop — see [viewerStageColor]. Its own alpha is scaled,
+              // never replaced: the route's animation fades it in, and the
+              // dismiss drag fades it back out under the finger.
+              ValueListenableBuilder<Offset>(
+                valueListenable: _drag,
+                builder: (context, drag, _) => AnimatedBuilder(
+                  animation: anim,
+                  builder: (context, _) {
+                    final base = viewerStageColor(
+                      dark ? Brightness.dark : Brightness.light,
+                    );
+                    return ColoredBox(
+                      color: base.withValues(
+                        alpha:
+                            base.a *
+                            anim.value.clamp(0.0, 1.0) *
+                            (1 - 0.5 * _dismissProgress(drag)),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
-            // Stage.
-            AnimatedBuilder(
-              animation: anim,
-              builder: (context, child) {
-                final t = anim.value.clamp(0.0, 1.0);
-                if (reduceMotion) return Opacity(opacity: t, child: child);
-                final curved = Curves.easeOutCubic.transform(t);
-                return Opacity(
-                  opacity: (t / 0.6).clamp(0.0, 1.0),
-                  child: Transform.scale(
-                    scale: 0.97 + 0.03 * curved,
-                    child: child,
-                  ),
-                );
-              },
-              child: ValueListenableBuilder<Offset>(
-                valueListenable: _drag,
-                builder: (context, drag, child) {
-                  final p = _dismissProgress(drag);
-                  return Transform.translate(
-                    offset: drag,
-                    child: Transform.scale(scale: 1 - 0.08 * p, child: child),
+              // Stage.
+              AnimatedBuilder(
+                animation: anim,
+                builder: (context, child) {
+                  final t = anim.value.clamp(0.0, 1.0);
+                  if (reduceMotion) return Opacity(opacity: t, child: child);
+                  final curved = Curves.easeOutCubic.transform(t);
+                  return Opacity(
+                    opacity: (t / 0.6).clamp(0.0, 1.0),
+                    child: Transform.scale(
+                      scale: 0.97 + 0.03 * curved,
+                      child: child,
+                    ),
                   );
                 },
-                child: _stage(),
-              ),
-            ),
-            // Chrome — fades out with the dismiss drag so the content is alone on
-            // screen while it follows the finger.
-            ValueListenableBuilder<Offset>(
-              valueListenable: _drag,
-              builder: (context, drag, child) => IgnorePointer(
-                ignoring: !_chrome || drag != Offset.zero,
-                child: AnimatedOpacity(
-                  opacity: _chrome ? 1 - _dismissProgress(drag) : 0,
-                  duration: Duration(milliseconds: _chrome ? 160 : 120),
-                  curve: Curves.easeOut,
-                  child: child,
+                child: ValueListenableBuilder<Offset>(
+                  valueListenable: _drag,
+                  builder: (context, drag, child) {
+                    final p = _dismissProgress(drag);
+                    return Transform.translate(
+                      offset: drag,
+                      child: Transform.scale(scale: 1 - 0.08 * p, child: child),
+                    );
+                  },
+                  child: _stage(),
                 ),
               ),
-              child: FadeTransition(opacity: anim, child: _chromeLayer()),
-            ),
-          ],
+              // Chrome — fades out with the dismiss drag so the content is alone on
+              // screen while it follows the finger.
+              ValueListenableBuilder<Offset>(
+                valueListenable: _drag,
+                builder: (context, drag, child) => IgnorePointer(
+                  ignoring: !_chrome || drag != Offset.zero,
+                  child: AnimatedOpacity(
+                    opacity: _chrome ? 1 - _dismissProgress(drag) : 0,
+                    duration: Duration(milliseconds: _chrome ? 160 : 120),
+                    curve: Curves.easeOut,
+                    child: child,
+                  ),
+                ),
+                child: FadeTransition(opacity: anim, child: _chromeLayer()),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -664,6 +778,7 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
                     style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
+                      color: _ViewerInk.ink,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -671,7 +786,10 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
                     cur.subtitle ?? formatBytes(cur.size),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: _ViewerInk.soft,
+                    ),
                   ),
                 ],
               ),
@@ -720,11 +838,11 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
                   child: Text(
                     '${(zoom * 100).round()}%',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: AppTheme.fontMono,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.inkSoft,
+                      color: _ViewerInk.soft,
                     ),
                   ),
                 ),
@@ -804,17 +922,17 @@ class _Counter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.canvas2.withValues(alpha: 0.7),
+        color: _ViewerInk.canvas2.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: _ViewerInk.hairline),
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: const TextStyle(
           fontFamily: AppTheme.fontMono,
           fontSize: 11.5,
           fontWeight: FontWeight.w600,
-          color: AppColors.inkSoft,
+          color: _ViewerInk.soft,
         ),
       ),
     );
@@ -840,11 +958,14 @@ class _IconAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Disabled is dimmer than [_ViewerInk.soft] but still well clear of the
+    // 3:1 that WCAG asks of a glyph: a control the stage has run out of range
+    // for has to look unavailable, not absent.
     final color = !enabled
-        ? AppColors.inkFaint
+        ? _ViewerInk.faint
         : active
-        ? AppColors.accentInk
-        : AppColors.inkSoft;
+        ? _ViewerInk.accentInk
+        : _ViewerInk.soft;
     return Tooltip(
       message: tooltip,
       child: Semantics(
@@ -852,13 +973,13 @@ class _IconAction extends StatelessWidget {
         enabled: enabled,
         label: tooltip,
         child: Material(
-          // The token carries its own opacity — a faint wash on dark, an
-          // opaque cream on light. Overriding the alpha turned the dark
-          // variant into near-solid amber, which swallowed the glyph on it.
-          color: active ? AppColors.accentSoft : Colors.transparent,
+          // The token carries its own opacity — a faint amber wash, not a
+          // fill. Overriding the alpha turned it into near-solid amber, which
+          // swallowed the glyph sitting on it.
+          color: active ? _ViewerInk.accentSoft : Colors.transparent,
           shape: RoundedRectangleBorder(
             side: BorderSide(
-              color: active ? AppColors.accentLine : Colors.transparent,
+              color: active ? _ViewerInk.accentLine : Colors.transparent,
             ),
             borderRadius: BorderRadius.circular(11),
           ),
@@ -883,7 +1004,7 @@ class _Divider extends StatelessWidget {
     width: 1,
     height: 20,
     margin: const EdgeInsets.symmetric(horizontal: 5),
-    color: AppColors.hairline,
+    color: _ViewerInk.hairline,
   );
 }
 
@@ -920,7 +1041,7 @@ class _NavButton extends StatelessWidget {
                 child: SizedBox(
                   width: 48,
                   height: 48,
-                  child: Icon(icon, size: 22, color: AppColors.ink),
+                  child: Icon(icon, size: 22, color: _ViewerInk.ink),
                 ),
               ),
             ),
@@ -964,11 +1085,11 @@ class _StripThumb extends StatelessWidget {
             height: extent,
             decoration: BoxDecoration(
               color: isImage
-                  ? AppColors.canvas2
+                  ? _ViewerInk.canvas2
                   : km.color.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? AppColors.accentStrong : Colors.transparent,
+                color: selected ? _ViewerInk.accentStrong : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -981,7 +1102,7 @@ class _StripThumb extends StatelessWidget {
                     ),
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) =>
-                        Icon(km.icon, size: 18, color: AppColors.inkSoft),
+                        Icon(km.icon, size: 18, color: _ViewerInk.soft),
                   )
                 : Icon(km.icon, size: 20, color: Colors.white),
           ),

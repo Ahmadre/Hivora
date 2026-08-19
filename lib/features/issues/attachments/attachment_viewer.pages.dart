@@ -999,8 +999,12 @@ class _TextPageState extends State<_TextPage> {
     return width;
   }
 
-  /// The text sits on its own themed sheet: the stage behind it is dark for
-  /// pictures, which would make theme-coloured ink unreadable.
+  /// The text sits on its own sheet, so a file's body never has to be read
+  /// straight off the stage. The sheet is dark in both app themes like the rest
+  /// of the viewer ([_ViewerInk]): the reader is inside a near-black lightbox
+  /// either way, and a sheet of white paper punched into it — which is what the
+  /// light theme used to hand out — is the one surface here that does not
+  /// belong to the room it is in.
   Widget _paper(_TextDoc doc, double zoom) {
     final fontSize = _baseFontSize * zoom;
     final phone = MediaQuery.sizeOf(context).width < 610;
@@ -1008,7 +1012,7 @@ class _TextPageState extends State<_TextPage> {
       fontFamily: AppTheme.fontMono,
       fontSize: fontSize,
       height: 1.5,
-      color: AppColors.ink,
+      color: _ViewerInk.ink,
     );
     // Wide enough for the highest line number this file can show. Measured
     // rather than guessed from an advance width: a gutter one pixel too narrow
@@ -1089,9 +1093,9 @@ class _TextPageState extends State<_TextPage> {
         child: Container(
           margin: EdgeInsets.symmetric(horizontal: phone ? 8 : 22, vertical: 0),
           decoration: BoxDecoration(
-            color: AppColors.canvas,
+            color: _ViewerInk.canvas,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.hairline),
+            border: Border.all(color: _ViewerInk.hairline),
           ),
           clipBehavior: Clip.antiAlias,
           // One region across every row, so a drag selects across lines and
@@ -1146,7 +1150,7 @@ class _TextRow extends StatelessWidget {
             number == 0 ? '' : '$number',
             textAlign: TextAlign.right,
             maxLines: 1,
-            style: style.copyWith(color: AppColors.inkFaint),
+            style: style.copyWith(color: _ViewerInk.faint),
           ),
         ),
         const SizedBox(width: _kGutterGap),
@@ -1247,14 +1251,31 @@ class _FileCard extends StatelessWidget {
                 item.size > kMaxTextPreviewBytes
             ? context.t('issues.attachments.viewer.tooLarge')
             : context.t('issues.attachments.noPreview'));
+    // Dark in both themes, like every other surface the viewer authors. This
+    // card is not a rendering of the file — it is the viewer explaining itself,
+    // the same job as the bars — and the measurements agree: on a dark card the
+    // amber wash under [_CardAction] is the dark-mode pairing that clears AA
+    // (5.5:1), while the light one is an opaque cream that leaves its own label
+    // at 2.8:1. A card that flipped with the app would have to invent a second
+    // set of accent tokens to stay legible.
     return Container(
       constraints: const BoxConstraints(maxWidth: 380),
       margin: const EdgeInsets.all(24),
       padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 30),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: _ViewerInk.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppColors.hairline),
+        // Outlined in [_ViewerInk.faint], not in [_ViewerInk.hairline], and
+        // that is the whole reason this card is visible as a card. A hairline
+        // is a seam between two surfaces; here there is no second surface —
+        // a dark card sits on a darker stage at 1.07:1, so the fill draws no
+        // boundary at all and the hairline over it manages 1.2:1. What located
+        // the card was the saturated kind tile below, which is a *decoration*,
+        // not an edge. This outline clears the 3:1 WCAG asks of a boundary
+        // against both backdrops (4.7:1 over a light app's, 6.0:1 over a dark
+        // one's) without a shadow, which on a near-black stage would have
+        // nothing left to darken.
+        border: Border.all(color: _ViewerInk.faint),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1274,18 +1295,22 @@ class _FileCard extends StatelessWidget {
             maxLines: 2,
             textAlign: TextAlign.center,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _ViewerInk.ink,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             '${item.kind.toUpperCase()} · ${formatBytes(item.size)}',
-            style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+            style: const TextStyle(fontSize: 12.5, color: _ViewerInk.soft),
           ),
           const SizedBox(height: 6),
           Text(
             reason,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: AppColors.inkFaint),
+            style: const TextStyle(fontSize: 12, color: _ViewerInk.faint),
           ),
           if (action != null) ...[const SizedBox(height: 16), action!],
         ],
@@ -1315,9 +1340,9 @@ class _CardAction extends StatelessWidget {
       child: Material(
         // Same token pairing as the toolbar's active state: the wash carries
         // its own opacity, so it stays a wash on dark instead of solid amber.
-        color: AppColors.accentSoft,
+        color: _ViewerInk.accentSoft,
         shape: RoundedRectangleBorder(
-          side: const BorderSide(color: AppColors.accentLine),
+          side: const BorderSide(color: _ViewerInk.accentLine),
           borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         ),
         child: InkWell(
@@ -1328,7 +1353,7 @@ class _CardAction extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, size: 15, color: AppColors.accentInk),
+                Icon(icon, size: 15, color: _ViewerInk.accentInk),
                 const SizedBox(width: 8),
                 // Flexible, not bare: the pill shrink-wraps its label, and a
                 // long translation (or a large text scale) would otherwise push
@@ -1338,10 +1363,10 @@ class _CardAction extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.accentInk,
+                      color: _ViewerInk.accentInk,
                     ),
                   ),
                 ),
