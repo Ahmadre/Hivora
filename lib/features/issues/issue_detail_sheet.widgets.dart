@@ -3,7 +3,7 @@ part of 'issue_detail_sheet.dart';
 // ─────────────────────────── Top bar ───────────────────────────────────────
 
 /// Actions collapsed into the "…" overflow menu of the issue top bars.
-enum _IssueMenuAction { watch, reply, clone, move, delete }
+enum _IssueMenuAction { watch, reply, export, clone, move, delete }
 
 /// The delete/archive/restore affordance shared by both top bars: label,
 /// icon and tint depend on the archived state and the delete permission.
@@ -31,6 +31,7 @@ enum _IssueMenuAction { watch, reply, clone, move, delete }
 /// a list of actions.
 class _IssueActionsMenu extends StatelessWidget {
   const _IssueActionsMenu({
+    required this.onExport,
     required this.onClone,
     required this.onMove,
     required this.onDelete,
@@ -39,6 +40,10 @@ class _IssueActionsMenu extends StatelessWidget {
     this.onReply,
     this.watch,
   });
+
+  /// Opens the export submenu, which needs the anchor this menu stood at so it
+  /// can appear in the same place.
+  final void Function(Rect anchorRect) onExport;
 
   /// Opens the clone dialog. Available on archived issues too: the copy is a
   /// live issue whatever the original's state, and cloning is how a shelved
@@ -104,10 +109,24 @@ class _IssueActionsMenu extends StatelessWidget {
             dividerAbove: afterWatch,
           ),
         GlassMenuItem(
+          value: _IssueMenuAction.export,
+          label: context.t('issues.export.action'),
+          leading: Icon(
+            LucideIcons.download,
+            size: 16,
+            color: AppColors.inkSoft,
+          ),
+          trailing: Icon(
+            LucideIcons.chevronRight,
+            size: 15,
+            color: AppColors.inkFaint,
+          ),
+          dividerAbove: afterWatch && onReply == null,
+        ),
+        GlassMenuItem(
           value: _IssueMenuAction.clone,
           label: context.t('issues.clone.action'),
           leading: Icon(LucideIcons.copy, size: 16, color: AppColors.inkSoft),
-          dividerAbove: afterWatch && onReply == null,
         ),
         GlassMenuItem(
           value: _IssueMenuAction.move,
@@ -137,6 +156,8 @@ class _IssueActionsMenu extends StatelessWidget {
             if (watch != null) _openWatchPopover(context, watch);
           case _IssueMenuAction.reply:
             onReply?.call();
+          case _IssueMenuAction.export:
+            _openFromMenuAnchor(context, onExport);
           case _IssueMenuAction.clone:
             onClone();
           case _IssueMenuAction.move:
@@ -169,6 +190,22 @@ class _IssueActionsMenu extends StatelessWidget {
   }
 }
 
+/// Runs [open] with the rect the "…" menu just stood at.
+///
+/// [context] is the menu button's own element, still mounted: the menu closes
+/// before reporting a selection, but the top bar holding the anchor does not go
+/// anywhere. A Rect.zero fallback is harmless — the panel clamps itself
+/// on-screen — while a torn-down context is not, so that case bails out.
+void _openFromMenuAnchor(BuildContext context, void Function(Rect) open) {
+  if (!context.mounted) return;
+  final box = context.findRenderObject() as RenderBox?;
+  open(
+    (box != null && box.hasSize)
+        ? box.localToGlobal(Offset.zero) & box.size
+        : Rect.zero,
+  );
+}
+
 /// Opens the watch popover where the "…" menu just stood.
 ///
 /// [context] is this button's own element, still mounted: the menu closes
@@ -192,6 +229,7 @@ class _RouteTopBar extends StatelessWidget {
     required this.link,
     this.onMinimize,
     required this.onDelete,
+    required this.onExport,
     required this.onClone,
     required this.onMove,
     required this.onClose,
@@ -209,6 +247,9 @@ class _RouteTopBar extends StatelessWidget {
   /// (null for direct deep-links, which have no modal to return to).
   final VoidCallback? onMinimize;
   final VoidCallback onDelete;
+
+  /// Opens the export submenu, anchored where the "…" menu stood.
+  final void Function(Rect anchorRect) onExport;
 
   /// Opens the clone dialog.
   final VoidCallback onClone;
@@ -289,6 +330,7 @@ class _RouteTopBar extends StatelessWidget {
             // which are available.
             _IssueActionsMenu(
               onReply: onReply,
+              onExport: onExport,
               onClone: onClone,
               onMove: onMove,
               onDelete: onDelete,

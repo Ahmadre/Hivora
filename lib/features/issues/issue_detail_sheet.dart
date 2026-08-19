@@ -9,6 +9,7 @@ import '../../core/widgets/hive_loader.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show ProgressiveBlur, ProgressiveBlurDirection;
 import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
@@ -26,6 +27,7 @@ import '../../core/blocs/app_config_bloc.dart';
 import '../../core/blocs/auth_bloc.dart';
 import '../../core/events/issue_events.dart';
 import '../../core/i18n/i18n.dart';
+import '../../core/util/file_download.dart';
 import '../../core/lexical/hinata_document.dart';
 import '../../core/lexical/hinata_editor.dart';
 import '../../core/lexical/hinata_editor_controller.dart';
@@ -94,6 +96,7 @@ part 'issue_detail_sheet.dialogs.dart';
 part 'issue_detail_sheet.create.dart';
 part 'issue_detail_sheet.widgets.dart';
 part 'issue_detail_sheet.clone.dart';
+part 'issue_detail_sheet.export.dart';
 
 /// Row height of the full-screen route's pinned top bar (below the status bar).
 /// Shared so [IssueDetailScreen] can offset its scroll content by exactly this
@@ -236,6 +239,7 @@ Future<void> showIssueDetailSheet(
               );
             },
             onDelete: () => bodyKey.currentState?.confirmDeleteIssue(),
+            onExport: (anchor) => bodyKey.currentState?.exportIssue(anchor),
             onClone: () => bodyKey.currentState?.cloneIssue(),
             onMove: () => bodyKey.currentState?.moveIssue(),
             onClose: () => Navigator.of(modalContext).maybePop(),
@@ -350,6 +354,7 @@ class _SheetActions extends StatelessWidget {
     required this.onMaximize,
     required this.onDelete,
     required this.onClose,
+    required this.onExport,
     required this.onClone,
     required this.onMove,
     this.onReply,
@@ -360,6 +365,9 @@ class _SheetActions extends StatelessWidget {
 
   final VoidCallback onMaximize;
   final VoidCallback onDelete;
+
+  /// Opens the export submenu, anchored where the "…" menu stood.
+  final void Function(Rect anchorRect) onExport;
 
   /// Opens the clone dialog.
   final VoidCallback onClone;
@@ -395,6 +403,7 @@ class _SheetActions extends StatelessWidget {
         // available.
         _IssueActionsMenu(
           onReply: onReply,
+          onExport: onExport,
           onClone: onClone,
           onMove: onMove,
           onDelete: onDelete,

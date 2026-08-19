@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
@@ -250,6 +253,34 @@ class ApiClient {
     return null;
   }
 
+  /// Binary GET for a file the user asked for, which fails loudly.
+  ///
+  /// [getBytes] above answers null for everything, which is right where a
+  /// missing avatar falls back to initials — and wrong here. A download the
+  /// user started has to be able to say *why* it did not arrive: refused,
+  /// throttled, or the connection. So this goes through the same [_run] as
+  /// every other verb and throws [ApiFailure] with the server's own message.
+  ///
+  /// [receiveTimeout] widens the window for a document the server has to render
+  /// before it can answer, the way [upload] widens it for bytes going the other
+  /// way.
+  Future<Uint8List> getFileBytes(
+    String path, {
+    Duration? receiveTimeout,
+  }) async {
+    final data = await _run(
+      () => _dio.get<List<int>>(
+        '$baseUrl$path',
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: receiveTimeout,
+        ),
+      ),
+      idempotent: true,
+    );
+    return Uint8List.fromList((data as List<int>?) ?? const []);
+  }
+
   Future<dynamic> post(String path, {Object? body}) =>
       _run(() => _dio.post<dynamic>('$baseUrl$path', data: body));
 
@@ -362,9 +393,23 @@ class ApiClient {
         error.type == DioExceptionType.connectionTimeout;
   }
 
+  /// The error body as something a message can be read out of.
+  ///
+  /// A request that asked for bytes gets its *error* body as bytes too, so the
+  /// server's perfectly good explanation arrives as a list of numbers and every
+  /// binary download would report "errors.unexpected" whatever went wrong.
+  static Object? _asMessageBody(Object? data) {
+    if (data is! List<int>) return data;
+    try {
+      return jsonDecode(utf8.decode(data));
+    } catch (_) {
+      return null;
+    }
+  }
+
   ApiFailure _toFailure(DioException error) {
     final status = error.response?.statusCode;
-    final data = error.response?.data;
+    final data = _asMessageBody(error.response?.data);
     if (data is Map && data['message'] is String) {
       return ApiFailure(data['message'] as String, statusCode: status);
     }
