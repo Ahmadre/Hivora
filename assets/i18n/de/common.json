@@ -1706,6 +1706,7 @@
       "MCP_SPRINT_UPDATED": "Sprint per MCP aktualisiert",
       "MCP_SPRINT_STARTED": "Sprint per MCP gestartet",
       "MCP_SPRINT_COMPLETED": "Sprint per MCP abgeschlossen",
+      "MCP_ATTACHMENT_READ": "Anhang über MCP gelesen",
       "MCP_OAUTH_AUTHORIZED": "MCP-OAuth-Autorisierung erteilt",
       "UNKNOWN": "Unbekanntes Ereignis",
       "ISSUE_MOVED": "Vorgang verschoben"

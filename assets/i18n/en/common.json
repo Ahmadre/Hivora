@@ -1706,6 +1706,7 @@
       "MCP_SPRINT_UPDATED": "Sprint updated via MCP",
       "MCP_SPRINT_STARTED": "Sprint started via MCP",
       "MCP_SPRINT_COMPLETED": "Sprint completed via MCP",
+      "MCP_ATTACHMENT_READ": "Attachment read via MCP",
       "MCP_OAUTH_AUTHORIZED": "MCP OAuth authorization granted",
       "UNKNOWN": "Unknown event",
       "ISSUE_MOVED": "Issue moved"
