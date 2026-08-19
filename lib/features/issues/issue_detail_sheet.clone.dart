@@ -88,12 +88,23 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
   bool _includeSprint = false;
   bool _busy = false;
 
+  /// Whether the summary currently holds something — the one thing about the
+  /// text field the rest of the dialog reacts to.
+  late bool _canClone = _title.text.trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
-    // The confirm button lives or dies on this field being non-empty, so every
-    // keystroke has to reach the footer.
-    _title.addListener(() => setState(() {}));
+    // The confirm button lives or dies on this field being non-empty, so the
+    // footer has to hear about it — but only about *that*, not about every
+    // keystroke. Rebuilding the dialog per character redraws a header, three
+    // fields, two switches and an avatar, and re-runs a dozen translations, to
+    // change nothing at all: the field opens prefilled, so the answer flips at
+    // most when it is cleared and typed into again.
+    _title.addListener(() {
+      final canClone = _title.text.trim().isNotEmpty;
+      if (canClone != _canClone) setState(() => _canClone = canClone);
+    });
   }
 
   @override
@@ -181,7 +192,7 @@ class _IssueCloneBodyState extends State<_IssueCloneBody> {
 
   @override
   Widget build(BuildContext context) {
-    final canClone = _title.text.trim().isNotEmpty;
+    final canClone = _canClone;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
