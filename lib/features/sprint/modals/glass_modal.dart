@@ -1409,6 +1409,15 @@ class GlassToastController {
 /// input. Errors and actionable toasts default to 5 s, everything else to
 /// 3.2 s; only one toast is visible at a time (a new one replaces the
 /// current). The returned [GlassToastController] dismisses it early.
+///
+/// [brightness] pins the pill's material to a room instead of to the app.
+/// Leave it null — every ordinary toast should follow the app theme. It exists
+/// for the one caller whose *own* surface does not: a screen that is dark in
+/// both app themes (the attachment viewer) raises its toast into the ROOT
+/// overlay, above its own route, so the toast's context sits outside whatever
+/// `Theme` that screen installed and resolves light glass onto a near-black
+/// stage. Passing `Brightness.dark` there is what keeps the confirmation as
+/// legible as the surface that asked for it.
 GlassToastController showGlassToast(
   BuildContext context,
   String message, {
@@ -1418,6 +1427,7 @@ GlassToastController showGlassToast(
   String? actionLabel,
   VoidCallback? onAction,
   Widget? trailing,
+  Brightness? brightness,
 }) {
   assert(
     trailing == null || actionLabel == null,
@@ -1445,6 +1455,7 @@ GlassToastController showGlassToast(
       actionLabel: hasAction ? actionLabel : null,
       onAction: hasAction ? onAction : null,
       trailing: trailing,
+      brightness: brightness,
       onDone: () {
         // A replacement toast (possibly shown from within our own action
         // handler) may already have removed this entry — never remove twice.
@@ -1473,6 +1484,7 @@ class _GlassToast extends StatefulWidget {
     this.actionLabel,
     this.onAction,
     this.trailing,
+    this.brightness,
   });
 
   final GlassToastController controller;
@@ -1484,6 +1496,10 @@ class _GlassToast extends StatefulWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
   final Widget? trailing;
+
+  /// The room this pill is lit for. Null (the default) follows the ambient
+  /// [Theme] — see [showGlassToast.brightness] for the one caller that doesn't.
+  final Brightness? brightness;
 
   @override
   State<_GlassToast> createState() => _GlassToastState();
@@ -1531,8 +1547,12 @@ class _GlassToastState extends State<_GlassToast>
 
   @override
   Widget build(BuildContext context) {
-    final tokens = SearchTokens.of(Theme.of(context).brightness);
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    // Every colour on the pill comes off this one brightness — the glass fill
+    // *and* the ink that sits on it. Resolving those two from different places
+    // is exactly how a pill ends up dark with dark text on it.
+    final brightness = widget.brightness ?? Theme.of(context).brightness;
+    final tokens = SearchTokens.of(brightness);
+    final dark = brightness == Brightness.dark;
     // On anything wider than a phone the bottom edge of the window is nowhere
     // near where the user is looking, so the toast drops in from the top
     // instead of surfacing in a corner nobody watches. Compact keeps the phone
@@ -1625,7 +1645,11 @@ class _GlassToastState extends State<_GlassToast>
                                 style: TextStyle(
                                   fontSize: 13.5,
                                   height: 1.35,
-                                  color: AppColors.ink,
+                                  // The glass tokens', not `AppColors.ink`:
+                                  // that one reads a global written from the
+                                  // *app* theme, which no [brightness] here
+                                  // could ever override.
+                                  color: tokens.ink,
                                 ),
                               ),
                             ),
