@@ -697,6 +697,8 @@
       "required": "Required",
       "summaryHint": "What the copy is called",
       "include": "Include",
+      "attachments": "Attachments",
+      "attachmentsHint": "Copies the original's files onto the copy. Off, the copy starts with none.",
       "links": "Links",
       "linksHint": "Copies the original's issue links and dependencies. The link back to the original is always created.",
       "sprint": "Sprint values",
