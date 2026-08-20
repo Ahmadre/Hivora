@@ -90,7 +90,7 @@ Future<void> attachFileToIssue(
     if (context.mounted) {
       showGlassErrorToast(
         context,
-        context.t(filePickFailureKey('comments.attachFailed')),
+        context.t(filePickFailureKey('errors.filePickFailed')),
       );
     }
     return;

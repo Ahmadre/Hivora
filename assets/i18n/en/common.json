@@ -91,6 +91,7 @@
       "sendFailed": "The reply couldn't be sent. Please try again."
     },
     "sessionNotPersisted": "Signed in, but this session can't be saved — no keyring is running, so you'll be asked to sign in again after a restart.",
+    "filePickFailed": "Couldn't open the file dialog. Please try again.",
     "filePickerMissing": "Couldn't open the file dialog. Linux needs zenity, qarma or kdialog installed."
   },
   "connect": {
@@ -382,8 +383,7 @@
     "deleteSelectedTitle_plural": "Delete {{count}} comments?",
     "deleteSelectedBody": "This permanently removes it for everyone.",
     "deleteSelectedBody_plural": "This permanently removes {{count}} comments for everyone.",
-    "recorderToolMissing": "Can't record: {{tool}} isn't installed. Linux records via parecord (pulseaudio-utils) and ffmpeg.",
-    "attachFailed": "Couldn't open the file dialog"
+    "recorderToolMissing": "Can't record: {{tool}} isn't installed. Linux records via parecord (pulseaudio-utils) and ffmpeg."
   },
   "camera": {
     "blockedTitle": "No camera available",
@@ -2184,7 +2184,7 @@
           "desc": "New sign-ins, password & email changes"
         }
       },
-      "pushUnsupported": "Not available on this platform — this desktop has no push service",
+      "pushUnsupported": "No push service on this desktop — nothing can be delivered here",
       "unavailable": "Unavailable"
     },
     "access": {

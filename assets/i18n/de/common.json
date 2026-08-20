@@ -90,7 +90,8 @@
       "noSmtp": "Es ist noch kein Mailserver konfiguriert. Bitte wende dich an die Plattform-Admins, um E-Mails senden zu können.",
       "sendFailed": "Die Antwort konnte nicht gesendet werden. Bitte versuche es erneut."
     },
-    "sessionNotPersisted": "Angemeldet, aber diese Sitzung lässt sich nicht speichern — es läuft kein Schlüsselbund. Nach einem Neustart ist eine erneute Anmeldung nötig.",
+    "sessionNotPersisted": "Angemeldet, aber diese Sitzung lässt sich nicht speichern — es läuft kein Schlüsselbunddienst. Nach einem Neustart ist eine erneute Anmeldung nötig.",
+    "filePickFailed": "Der Dateidialog ließ sich nicht öffnen. Bitte versuche es erneut.",
     "filePickerMissing": "Der Dateidialog ließ sich nicht öffnen. Unter Linux werden zenity, qarma oder kdialog benötigt."
   },
   "connect": {
@@ -382,8 +383,7 @@
     "deleteSelectedTitle_plural": "{{count}} Kommentare löschen?",
     "deleteSelectedBody": "Er wird dauerhaft für alle entfernt.",
     "deleteSelectedBody_plural": "{{count}} Kommentare werden dauerhaft für alle entfernt.",
-    "recorderToolMissing": "Aufnahme nicht möglich: {{tool}} ist nicht installiert. Unter Linux wird über parecord (pulseaudio-utils) und ffmpeg aufgenommen.",
-    "attachFailed": "Der Dateidialog ließ sich nicht öffnen"
+    "recorderToolMissing": "Aufnahme nicht möglich: {{tool}} ist nicht installiert. Unter Linux wird über parecord (pulseaudio-utils) und ffmpeg aufgenommen."
   },
   "camera": {
     "blockedTitle": "Keine Kamera verfügbar",
@@ -2184,7 +2184,7 @@
           "desc": "Neue Anmeldungen, Passwort- & E-Mail-Änderungen"
         }
       },
-      "pushUnsupported": "Auf dieser Plattform nicht verfügbar — dieses System bietet keinen Push-Dienst",
+      "pushUnsupported": "Kein Push-Dienst auf diesem System – hier wird nichts zugestellt",
       "unavailable": "Nicht verfügbar"
     },
     "access": {

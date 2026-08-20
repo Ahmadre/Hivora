@@ -103,7 +103,35 @@ void main() {
     expect(response.duration, const Duration(microseconds: 4200000));
   });
 
-  test('a source this plugin cannot play says so instead of playing nothing', () async {
+  test('the playlist just_audio wraps a lone source in still loads', () async {
+    final platform = JustAudioLinux();
+    final player = await platform.init(InitRequest(id: 'p1'));
+
+    // Every AudioPlayer keeps a playlist internally since just_audio 0.10, so
+    // this — not a bare UriAudioSourceMessage — is the shape `setFilePath`
+    // arrives in. Refusing it refused every voice comment on Linux.
+    final response = await player.load(
+      LoadRequest(
+        audioSourceMessage: ConcatenatingAudioSourceMessage(
+          id: 'c1',
+          children: [
+            ProgressiveAudioSourceMessage(
+              id: 's1',
+              uri: 'file:///tmp/voice.m4a',
+            ),
+          ],
+          useLazyPreparation: false,
+          shuffleOrder: const [0],
+        ),
+      ),
+    );
+
+    final args = playerCalls.single.arguments as Map;
+    expect(args['uri'], 'file:///tmp/voice.m4a');
+    expect(response.duration, const Duration(microseconds: 4200000));
+  });
+
+  test('a real playlist is refused, not partly played', () async {
     final platform = JustAudioLinux();
     final player = await platform.init(InitRequest(id: 'p1'));
 
@@ -112,14 +140,44 @@ void main() {
         LoadRequest(
           audioSourceMessage: ConcatenatingAudioSourceMessage(
             id: 'c1',
-            children: [],
+            children: [
+              ProgressiveAudioSourceMessage(id: 's1', uri: 'file:///a.m4a'),
+              ProgressiveAudioSourceMessage(id: 's2', uri: 'file:///b.m4a'),
+            ],
             useLazyPreparation: false,
-            shuffleOrder: const [],
+            shuffleOrder: const [0, 1],
           ),
         ),
       ),
       throwsA(isA<PlatformException>()),
     );
+    expect(playerCalls, isEmpty);
+  });
+
+  test('the modes load() walks through are answered, not thrown', () async {
+    final platform = JustAudioLinux();
+    final player = await platform.init(InitRequest(id: 'p1'));
+
+    // just_audio calls both of these inside every load() and does not catch
+    // what they throw, so the platform interface's UnimplementedError took the
+    // whole load down with it. Off and none are what a single clip played once
+    // already is; anything else would be a promise this plugin cannot keep.
+    await player.setLoopMode(SetLoopModeRequest(loopMode: LoopModeMessage.off));
+    await player.setShuffleMode(
+      SetShuffleModeRequest(shuffleMode: ShuffleModeMessage.none),
+    );
+
+    await expectLater(
+      player.setLoopMode(SetLoopModeRequest(loopMode: LoopModeMessage.all)),
+      throwsA(isA<PlatformException>()),
+    );
+    await expectLater(
+      player.setShuffleMode(
+        SetShuffleModeRequest(shuffleMode: ShuffleModeMessage.all),
+      ),
+      throwsA(isA<PlatformException>()),
+    );
+    // None of it reached the pipeline: there is nothing native to configure.
     expect(playerCalls, isEmpty);
   });
 

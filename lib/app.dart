@@ -197,9 +197,8 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // authenticated route.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = rootNavigatorKey.currentContext;
-      // The overlay comes from the navigator rather than from its context: a
-      // navigator's own context sits above the overlay it owns, so looking one
-      // up from there finds nothing and throws.
+      // The navigator's own overlay, not Overlay.of(context) — showGlassToastIn
+      // carries the reason.
       final overlay = rootNavigatorKey.currentState?.overlay;
       if (context == null || !context.mounted || overlay == null) return;
       showGlassToastIn(
@@ -261,11 +260,11 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
           // stranded the user on the login screen.
           _router.go('/auth-callback?${uri.query}');
         case 'invite':
-          await _openTokenFlow(uri, '/invite');
+          _openTokenFlow(uri, '/invite');
         case 'reset-password':
-          await _openTokenFlow(uri, '/reset-password');
+          _openTokenFlow(uri, '/reset-password');
         case 'verify-email':
-          await _openTokenFlow(uri, '/verify-email');
+          _openTokenFlow(uri, '/verify-email');
       }
       return;
     }
@@ -273,17 +272,18 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // Universal / App Links (https) from the production web domain. Verified
     // against /.well-known/{assetlinks.json,apple-app-site-association}, these
     // carry the same in-app routes as the website (e.g. /issues/MOB-9), so we
-    // forward the path straight to the router. The token flows still need their
-    // server-URL handoff, so they keep going through _openTokenFlow.
+    // forward the path straight to the router. The token flows carry a server
+    // their screen has to consent to before using, so they keep going through
+    // _openTokenFlow.
     if (uri.scheme == 'https' || uri.scheme == 'http') {
       if (uri.path.startsWith('/l/')) {
         await _openRelayLink(uri);
       } else if (uri.path.startsWith('/invite')) {
-        await _openTokenFlow(uri, '/invite');
+        _openTokenFlow(uri, '/invite');
       } else if (uri.path.startsWith('/reset-password')) {
-        await _openTokenFlow(uri, '/reset-password');
+        _openTokenFlow(uri, '/reset-password');
       } else if (uri.path.startsWith('/verify-email')) {
-        await _openTokenFlow(uri, '/verify-email');
+        _openTokenFlow(uri, '/verify-email');
       } else if (uri.path.isNotEmpty && uri.path != '/') {
         _router.go(uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path);
       }
@@ -354,7 +354,7 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   /// way to the route, meant that consent gate was handed a null and never ran
   /// on any deep link at all: `hinata://invite?token=…&server=http://attacker`
   /// switched servers on its own. Passing it on is what makes the gate real.
-  Future<void> _openTokenFlow(Uri uri, String route) async {
+  void _openTokenFlow(Uri uri, String route) {
     final token = uri.queryParameters['token'];
     if (token == null || token.isEmpty) return;
     final server = uri.queryParameters['server'];

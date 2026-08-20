@@ -459,9 +459,17 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
         if (mounted) _toast(context.t('errors.unexpected'));
         return;
       }
+      // Passed on rather than copied. `getBytes` is typed `List<int>` but dio
+      // hands back the `Uint8List` it consolidated the response into, and
+      // `Uint8List.fromList` on that duplicates the whole attachment: a second
+      // buffer the size of the file, alive at the same time as the first, for
+      // no benefit — a 100 MB attachment peaked at 200 MB. Same shape as the
+      // image loader in core/api/api_image.dart, and the fallback still covers
+      // a caller that really did hand over a plain list.
+      final bytes = res.bytes;
       final result = await downloadBytes(
         fileName,
-        Uint8List.fromList(res.bytes),
+        bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
         res.contentType.isEmpty ? (fallbackMime ?? '') : res.contentType,
         sharePositionOrigin: origin,
       );

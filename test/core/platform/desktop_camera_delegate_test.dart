@@ -74,7 +74,10 @@ void main() {
     key.currentState!.pop();
     await tester.pumpAndSettle();
     expect(await result, isNull);
-
+ 
+    // Cleared here, not only in tearDown: testWidgets asserts every
+    // foundation debug variable is back to its default at the end of the
+    // *body*, which runs before tearDown does.
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -96,7 +99,10 @@ void main() {
     key.currentState!.pop();
     await tester.pumpAndSettle();
     expect(await result, isNull);
-
+ 
+    // Cleared here, not only in tearDown: testWidgets asserts every
+    // foundation debug variable is back to its default at the end of the
+    // *body*, which runs before tearDown does.
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -125,6 +131,11 @@ void main() {
     key.currentState!.pop();
     await tester.pumpAndSettle();
     expect(await result, isNull);
+ 
+    // Cleared here, not only in tearDown: testWidgets asserts every
+    // foundation debug variable is back to its default at the end of the
+    // *body*, which runs before tearDown does.
+    debugDefaultTargetPlatformOverride = null;
   });
 
   testWidgets('an available camera opens the capture screen, which reports a '
@@ -157,7 +168,10 @@ void main() {
 
     key.currentState!.pop();
     await tester.pumpAndSettle();
-
+ 
+    // Cleared here, not only in tearDown: testWidgets asserts every
+    // foundation debug variable is back to its default at the end of the
+    // *body*, which runs before tearDown does.
     debugDefaultTargetPlatformOverride = null;
   });
 

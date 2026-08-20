@@ -20,8 +20,15 @@ import 'package:just_audio/just_audio.dart';
 ///
 ///     flutter test integration_test/just_audio_linux_test.dart -d linux
 ///
-/// It needs an audio sink to reach PLAYING — a desktop has one; a container
-/// needs `pulseaudio --start` with a null sink. See docs/LINUX.md.
+/// It needs an audio sink whose clock actually advances. A desktop has one. In
+/// a container `autoaudiosink` may well pick one that does not — an openal or
+/// pipewire sink with nothing behind it reaches PLAYING and then reports
+/// position 0 forever, which fails the position assertion below for reasons
+/// that have nothing to do with this plugin. Start a PulseAudio daemon with a
+/// null sink and put its element in front of the others:
+///
+///     pulseaudio --start
+///     GST_PLUGIN_FEATURE_RANK=pulsesink:MAX flutter test … -d linux
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -36,7 +43,8 @@ void main() {
     if (await file.exists()) await file.delete();
   });
 
-  testWidgets('a file loads, reports its length, and plays', (tester) async {
+  testWidgets('a clip loads with its length, plays, holds where it was paused, '
+      'and lands where it was seeked', (tester) async {
     final player = AudioPlayer();
     addTearDown(player.dispose);
 

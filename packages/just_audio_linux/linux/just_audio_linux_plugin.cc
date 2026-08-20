@@ -18,6 +18,10 @@
 // plumbing around it — a bus watch that turns GStreamer's messages into the
 // events just_audio expects, and a timer so a scrub bar has a position to draw.
 //
+// The channel names, the arguments each method takes and the shape of every
+// event are in this package's README, so the contract is written down once
+// rather than half here and half in the Dart half.
+//
 // Threading: every callback here runs on the GLib main context, which is the
 // thread the Flutter engine dispatches platform messages on. Nothing in this
 // file touches a channel from anywhere else, so there is no lock.
@@ -29,10 +33,11 @@ namespace {
 // not wake the UI thread for nothing.
 constexpr guint kPositionIntervalMs = 200;
 
-// How long load() will wait for the pipeline to pre-roll. Reached only by a
-// file GStreamer cannot make sense of — a local voice comment pre-rolls in
-// milliseconds — and bounded because this runs on the platform thread.
-constexpr GstClockTime kPrerollTimeout = 5 * GST_SECOND;
+// How long load() waits for a pre-roll before it answers anyway. Nothing is
+// blocked while it runs — see Load() — so this is only the point at which a
+// source too slow to have reported its length yet gets answered with "length
+// unknown" instead of leaving the caller's Future open indefinitely.
+constexpr guint kPrerollTimeoutMs = 5000;
 
 // playbin's `flags`, audio only. The values are GstPlayFlags, spelled out here
 // because that enum lives in gst-plugins-base's headers and this plugin links
@@ -103,6 +108,11 @@ class Player {
 
   ~Player() {
     StopTimer();
+    // A load still waiting on this pipeline is answered before the pipeline
+    // goes away, or the Future the Dart side is holding never completes and
+    // the bubble that asked for it spins forever.
+    StopPrerollTimeout();
+    AnswerLoadWithError("disposed", "the player was disposed while loading");
     if (bus_watch_id_ != 0) g_source_remove(bus_watch_id_);
     if (playbin_ != nullptr) {
       gst_element_set_state(playbin_, GST_STATE_NULL);
@@ -202,53 +212,150 @@ class Player {
       return;
     }
 
+    // A load arriving while another is still pre-rolling replaces it: its timer
+    // goes with it (the id below would otherwise be overwritten and the source
+    // left running), and the caller of the first one is still holding an open
+    // Future.
+    StopPrerollTimeout();
+    AnswerLoadWithError("superseded", "a newer load replaced this one");
+
     // NULL first: playbin only takes a new uri from a stopped pipeline, and a
     // bubble can be replayed after another one has already loaded here.
     gst_element_set_state(playbin_, GST_STATE_NULL);
     g_object_set(playbin_, "uri", uri, nullptr);
     completed_ = false;
-    playing_ = false;
     duration_us_ = -1;
+    pending_initial_us_ = IntArg(args, "initialPosition", 0);
 
     Emit(ProcessingState::kLoading, 0);
 
-    // PAUSED, then block until the pipeline has actually reached it: the
-    // duration is what just_audio's load() answers with, and it is not knowable
-    // until the demuxer has read enough of the file to say.
-    gst_element_set_state(playbin_, GST_STATE_PAUSED);
+    // PAUSED is where the duration becomes knowable — the demuxer has to read
+    // enough of the file to say — and the pipeline reaches it on its own
+    // streaming threads, announcing the arrival with ASYNC_DONE on the bus.
+    // This used to wait for that here, with gst_element_get_state(), and that
+    // wait was the single most expensive thing this plugin did: it runs on the
+    // platform thread, which is the thread the GLib main context and every
+    // channel message share, so nothing in the app moved until the pipeline
+    // was ready. Measured in the build container against a warm page cache,
+    // that is 4-5 ms for a voice comment and ~25 ms for the first one in a
+    // session (the audio sink is opened on the way), i.e. a dropped frame or
+    // three on every tap of a play button — and up to the full timeout if the
+    // source is slow, which is a window that cannot be moved, resized or
+    // typed into.
+    //
+    // So the answer is sent from the bus instead. It costs nothing in
+    // latency: every failure shape (garbage, truncated, empty, missing) posts
+    // its error in under 2 ms, sooner than the blocking wait noticed it, and
+    // ASYNC_DONE arrives exactly when get_state() would have returned.
+    prerolling_ = true;
+    pending_load_ = FL_METHOD_CALL(g_object_ref(call));
+    preroll_timeout_id_ =
+        g_timeout_add(kPrerollTimeoutMs, PrerollTimeoutThunk, this);
+
     GstStateChangeReturn change =
-        gst_element_get_state(playbin_, nullptr, nullptr, kPrerollTimeout);
-    if (change == GST_STATE_CHANGE_FAILURE ||
-        change == GST_STATE_CHANGE_ASYNC) {
-      // FAILURE is a file GStreamer could not make sense of; ASYNC is the
-      // pre-roll timeout above expiring with the pipeline still working on it.
-      // Both mean nothing is going to play, and both have to go back to NULL:
-      // a pipeline left half-open holds whatever its source opened for as long
-      // as the player lives, and the next play() would look like it worked.
-      gst_element_set_state(playbin_, GST_STATE_NULL);
-      Emit(ProcessingState::kIdle, 0);
-      g_autoptr(FlMethodResponse) response =
-          FL_METHOD_RESPONSE(fl_method_error_response_new(
-              "load", "GStreamer could not open the audio", nullptr));
-      fl_method_call_respond(call, response, nullptr);
+        gst_element_set_state(playbin_, GST_STATE_PAUSED);
+    if (change == GST_STATE_CHANGE_FAILURE) {
+      // Refused outright — a uri no source element will take. Nothing will
+      // arrive on the bus for this, so it is answered here.
+      FailLoad();
       return;
     }
+    if (change != GST_STATE_CHANGE_ASYNC) {
+      // SUCCESS, or NO_PREROLL for a live source: already where it needs to
+      // be, so there is no ASYNC_DONE coming.
+      FinishPreroll();
+    }
+  }
+
+  // Everything that answers the pending load() goes through here: the Dart
+  // side is awaiting a Future that only a response completes, and a voice
+  // bubble whose load never answers spins for as long as its screen is open.
+  void AnswerLoad(FlMethodResponse* response) {
+    if (pending_load_ == nullptr) return;
+    FlMethodCall* call = pending_load_;
+    pending_load_ = nullptr;
+    fl_method_call_respond(call, response, nullptr);
+    g_object_unref(call);
+  }
+
+  void AnswerLoadWithError(const gchar* code, const gchar* message) {
+    if (pending_load_ == nullptr) return;
+    g_autoptr(FlMethodResponse) response =
+        FL_METHOD_RESPONSE(fl_method_error_response_new(code, message, nullptr));
+    AnswerLoad(response);
+  }
+
+  // The pipeline reached PAUSED: the duration is knowable and playback can
+  // start.
+  void FinishPreroll() {
+    // Cleared first, because the seek below is itself an async state change
+    // and posts its own ASYNC_DONE.
+    prerolling_ = false;
+    StopPrerollTimeout();
 
     gint64 duration = 0;
     if (gst_element_query_duration(playbin_, GST_FORMAT_TIME, &duration) &&
         duration > 0) {
       duration_us_ = duration / GST_USECOND;
     }
-    const gint64 initial = IntArg(args, "initialPosition", 0);
-    if (initial > 0) Seek(initial);
-    Emit(ProcessingState::kReady);
+    const gint64 initial = pending_initial_us_;
+    pending_initial_us_ = 0;
+    if (initial > 0) {
+      Seek(initial);  // emits kReady at the position it was asked for
+    } else {
+      Emit(ProcessingState::kReady);
+    }
 
     // just_audio reads a negative duration as "unknown", which is the honest
     // answer for a stream whose length the demuxer never reported.
     g_autoptr(FlValue) result = fl_value_new_int(duration_us_);
     g_autoptr(FlMethodResponse) response =
         FL_METHOD_RESPONSE(fl_method_success_response_new(result));
-    fl_method_call_respond(call, response, nullptr);
+    AnswerLoad(response);
+  }
+
+  // Nothing is going to play. The pipeline teardown belongs to the caller: the
+  // two places this happens have already done their part of it.
+  void FailLoad() {
+    prerolling_ = false;
+    pending_initial_us_ = 0;
+    StopPrerollTimeout();
+    // Back to NULL: a pipeline left half-open holds whatever its source opened
+    // for as long as the player lives, and the next play() would look like it
+    // worked.
+    gst_element_set_state(playbin_, GST_STATE_NULL);
+    Emit(ProcessingState::kIdle, 0);
+    AnswerLoadWithError("load", "GStreamer could not open the audio");
+  }
+
+  static gboolean PrerollTimeoutThunk(gpointer user_data) {
+    static_cast<Player*>(user_data)->OnPrerollTimeout();
+    return G_SOURCE_REMOVE;
+  }
+
+  // The pre-roll is taking longer than a local file ever should. Deliberately
+  // not treated as a failure: a source that is merely slow is still going to
+  // play, and a pipeline that has not answered is the last thing to drive to
+  // NULL — that transition waits on the very streaming thread that is behind,
+  // and filesrc has no way to interrupt a read. So the caller is told what is
+  // known (nothing, which just_audio reads as an unknown length) and the
+  // pipeline is left to finish; ASYNC_DONE still lands in FinishPreroll and
+  // publishes the real duration when it does.
+  void OnPrerollTimeout() {
+    preroll_timeout_id_ = 0;
+    if (!prerolling_) return;
+    Emit(ProcessingState::kBuffering, 0);
+    g_autoptr(FlValue) result = fl_value_new_int(-1);
+    g_autoptr(FlMethodResponse) response =
+        FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+    AnswerLoad(response);
+  }
+
+  void StopPrerollTimeout() {
+    if (preroll_timeout_id_ != 0) {
+      g_source_remove(preroll_timeout_id_);
+      preroll_timeout_id_ = 0;
+    }
   }
 
   void SetPlaying(bool playing) {
@@ -259,7 +366,6 @@ class Player {
     }
     gst_element_set_state(playbin_,
                           playing ? GST_STATE_PLAYING : GST_STATE_PAUSED);
-    playing_ = playing;
     if (playing) {
       StartTimer();
     } else {
@@ -330,7 +436,14 @@ class Player {
     return nullptr;
   }
 
-  void Emit(ProcessingState state) { Emit(state, CurrentPositionUs()); }
+  void Emit(ProcessingState state) {
+    // Checked here and not only in the overload below, because the argument
+    // would be evaluated first: CurrentPositionUs() walks the pipeline to ask
+    // its sink where it is, and this is the overload the position timer calls
+    // five times a second.
+    if (!listening_) return;
+    Emit(state, CurrentPositionUs());
+  }
 
   void Emit(ProcessingState state, gint64 position_us) {
     if (!listening_) return;
@@ -363,25 +476,39 @@ class Player {
     switch (GST_MESSAGE_TYPE(message)) {
       case GST_MESSAGE_EOS:
         completed_ = true;
-        playing_ = false;
         StopTimer();
         Emit(ProcessingState::kCompleted, duration_us_ > 0 ? duration_us_ : 0);
         break;
       case GST_MESSAGE_ERROR: {
-        // Back to NULL: leaving a failed pipeline in PAUSED would make the next
-        // play() look like it worked.
         g_autoptr(GError) error = nullptr;
         g_autofree gchar* debug = nullptr;
         gst_message_parse_error(message, &error, &debug);
         g_warning("just_audio_linux: %s (%s)",
                   error != nullptr ? error->message : "playback failed",
                   debug != nullptr ? debug : "no detail");
-        gst_element_set_state(playbin_, GST_STATE_NULL);
-        playing_ = false;
         StopTimer();
-        Emit(ProcessingState::kIdle, 0);
+        if (prerolling_) {
+          // This is the pipeline answering the load that was waiting for it —
+          // and it is the fast answer: every unplayable file measured (garbage,
+          // truncated, empty, missing) posts its error within 2 ms.
+          FailLoad();
+        } else {
+          // Back to NULL: leaving a failed pipeline in PAUSED would make the
+          // next play() look like it worked.
+          gst_element_set_state(playbin_, GST_STATE_NULL);
+          Emit(ProcessingState::kIdle, 0);
+        }
         break;
       }
+      case GST_MESSAGE_ASYNC_DONE:
+        // The pipeline finished the state change load() asked for. Also posted
+        // after every flushing seek, which is why it only means anything while
+        // a load is actually in flight.
+        if (prerolling_ &&
+            GST_MESSAGE_SRC(message) == GST_OBJECT_CAST(playbin_)) {
+          FinishPreroll();
+        }
+        break;
       case GST_MESSAGE_DURATION_CHANGED: {
         // Some containers only reveal their length once decoding has started.
         gint64 duration = 0;
@@ -460,8 +587,13 @@ class Player {
   FlEventChannel* events_ = nullptr;
   guint bus_watch_id_ = 0;
   guint timer_id_ = 0;
+  // The load() call that has not been answered yet, if any: a reference is
+  // held on it so it outlives the handler that received it.
+  FlMethodCall* pending_load_ = nullptr;
+  guint preroll_timeout_id_ = 0;
+  gint64 pending_initial_us_ = 0;
+  bool prerolling_ = false;
   gint64 duration_us_ = -1;
-  bool playing_ = false;
   bool completed_ = false;
   bool listening_ = false;
 };
@@ -471,7 +603,14 @@ class Player {
 struct _JustAudioLinuxPlugin {
   GObject parent_instance;
 
-  FlPluginRegistrar* registrar;  // owned by the engine
+  // Referenced, not borrowed. The generated plugin registrant hands this in
+  // under a g_autoptr and drops that reference the moment registration
+  // returns, so a plugin that keeps the bare pointer — as this one did — is
+  // reading freed memory from the first init() onwards. What it reads there is
+  // the messenger every player's two channels are registered on, which is why
+  // the symptom was a player whose channels answered nothing:
+  // MissingPluginException on the first call after init.
+  FlPluginRegistrar* registrar;
   std::map<std::string, std::unique_ptr<Player>>* players;
 };
 
@@ -558,8 +697,11 @@ static void just_audio_linux_plugin_handle_method_call(
 
 static void just_audio_linux_plugin_dispose(GObject* object) {
   JustAudioLinuxPlugin* self = JUST_AUDIO_LINUX_PLUGIN(object);
+  // The players first: their destructors unregister channels on the messenger
+  // the registrar owns.
   delete self->players;
   self->players = nullptr;
+  g_clear_object(&self->registrar);
   G_OBJECT_CLASS(just_audio_linux_plugin_parent_class)->dispose(object);
 }
 
@@ -588,7 +730,7 @@ void just_audio_linux_plugin_register_with_registrar(
 
   JustAudioLinuxPlugin* plugin = JUST_AUDIO_LINUX_PLUGIN(
       g_object_new(just_audio_linux_plugin_get_type(), nullptr));
-  plugin->registrar = registrar;
+  plugin->registrar = FL_PLUGIN_REGISTRAR(g_object_ref(registrar));
 
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   g_autoptr(FlMethodChannel) channel = fl_method_channel_new(

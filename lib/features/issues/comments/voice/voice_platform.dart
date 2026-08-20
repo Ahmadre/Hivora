@@ -1,5 +1,5 @@
-// Platform bridge for voice comments. Two operations differ between native and
-// web and are implemented per platform:
+// Platform bridge for voice comments. The operations below differ between
+// native and web and are implemented once per platform:
 //
 //  • [readRecordedAudio] — after `record` finishes, turn the recorder's output
 //    handle into raw bytes + the real MIME type. Native returns a file path;

@@ -121,7 +121,7 @@ class _HinataImageButtonState extends State<HinataImageButton> {
       if (mounted) {
         showGlassErrorToast(
           context,
-          context.t(filePickFailureKey('errors.unexpected')),
+          context.t(filePickFailureKey('errors.filePickFailed')),
         );
       }
       return;

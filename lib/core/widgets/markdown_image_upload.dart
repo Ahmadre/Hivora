@@ -37,7 +37,7 @@ Future<void> pickAndInsertMarkdownImage(
     if (context.mounted) {
       showGlassErrorToast(
         context,
-        context.t(filePickFailureKey('errors.unexpected')),
+        context.t(filePickFailureKey('errors.filePickFailed')),
       );
     }
     return;
