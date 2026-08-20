@@ -1406,7 +1406,9 @@ class GlassToastController {
 /// action chip (e.g. "Undo", "Retry"); [trailing] instead mounts an arbitrary
 /// widget (e.g. an [IconButton]) in the action slot — its handlers may freely
 /// call [showGlassToast] again or [GlassToastController.close]. With either
-/// the toast stays longer and accepts taps; without it never intercepts
+/// the toast stays longer and accepts taps, and a tap anywhere on the pill
+/// dismisses it (an interactive toast covers what is under it, so there has to
+/// be a way past it that is not "do the thing"); without it never intercepts
 /// input. Errors and actionable toasts default to 5 s, everything else to
 /// 3.2 s; only one toast is visible at a time (a new one replaces the
 /// current). The returned [GlassToastController] dismisses it early.
@@ -1448,6 +1450,9 @@ GlassToastController showGlassToast(
 /// sits *above* the overlay that navigator owns, so [Overlay.of] looks upwards
 /// and finds nothing at all. `navigatorKey.currentState?.overlay` is that
 /// overlay; pass it here.
+///
+/// Same pill and same rules as [showGlassToast], including tap-to-dismiss on
+/// the interactive variants.
 GlassToastController showGlassToastIn(
   OverlayState overlay,
   String message, {
@@ -1640,74 +1645,90 @@ class _GlassToastState extends State<_GlassToast>
                   ),
                 ),
             child: Center(
-              child: Material(
-                color: Colors.transparent,
-                shadowColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: GlassPanelShadow(
-                    radius: BorderRadius.circular(16),
-                    shadows: tokens.panelShadow,
-                    child: GlassContainer(
-                      useOwnLayer: true,
-                      quality: GlassQuality.premium,
-                      clipBehavior: Clip.antiAlias,
-                      shape: const LiquidRoundedSuperellipse(borderRadius: 16),
-                      settings: liquidGlassPanelSettings(
-                        glassFill: tokens.glassFill,
-                        dark: dark,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+              // Tap the pill to send it away. Only reachable when it is
+              // interactive in the first place — an informational toast ignores
+              // pointers entirely — and that is exactly the case that needs it:
+              // an action chip keeps the pill hit-testable for its whole
+              // duration, and on a window narrower than the compact breakpoint
+              // it hangs from the *bottom* edge, over the primary button of
+              // whatever is underneath. Without this, the only way out of a
+              // long actionable toast is to do the thing it offers. The
+              // action's own InkWell sits deeper in the tree, so it wins the
+              // gesture arena and a tap on the label still acts.
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _close,
+                child: Material(
+                  color: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: GlassPanelShadow(
+                      radius: BorderRadius.circular(16),
+                      shadows: tokens.panelShadow,
+                      child: GlassContainer(
+                        useOwnLayer: true,
+                        quality: GlassQuality.premium,
+                        clipBehavior: Clip.antiAlias,
+                        shape: const LiquidRoundedSuperellipse(
+                          borderRadius: 16,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(widget.icon, size: 16, color: widget.tint),
-                            const SizedBox(width: 10),
-                            Flexible(
-                              child: Text(
-                                widget.message,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  height: 1.35,
-                                  // The glass tokens', not `AppColors.ink`:
-                                  // that one reads a global written from the
-                                  // *app* theme, which no [brightness] here
-                                  // could ever override.
-                                  color: tokens.ink,
+                        settings: liquidGlassPanelSettings(
+                          glassFill: tokens.glassFill,
+                          dark: dark,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(widget.icon, size: 16, color: widget.tint),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Text(
+                                  widget.message,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    height: 1.35,
+                                    // The glass tokens', not `AppColors.ink`:
+                                    // that one reads a global written from the
+                                    // *app* theme, which no [brightness] here
+                                    // could ever override.
+                                    color: tokens.ink,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (widget.trailing != null) ...[
-                              const SizedBox(width: 12),
-                              widget.trailing!,
-                            ],
-                            if (widget.actionLabel != null) ...[
-                              const SizedBox(width: 12),
-                              InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: _handleAction,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  child: Text(
-                                    widget.actionLabel!,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.accentStrong,
+                              if (widget.trailing != null) ...[
+                                const SizedBox(width: 12),
+                                widget.trailing!,
+                              ],
+                              if (widget.actionLabel != null) ...[
+                                const SizedBox(width: 12),
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: _handleAction,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    child: Text(
+                                      widget.actionLabel!,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.accentStrong,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),

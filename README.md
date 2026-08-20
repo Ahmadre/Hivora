@@ -127,7 +127,7 @@ flowchart LR
 | **Modals** | wolt_modal_sheet (sheet on phones, dialog on desktop) |
 | **Charts** | fl_chart (burndown, velocity, completion) |
 | **Glass UI** | `liquid_glass_widgets` (ours, tracked from git, MIT) |
-| **Attachments** | file_picker · desktop_drop · cross_file |
+| **Attachments** | file_picker · file_selector (Linux, via the XDG portal) · desktop_drop · cross_file |
 | **Export** | pdf · printing |
 
 ```text

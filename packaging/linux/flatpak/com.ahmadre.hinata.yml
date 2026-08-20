@@ -32,9 +32,9 @@ app-id: com.ahmadre.hinata
 # August with a two-year support window, so 25.08 is supported until Aug 2027,
 # while 26.08 was still at beta.3 when this manifest was written. It is also the
 # runtime that happens to carry almost everything the app shells out to —
-# gtk3, zenity, gstreamer (base/good/bad/ugly/libav), libsecret and ffmpeg are
-# all elements of the platform image (elements/platform.bst upstream), which is
-# why the modules list below is one entry long instead of five.
+# gtk3, gstreamer (base/good/bad/ugly/libav), libsecret and ffmpeg are all
+# elements of the platform image (elements/platform.bst upstream), which is why
+# the modules list below is one entry long instead of five.
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
@@ -67,32 +67,72 @@ finish-args:
   # screen. (The Secret portal is not an alternative here — libsecret uses the
   # service directly.)
   - --talk-name=org.freedesktop.secrets
-  # Attachments. file_picker 8.3.7 has no portal path on Linux: its Linux
-  # implementation is pure Dart and shells out to zenity/qarma/kdialog, which
-  # run INSIDE the sandbox and therefore only ever show the sandbox's view of
-  # the filesystem. So picking a file to upload needs real read access.
+  # The file PICKER needs no filesystem grant at all. The three read-only
+  # directories below are for DRAG & DROP, which is a different mechanism with
+  # a different answer — and keeping those two apart is what this comment is
+  # for, because the permission list is the part of a Flatpak nobody
+  # re-derives.
   #
-  # The user's document folders, and deliberately NOT `home:ro`. Read access to
-  # the whole home directory is read access to ~/.ssh, ~/.gnupg, the browser
-  # profiles and every dotfile besides — none of which is ever an attachment,
-  # and all of which a single memory-safety bug in something this app decodes
-  # (a GStreamer voice comment, a pdfium preview, an image) would be able to
-  # reach and upload. The sandbox is what stands between a bad attachment and
-  # the user's keys, and `home:ro` removes most of it in exchange for being
-  # able to pick a file out of a folder XDG does not name. Someone who keeps
-  # attachments somewhere else can copy them into one of these.
+  # Picking used to go through file_picker, whose Linux "implementation" is
+  # pure Dart: it shells out to zenity, qarma or kdialog. Those ran INSIDE the
+  # sandbox and could therefore only ever show the sandbox's view of the
+  # filesystem, so the app had to be handed real read access to wherever
+  # documents live, and anything the user kept elsewhere was unreachable.
+  #
+  # Picking now goes through file_selector_linux (see
+  # lib/core/util/file_pick.dart), which calls gtk_file_chooser_native_new.
+  # Inside a Flatpak GTK detects the sandbox unconditionally — /.flatpak-info
+  # exists, so gdk_should_use_portal() is true with no environment variable
+  # involved — and routes the call to the XDG FileChooser portal. The dialog is
+  # then drawn by the HOST, browses the host's filesystem, and hands back one
+  # file through the document portal, mounted into the sandbox at
+  # /run/user/<uid>/doc/<hash>/<name>. The app sees exactly the file the user
+  # chose and nothing else — stricter than any directory grant, and wider in
+  # reach: a file in ~/projects or on a mounted share is now attachable, which
+  # it never was before.
+  #
+  # Drag & drop reaches the app by a different road and touches no portal at
+  # all. desktop_drop's Linux plugin registers plain URI targets
+  # (gtk_drag_dest_add_uri_targets) and reads the raw selection, so a file
+  # dragged out of the host's file manager arrives as the host path it always
+  # had — /home/<user>/Documents/report.pdf — with nothing remapping it into
+  # the sandbox. (GTK's FileTransfer portal exists to do exactly that; the
+  # plugin does not negotiate it.) Such a path resolves inside the sandbox only
+  # where a grant mounts it, so with no grants every drop out of the file
+  # manager fails on its first read. These three are the folders a drag
+  # realistically starts in, and they are kept for that alone:
   - --filesystem=xdg-documents:ro
   - --filesystem=xdg-pictures:ro
   - --filesystem=xdg-desktop:ro
   #
-  # (Photo/video picking is different and needs nothing: image_picker_linux goes
-  # through file_selector_linux, i.e. GtkFileChooserNative, which the portal
-  # takes over automatically when sandboxed.)
+  # They pay for one more thing worth naming. gtk_file_chooser_native_show
+  # falls back to an in-process GtkFileChooserDialog when no
+  # xdg-desktop-portal implementation is running — a bare window manager, a
+  # stripped-down session — silently, with no error. That fallback dialog
+  # browses the SANDBOX, so with zero grants it would list an empty tree and no
+  # file could be chosen: the invisible dead end this whole change was made to
+  # remove, back in a new costume. With these three it shows what it always
+  # showed. The snap keeps its `home` plug for the same two reasons — and for a
+  # third, the download below, which gets its own line here and has no
+  # per-directory equivalent there; see snap/snapcraft.yaml.
+  #
+  # Still deliberately NOT --filesystem=home:ro (or :rw, or host). Read access
+  # to a home directory is read access to ~/.ssh, ~/.gnupg and every browser
+  # profile — none of which is ever an attachment, and all of which a single
+  # memory-safety bug in something this app decodes (a GStreamer voice comment,
+  # a pdfium preview, an image) would otherwise be able to reach and upload.
+  # Nothing is lost by drawing the line here: a file outside these folders is
+  # still attachable through the button, because that goes through the portal.
+  #
+  # (Photo/video picking always worked this way: image_picker_linux has gone
+  # through file_selector_linux all along. The file picker has simply caught
+  # up with it.)
   #
   # Downloads are the one thing the app writes: share_plus throws
   # UnimplementedError for files on Linux, so a downloaded attachment is written
   # straight into the XDG Downloads directory. `create` so a machine without one
-  # still works.
+  # still works. It doubles as the fourth drag & drop source, which is why
+  # dropping a just-downloaded file works without a `:ro` twin above.
   - --filesystem=xdg-download:create
   #
   # Deliberately NOT granted:
@@ -102,9 +142,13 @@ finish-args:
   #     permission would sit in the app's permission list doing nothing.
   #   --device=all / --device=camera — `camera` has no Linux implementation,
   #     so webcam capture is not offered on this platform.
-  #   --filesystem=host / --filesystem=home — see the xdg-* entries above; the
-  #     picker only needs to read the folders documents actually live in, and
-  #     neither system paths nor the user's dotfiles are an attachment source.
+  #   --filesystem=host / --filesystem=home / any wider read grant — see the
+  #     long note above: the picker goes through the FileChooser portal and is
+  #     handed the one file the user chose, and drag & drop is served by the
+  #     three XDG directories a drag comes from. Widening this buys a drop from
+  #     ~/projects and costs every secret in the home directory; a machine that
+  #     genuinely wants that trade can make it locally with
+  #     `flatpak override --user --filesystem=~/projects:ro com.ahmadre.hinata`.
 
 modules:
   # record_linux 1.3.1 records by piping `parecord` into `ffmpeg`, and also

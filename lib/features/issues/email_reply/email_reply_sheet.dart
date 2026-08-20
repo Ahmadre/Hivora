@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart' show MultipartFile;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,7 +10,7 @@ import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/i18n/i18n.dart';
-import '../../../core/util/file_pick_failure.dart';
+import '../../../core/util/file_pick.dart';
 import '../../../core/models/work_models.dart';
 import '../../../core/repositories/issue_repository.dart';
 import '../../../core/theme/app_colors.dart';
@@ -508,9 +507,10 @@ class EmailReplyComposerState extends State<EmailReplyComposer> {
   }
 
   Future<void> _pick() async {
-    final FilePickerResult? result;
+    final List<ChosenFile> result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await pickFilesToUpload(
+        context,
         allowMultiple: true,
         withData: kIsWeb, // web has no path; bytes are required
       );
@@ -518,14 +518,15 @@ class EmailReplyComposerState extends State<EmailReplyComposer> {
       if (mounted) {
         showGlassErrorToast(
           context,
-          context.t(filePickFailureKey('issues.attachments.pickFailed')),
+          context.t('issues.attachments.pickFailed'),
         );
       }
       return;
     }
-    if (result == null || !mounted) return;
+    // An empty list means cancelled — nothing to report.
+    if (result.isEmpty || !mounted) return;
     // Show every chip immediately (as uploading)…
-    final pending = [for (final f in result.files) (_Draft(f.name), f)];
+    final pending = [for (final f in result) (_Draft(f.name), f)];
     _set(() => _drafts.addAll(pending.map((e) => e.$1)));
     // …then upload them one at a time. The endpoint returns the whole issue and
     // we read the new id off `attachments.last`, so concurrent uploads would
@@ -537,7 +538,7 @@ class EmailReplyComposerState extends State<EmailReplyComposer> {
     }
   }
 
-  Future<void> _upload(_Draft draft, PlatformFile file) async {
+  Future<void> _upload(_Draft draft, ChosenFile file) async {
     try {
       final multipart = kIsWeb || file.path == null
           ? MultipartFile.fromBytes(file.bytes ?? const [], filename: file.name)

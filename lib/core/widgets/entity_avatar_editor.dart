@@ -1,10 +1,10 @@
 import 'package:dio/dio.dart' show MultipartFile;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../i18n/i18n.dart';
+import '../util/file_pick.dart';
 import '../theme/app_colors.dart';
 import '../../features/account/account_modals.dart'
     show AvatarAction, showAvatarActions;
@@ -135,7 +135,7 @@ class _EntityAvatarFieldState extends State<EntityAvatarField> {
   }
 
   Future<void> _upload() async {
-    final file = await pickImageMultipart();
+    final file = await pickImageMultipart(context);
     if (file == null) return;
     if (!mounted) return;
 
@@ -230,18 +230,21 @@ class _EntityAvatarFieldState extends State<EntityAvatarField> {
 ///
 /// Web has no file path, so bytes are requested there and only there — reading
 /// bytes on mobile would pull the whole image into memory for nothing.
-Future<MultipartFile?> pickImageMultipart() async {
-  FilePickerResult? picked;
+Future<MultipartFile?> pickImageMultipart(BuildContext context) async {
+  final List<ChosenFile> picked;
   try {
-    picked = await FilePicker.platform.pickFiles(
-      type: FileType.image,
+    picked = await pickFilesToUpload(
+      context,
+      kind: FilePickKind.image,
       withData: kIsWeb,
     );
   } catch (_) {
     return null;
   }
-  if (picked == null || picked.files.isEmpty) return null;
-  final file = picked.files.first;
+  // An empty list is a cancelled dialog; the catch above is one that would not
+  // open. This field reports neither — the avatar stays what it was.
+  if (picked.isEmpty) return null;
+  final file = picked.first;
   if (kIsWeb) {
     final bytes = file.bytes;
     return bytes == null

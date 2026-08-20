@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart' show MultipartFile;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,7 +21,7 @@ import '../../core/notifications/fcm_service.dart'
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/util/file_pick_failure.dart';
+import '../../core/util/file_pick.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/hex_mark.dart';
@@ -202,23 +201,21 @@ class _AccountScreenState extends State<AccountScreen> {
     final updated = context.t('account.avatar.updated');
     final failed = context.t('account.avatar.failed');
 
-    final pickFailed = context.t(filePickFailureKey('account.avatar.failed'));
-
-    final FilePickerResult? picked;
+    final List<ChosenFile> picked;
     try {
-      picked = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+      picked = await pickFilesToUpload(
+        context,
+        kind: FilePickKind.image,
         withData: kIsWeb,
       );
     } catch (_) {
-      // A dialog that cannot open used to throw straight past this screen. It
-      // is the one failure here the user can fix themselves — on Linux the
-      // picker is an external program that may simply not be installed.
-      if (mounted) _toast(pickFailed, kind: GlassToastKind.error);
+      // A dialog that cannot open used to throw straight past this screen.
+      if (mounted) _toast(failed, kind: GlassToastKind.error);
       return;
     }
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
+    // An empty list means cancelled — nothing to report.
+    if (picked.isEmpty) return;
+    final file = picked.first;
     final multipart = kIsWeb
         ? (file.bytes == null
               ? null

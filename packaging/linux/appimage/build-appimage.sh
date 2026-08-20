@@ -25,10 +25,13 @@
 #
 #   * glibc at least as new as the build machine's (build on the oldest
 #     distribution you intend to support — CI uses ubuntu-22.04, glibc 2.35)
-#   * GTK 3, and the GTK/GDK stack around it
+#   * GTK 3, and the GTK/GDK stack around it — which is also the file dialog:
+#     file_selector_linux calls gtk_file_chooser_native_new, and an AppImage
+#     runs unsandboxed, so GTK draws its own chooser and no helper program is
+#     involved. zenity/kdialog used to be listed here because file_picker's
+#     Linux implementation shelled out to them; nothing does any more.
 #   * libsecret + a running secret service, or the app cannot keep a session
 #   * gstreamer1.0-plugins-base/good/bad — voice playback
-#   * zenity or kdialog — the attachment file picker
 #   * pulseaudio-utils and ffmpeg — voice recording
 #
 # Every one of those is present on a normal desktop install; see docs/LINUX.md

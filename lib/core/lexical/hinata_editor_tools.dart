@@ -8,7 +8,6 @@
 library;
 
 import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,7 +18,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/api_client.dart';
 import '../i18n/i18n.dart';
 import '../repositories/media_repository.dart';
-import '../util/file_pick_failure.dart';
+import '../util/file_pick.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../../features/knowledge/data/knowledge_models.dart' show lucideIcon;
@@ -107,27 +106,29 @@ class _HinataImageButtonState extends State<HinataImageButton> {
   Future<void> _pick() async {
     final repo = context.read<MediaRepository>();
 
-    FilePickerResult? picked;
+    final List<ChosenFile> picked;
     try {
-      picked = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        // Web has no file path, so the bytes are always needed; harmless
-        // everywhere else.
-        withData: true,
+      picked = await pickFilesToUpload(
+        context,
+        kind: FilePickKind.image,
+        // Bytes only where there is no path to upload from. Asking for them
+        // everywhere used to be free with file_picker, which read them on the
+        // platform side anyway; Linux now goes through file_selector, where
+        // `withData` means an extra full read of a file this code then uploads
+        // from its path regardless — twice the peak memory, and a read error on
+        // a flaky share turned into "couldn't open the file dialog".
+        withData: kIsWeb,
       );
     } on Object {
-      // Silence here reads as a dead toolbar button; on Linux the dialog is an
-      // external program that may not be installed at all.
+      // Silence here reads as a dead toolbar button.
       if (mounted) {
-        showGlassErrorToast(
-          context,
-          context.t(filePickFailureKey('errors.filePickFailed')),
-        );
+        showGlassErrorToast(context, context.t('errors.filePickFailed'));
       }
       return;
     }
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
+    // An empty list means cancelled, which is not worth a word.
+    if (picked.isEmpty) return;
+    final file = picked.first;
 
     MultipartFile multipart;
     if (!kIsWeb && (file.path?.isNotEmpty ?? false)) {
