@@ -61,15 +61,17 @@
     <p xml:lang="de">Die Oberfläche gibt es auf Deutsch und Englisch.</p>
     <p>Some capabilities differ on Linux from the other desktops:</p>
     <p xml:lang="de">Einige Funktionen verhalten sich unter Linux anders als auf den anderen Desktops:</p>
+    <!-- One list, with each item translated in place. A second <ul> carrying
+         xml:lang is how one would translate a whole enumeration at once, and
+         appstreamcli rejects exactly that (description-enum-group-translated):
+         MetaInfo translates the <li/> elements, not the group around them. -->
     <ul>
       <li>Push notifications are not available — Firebase has no Linux client, so notifications arrive by e-mail and in the app itself.</li>
+      <li xml:lang="de">Push-Benachrichtigungen gibt es nicht — Firebase hat keinen Linux-Client; Benachrichtigungen kommen per E-Mail und in der App an.</li>
       <li>Capturing a photo or video from a webcam is not available; existing files can be attached as usual.</li>
+      <li xml:lang="de">Foto- und Videoaufnahmen über eine Webcam sind nicht möglich; vorhandene Dateien lassen sich wie gewohnt anhängen.</li>
       <li>Recording a voice comment needs PulseAudio and FFmpeg on the system.</li>
-    </ul>
-    <ul xml:lang="de">
-      <li>Push-Benachrichtigungen gibt es nicht — Firebase hat keinen Linux-Client; Benachrichtigungen kommen per E-Mail und in der App an.</li>
-      <li>Foto- und Videoaufnahmen über eine Webcam sind nicht möglich; vorhandene Dateien lassen sich wie gewohnt anhängen.</li>
-      <li>Für Sprachnachrichten werden PulseAudio und FFmpeg auf dem System benötigt.</li>
+      <li xml:lang="de">Für Sprachnachrichten werden PulseAudio und FFmpeg auf dem System benötigt.</li>
     </ul>
   </description>
 
@@ -118,12 +120,30 @@
   </content_rating>
 
   <!--
-    Flathub additionally requires at least one <screenshot> with a publicly
-    reachable image URL. There is no hosted Linux screenshot yet (the shots in
-    docs/screenshots are device-framed mobile/desktop store assets), so the
-    element is deliberately absent rather than pointed at a URL that 404s.
-    Add it before a Flathub submission; nothing else here blocks a local build.
+    Referenced by commit, not by branch: Flathub mirrors these to its own media
+    server at build time, and a branch URL would let the image drift away from
+    the one that was reviewed. Exactly one screenshot carries type="default" —
+    a missing default is a warning, and Flathub treats AppStream warnings as
+    fatal. No xml:lang on the images: tagging the only image with a locale is
+    an error of its own (screenshot-image-no-source-but-en-locale).
   -->
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/hinata-platform/hinata-app/fc38c648899202c09e71e83fb0199230078b0dae/docs/screenshots/linux/dashboard.png</image>
+      <caption>The dashboard, with the active sprint and today's work</caption>
+      <caption xml:lang="de">Das Dashboard mit dem laufenden Sprint und der Arbeit des Tages</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/hinata-platform/hinata-app/fc38c648899202c09e71e83fb0199230078b0dae/docs/screenshots/linux/sprint-planning.png</image>
+      <caption>Planning a sprint, with capacity and story points</caption>
+      <caption xml:lang="de">Sprint-Planung mit Kapazität und Story Points</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/hinata-platform/hinata-app/fc38c648899202c09e71e83fb0199230078b0dae/docs/screenshots/linux/boards.png</image>
+      <caption>Scrum and Kanban boards across projects</caption>
+      <caption xml:lang="de">Scrum- und Kanban-Boards über Projekte hinweg</caption>
+    </screenshot>
+  </screenshots>
 
   <releases>
     <release version="10.1.0" date="2026-08-20">
