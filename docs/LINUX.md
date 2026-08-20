@@ -166,8 +166,10 @@ access rather than relying on the portal (see the manifest's comments).
 `zenity` is installed by default on Ubuntu, Fedora Workstation and most GNOME
 spins; `kdialog` comes with Plasma.
 
-**What the user sees when neither is installed:** the picker never opens and the
-upload silently does not start.
+**What the user sees when neither is installed:** every place that opens a file
+dialog — attachments, comment attachments, the editor's image button, avatars,
+the org logo, e-mail replies — reports it, and on Linux names the three programs
+to install. Four of those used to fail in silence, which reads as a dead button.
 
 Photo/video picking is a different code path and needs nothing extra:
 `image_picker_linux` delegates to `file_selector_linux`, which is
@@ -178,6 +180,10 @@ the app is sandboxed.
 
 `record_linux` 1.3.1 does not link an audio library; it pipes `parecord` (from
 `pulseaudio-utils`) into `ffmpeg`, and calls `pactl` to enumerate input devices.
+Both programs are looked up on `PATH` before capture starts, and the missing one
+is named — `record_linux` awaits only the first of the two, so an absent FFmpeg
+would otherwise surface as a recording that produced nothing, minutes after the
+user started talking.
 AAC is supported, so a Linux recording plays back on every other platform.
 
 **What the user sees when the tools are missing:** the recorder fails to start.
@@ -199,8 +205,17 @@ recorded and then never played. `packages/just_audio_linux` fills that hole with
 GStreamer's `playbin` — see its README for the design.
 
 ```bash
-sudo apt install gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+sudo apt install gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+                 gstreamer1.0-plugins-bad gstreamer1.0-libav
 ```
+
+`gstreamer1.0-libav` is not optional: the recorder produces AAC in an MP4
+container on every desktop platform, and `avdec_aac` is the decoder for it.
+`plugins-good` supplies the demuxer (`qtdemux`) but no AAC decoder, so leaving
+libav out gives you a bubble that loads and then cannot play — the one shape of
+failure this list exists to prevent. (Verified by listing the elements a normal
+install actually provides: `playbin`, `wavparse`, `qtdemux`, `avdec_aac`,
+`opusdec`, `pulsesink`.)
 
 **What the user sees when they are missing:** playback fails with a message that
 names the missing package, rather than a play button that does nothing.
@@ -305,8 +320,8 @@ Runtime dependencies beyond GTK itself, all present on a normal desktop:
 | `libsecret-1-0` + a keyring (`gnome-keyring`, KWallet) | staying signed in | signed out on next launch |
 | `zenity` or `kdialog` | attachment file picker | picker never opens |
 | `pulseaudio-utils`, `ffmpeg` | recording a voice comment | recorder does not start |
-| `gstreamer1.0-plugins-base/good/bad` | playing a voice comment | playback error naming the package |
-| `xdg-user-dirs` | locating Downloads and the app's state directory | the app falls back to `~/Downloads` and to the application-support directory on its own |
+| `gstreamer1.0-plugins-base/good/bad`, `gstreamer1.0-libav` | playing a voice comment | base missing: an error naming the package. libav missing: recorded AAC will not decode |
+| `xdg-user-dirs` | locating the Downloads folder | the app falls back to `~/Downloads` and creates it |
 
 ### Installing by hand
 

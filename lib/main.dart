@@ -125,19 +125,27 @@ Future<void> main(List<String> args) async {
 
 /// Where HydratedBloc keeps its state.
 ///
-/// The documents directory wherever it exists: that is where this app's
-/// hydrated state has always lived, and moving it would silently reset every
-/// stored filter and preference for everyone already using it.
+/// The documents directory on every platform that has had it: that is where
+/// this app's hydrated state has always lived, and moving it would silently
+/// reset every stored filter and preference for everyone already using it.
 ///
-/// On Linux it may not exist at all. `path_provider` resolves that directory
-/// through the XDG user directories, and a desktop without xdg-user-dirs
-/// configured — a minimal window manager, a container, a freshly created
-/// account — simply has none, so the lookup throws before the app has drawn a
-/// single frame. It took down the whole launch, which is exactly the kind of
-/// failure a new platform must not ship with. The application-support directory
-/// is the dependable answer there (path_provider creates it if it is missing),
-/// and Linux is new enough that there is nothing to migrate.
+/// Linux is the exception, and always uses the application-support directory,
+/// because "the documents folder" is the wrong answer there twice over. It is
+/// resolved through the XDG user directories, so a desktop without
+/// xdg-user-dirs configured — a minimal window manager, a container, a freshly
+/// created account — has none at all and the lookup throws before the app has
+/// drawn a frame. And under Flatpak the app is only granted the user's
+/// documents *read-only*, so even where the lookup succeeds the first write
+/// would not. Application support is XDG_DATA_HOME, which path_provider creates
+/// if it is missing and the sandbox always makes writable; Linux is new enough
+/// that there is nothing there to migrate.
+///
+/// The catch stays for the platforms that do use documents: none of them is
+/// expected to fail, and falling back beats refusing to start.
 Future<Directory> _stateDirectory() async {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+    return getApplicationSupportDirectory();
+  }
   try {
     return await getApplicationDocumentsDirectory();
   } on MissingPlatformDirectoryException {

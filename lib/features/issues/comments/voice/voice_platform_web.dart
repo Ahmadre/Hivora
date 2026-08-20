@@ -6,6 +6,9 @@ import 'package:web/web.dart' as web;
 /// Web: `record` manages its own storage and ignores the path — no dir needed.
 Future<String> recorderTempDir() async => '';
 
+/// Web: never — nothing is shelled out to.
+String? missingRecorderDependency() => null;
+
 /// Web: never. The browser's MediaRecorder is in-process — there is no helper
 /// program that could be missing.
 String? missingRecorderTool(Object error) => null;

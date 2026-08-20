@@ -59,6 +59,39 @@ class _VoiceBubbleState extends State<VoiceBubble> {
     fallbackDuration: widget.voice.duration,
   );
 
+  /// Whether the current failure has already been put into words, so a retry
+  /// that fails the same way does not stack a second identical toast.
+  bool _explained = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_explainFailure);
+  }
+
+  /// Says *why* a bubble refuses to play, once.
+  ///
+  /// The button already flips to a retry glyph, which shows that something went
+  /// wrong and nothing about what. Only one failure is worth spelling out, and
+  /// it is the one a user can fix: a Linux desktop without GStreamer's base
+  /// plugins cannot build a pipeline at all, and that is one package away from
+  /// working.
+  void _explainFailure() {
+    if (!_controller.failed) {
+      _explained = false;
+      return;
+    }
+    final key = _controller.failureKey;
+    if (key == null || _explained) return;
+    _explained = true;
+    // After the frame: this runs from the controller's own notification, and
+    // the toast inserts itself into an overlay that is about to rebuild for
+    // the same notification.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) showGlassErrorToast(context, context.t(key));
+    });
+  }
+
   @override
   void didUpdateWidget(VoiceBubble old) {
     super.didUpdateWidget(old);
@@ -67,16 +100,19 @@ class _VoiceBubbleState extends State<VoiceBubble> {
     // rebuild the controller so a fresh, idle player fetches the new clip
     // instead of replaying the previous comment's audio.
     if (old.voice != widget.voice || old.loader != widget.loader) {
+      _controller.removeListener(_explainFailure);
       _controller.dispose();
       _controller = VoicePlaybackController(
         loader: widget.loader,
         fallbackDuration: widget.voice.duration,
-      );
+      )..addListener(_explainFailure);
+      _explained = false;
     }
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_explainFailure);
     _controller.dispose();
     super.dispose();
   }

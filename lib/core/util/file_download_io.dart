@@ -4,7 +4,8 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
-import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kDebugMode, visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -183,6 +184,11 @@ bool _isFree(Directory directory, String name) =>
 ///    nothing legitimate puts them in a file name.
 ///  * **Length.** A name past the file system's limit fails the write outright,
 ///    which would let a server turn a download into a dead button.
+/// The sanitiser, exposed for tests: it decides what a server-supplied name
+/// may become on disk and in the toast, which is worth pinning directly.
+@visibleForTesting
+String safeDownloadName(String filename) => _safeName(filename);
+
 String _safeName(String filename) {
   final stripped = filename.replaceAll(_unsafeNameCharacters, '_').trim();
   if (stripped.isEmpty || _onlyDots.hasMatch(stripped)) return 'download';

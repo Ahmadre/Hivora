@@ -203,8 +203,12 @@ class Player {
     // wrote itself (createPlayableSource in the app writes the downloaded
     // bytes and passes back that file's URI), so anything else is either a bug
     // or a caller that should not be trusted, and both stop here.
+    // Compared as a literal prefix rather than with gst_uri_has_protocol,
+    // which only compares as many characters as the URI's own scheme has — so
+    // "f://x" and "fil://x" both pass it as "file".
     const gchar* uri = fl_value_get_string(uri_value);
-    if (!gst_uri_is_valid(uri) || !gst_uri_has_protocol(uri, "file")) {
+    if (!gst_uri_is_valid(uri) ||
+        g_ascii_strncasecmp(uri, "file://", strlen("file://")) != 0) {
       g_autoptr(FlMethodResponse) response =
           FL_METHOD_RESPONSE(fl_method_error_response_new(
               "invalid", "just_audio_linux plays file:// URIs only", nullptr));
@@ -381,9 +385,13 @@ class Player {
     // conversion to nanoseconds below wraps around above kMaxPositionUs.
     if (position_us < 0) position_us = 0;
     if (position_us > kMaxPositionUs) position_us = kMaxPositionUs;
+    // ACCURATE, not KEY_UNIT: KEY_UNIT snaps to the nearest earlier keyframe,
+    // which for a compressed audio stream can be a second or more before where
+    // the user let go of the scrub handle — and the position reported back is
+    // the one they asked for, so the bar and the sound would disagree.
     gst_element_seek_simple(
         playbin_, GST_FORMAT_TIME,
-        static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT),
+        static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE),
         position_us * GST_USECOND);
     completed_ = false;
     // From the requested position, not from a query: right after a flushing

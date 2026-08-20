@@ -1097,7 +1097,7 @@ class _AccountScreenState extends State<AccountScreen> {
           LucideIcons.smartphone,
           prefs.pushEnabled,
           (v) => _onTogglePrefs(prefs.copyWith(pushEnabled: v)),
-          unavailable: !pushSupportedOnThisPlatform,
+          undeliverableHere: !pushSupportedOnThisPlatform,
         ),
         const SizedBox(height: 8),
         if (context.isCompact)
@@ -1110,39 +1110,33 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  /// One channel's master switch, or — where the platform cannot deliver that
-  /// channel at all — a plain statement that it cannot.
+  /// One channel's master switch.
   ///
-  /// [unavailable] deliberately leaves the stored preference alone and only
-  /// changes what is shown: the same account is used from a phone, and a Linux
-  /// session must not turn push off for the devices that do receive it.
+  /// [undeliverableHere] says the *device* cannot receive this channel — Linux
+  /// and the web build have no push service — and changes only the sentence
+  /// under the label. The switch stays live and the stored value is untouched
+  /// on purpose: these preferences belong to the account, not to this device,
+  /// and the phone in the user's pocket is the thing they actually govern.
+  /// Disabling the controls here would have let a desktop session quietly turn
+  /// push off everywhere.
   Widget _channelMaster(
     String label,
     IconData icon,
     bool value,
     ValueChanged<bool> onChanged, {
-    bool unavailable = false,
+    bool undeliverableHere = false,
   }) {
     return SettingRow(
       label: label,
-      description: unavailable
+      description: undeliverableHere
           ? context.t('account.notifications.pushUnsupported')
           : value
           ? context.t('account.notifications.channelOn')
           : context.t('account.notifications.channelOff'),
       icon: icon,
-      trailing: unavailable
-          ? AccountPill(label: context.t('account.notifications.unavailable'))
-          : HiveSwitch(value: value, onChanged: onChanged),
+      trailing: HiveSwitch(value: value, onChanged: onChanged),
     );
   }
-
-  /// Whether the push column is live: the account has push on *and* this
-  /// platform can actually receive it. Every push cell reads this, so a
-  /// platform without push shows its switches greyed out rather than inviting
-  /// the user to configure something that will never arrive.
-  bool get _pushDeliverable =>
-      pushSupportedOnThisPlatform && (_prefs?.pushEnabled ?? false);
 
   Widget _matrixHeader() {
     return Padding(
@@ -1225,7 +1219,7 @@ class _AccountScreenState extends State<AccountScreen> {
           _matrixCell(
             locked: e.locked,
             value: pair.push,
-            enabled: _pushDeliverable,
+            enabled: _prefs!.pushEnabled,
             onChanged: (v) => _setChannel(e.id, push: v),
           ),
         ],
@@ -1332,7 +1326,7 @@ class _AccountScreenState extends State<AccountScreen> {
           channel(
             context.t('account.notifications.colPush'),
             pair.push,
-            _pushDeliverable,
+            _prefs!.pushEnabled,
             (v) => _setChannel(e.id, push: v),
           ),
         ],

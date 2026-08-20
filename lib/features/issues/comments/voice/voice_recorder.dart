@@ -76,6 +76,12 @@ class VoiceRecorder {
       sampleRate: 44100,
       numChannels: 1,
     );
+    // Before anything is opened: `record` cannot report a missing helper it
+    // never waits for, and a recording that turns out to be impossible after
+    // the user has finished talking is the worst moment to find out.
+    final missing = platform.missingRecorderDependency();
+    if (missing != null) throw MissingRecorderTool(missing);
+
     // Native needs a target path; web ignores it and returns a blob URL on stop.
     try {
       await _recorder.start(config, path: kIsWeb ? '' : await _tempPath());

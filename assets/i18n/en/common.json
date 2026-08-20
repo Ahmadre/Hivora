@@ -383,7 +383,8 @@
     "deleteSelectedTitle_plural": "Delete {{count}} comments?",
     "deleteSelectedBody": "This permanently removes it for everyone.",
     "deleteSelectedBody_plural": "This permanently removes {{count}} comments for everyone.",
-    "recorderToolMissing": "Can't record: {{tool}} isn't installed. Linux records via parecord (pulseaudio-utils) and ffmpeg."
+    "recorderToolMissing": "Can't record: {{tool}} isn't installed. Linux records via parecord (pulseaudio-utils) and ffmpeg.",
+    "voiceNeedsGstreamer": "This voice message can't play: GStreamer's base plugins are missing. Install gstreamer1.0-plugins-base."
   },
   "camera": {
     "blockedTitle": "No camera available",
@@ -2184,8 +2185,7 @@
           "desc": "New sign-ins, password & email changes"
         }
       },
-      "pushUnsupported": "No push service on this desktop — nothing can be delivered here",
-      "unavailable": "Unavailable"
+      "pushUnsupported": "No push service here — this still applies to your phone and your other devices"
     },
     "access": {
       "title": "Access",

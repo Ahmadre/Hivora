@@ -40,6 +40,16 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # The Linux audio plugin is a package of its own, and analysis_options.yaml
+      # excludes packages/ — so the two commands above never see it. Its Dart
+      # half is the contract between the app and ~500 lines of C++, which is
+      # exactly the code that should not be the only thing nobody checks.
+      - name: Analyze and test the Linux audio plugin
+        working-directory: packages/just_audio_linux
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
 
   build-web:
     name: Build Web

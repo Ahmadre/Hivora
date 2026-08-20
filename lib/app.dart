@@ -19,6 +19,7 @@ import 'core/repositories/repositories.dart';
 import 'core/router/app_router.dart';
 import 'core/router/relay_link.dart';
 import 'core/storage/app_storage.dart';
+import 'core/util/server_link.dart' show knownServers, normalizeServerLink;
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'features/knowledge/data/knowledge_repository.dart';
@@ -304,8 +305,42 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // that same `catch`, which turned any failure on the way to the screen into
     // a link that silently did nothing at all.
     if (link == null) return;
-    await _selectServer(link.server);
+
+    // The relay payload is decoded locally and is not authenticated — the
+    // gateway's signature only protects its own web fallback — so the server it
+    // names is a claim, exactly like the one in a hinata:// link.
+    //
+    // The three token routes gate that claim themselves, so it is handed to
+    // them. Every other relay link opens an ordinary screen with no gate, and
+    // those may only follow a server this device already uses: a notification
+    // link comes from a server the user is signed in to, so nothing legitimate
+    // needs more, and it means no link can move the app to a backend the user
+    // has never seen without ever asking.
+    final path = link.route.split('?').first;
+    if (_serverGatedRoutes.contains(path)) {
+      _router.go(_routeWithServer(link.route, link.server));
+      return;
+    }
+    final known = knownServers(widget.storage);
+    final server = normalizeServerLink(link.server, known: known);
+    if (server != null && known.contains(server)) await _selectServer(server);
     _router.go(link.route);
+  }
+
+  /// The routes that ask the user themselves before switching backends — see
+  /// [applyServerFromLink], which each of their screens runs.
+  static const _serverGatedRoutes = {
+    '/invite',
+    '/reset-password',
+    '/verify-email',
+  };
+
+  /// [route] with the link's `server` appended, merging into a query it may
+  /// already have rather than starting a second one.
+  static String _routeWithServer(String route, String? server) {
+    if (server == null || server.isEmpty) return route;
+    final separator = route.contains('?') ? '&' : '?';
+    return '$route${separator}server=${Uri.encodeQueryComponent(server)}';
   }
 
   /// Points the app at the server a deep link came from.
@@ -328,8 +363,11 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   Future<void> _selectServer(String? server) async {
     if (server == null || server.isEmpty) return;
     final uri = Uri.tryParse(server);
+    // The same three questions [ServerUrlSubmitted] asks, and no more: being
+    // stricter here would drop a link the connect screen would have accepted.
+    // In particular not `isAbsolute`, which Dart also makes false for a URL
+    // that merely carries a fragment.
     if (uri == null ||
-        !uri.isAbsolute ||
         !(uri.isScheme('https') || uri.isScheme('http')) ||
         uri.host.isEmpty) {
       return;
@@ -357,12 +395,12 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   void _openTokenFlow(Uri uri, String route) {
     final token = uri.queryParameters['token'];
     if (token == null || token.isEmpty) return;
-    final server = uri.queryParameters['server'];
-    final query = StringBuffer('token=${Uri.encodeQueryComponent(token)}');
-    if (server != null && server.isNotEmpty) {
-      query.write('&server=${Uri.encodeQueryComponent(server)}');
-    }
-    _router.go('$route?$query');
+    _router.go(
+      _routeWithServer(
+        '$route?token=${Uri.encodeQueryComponent(token)}',
+        uri.queryParameters['server'],
+      ),
+    );
   }
 
   /// Dismiss the keyboard whenever the app leaves the foreground. If a TextField

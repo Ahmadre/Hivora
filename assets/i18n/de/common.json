@@ -383,7 +383,8 @@
     "deleteSelectedTitle_plural": "{{count}} Kommentare löschen?",
     "deleteSelectedBody": "Er wird dauerhaft für alle entfernt.",
     "deleteSelectedBody_plural": "{{count}} Kommentare werden dauerhaft für alle entfernt.",
-    "recorderToolMissing": "Aufnahme nicht möglich: {{tool}} ist nicht installiert. Unter Linux wird über parecord (pulseaudio-utils) und ffmpeg aufgenommen."
+    "recorderToolMissing": "Aufnahme nicht möglich: {{tool}} ist nicht installiert. Unter Linux wird über parecord (pulseaudio-utils) und ffmpeg aufgenommen.",
+    "voiceNeedsGstreamer": "Diese Sprachnachricht lässt sich nicht abspielen: Die GStreamer-Basis-Plugins fehlen. Installiere gstreamer1.0-plugins-base."
   },
   "camera": {
     "blockedTitle": "Keine Kamera verfügbar",
@@ -2184,8 +2185,7 @@
           "desc": "Neue Anmeldungen, Passwort- & E-Mail-Änderungen"
         }
       },
-      "pushUnsupported": "Kein Push-Dienst auf diesem System – hier wird nichts zugestellt",
-      "unavailable": "Nicht verfügbar"
+      "pushUnsupported": "Hier kein Push-Dienst — gilt weiterhin für dein Handy und deine anderen Geräte"
     },
     "access": {
       "title": "Zugriff",

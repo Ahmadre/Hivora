@@ -42,11 +42,18 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
   @override
   void initState() {
     super.initState();
-    _init();
+    // After the first frame, not during initState: the first thing _init does
+    // is apply the server named in the link, which reads localized strings —
+    // and an inherited-widget lookup from a state that is still being created
+    // trips an assertion that an async method swallows into its future, so the
+    // screen would sit on its spinner forever. Same reason verify_email_screen
+    // defers.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
   Future<void> _init() async {
     await _applyServer();
+    if (!mounted) return;
     await _loadInfo();
   }
 

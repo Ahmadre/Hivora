@@ -40,7 +40,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   @override
   void initState() {
     super.initState();
-    _applyServer();
+    // After the first frame, not during initState: applying the server named in
+    // the link reads localized strings, and an inherited-widget lookup from a
+    // state that is still being created trips an assertion that an async method
+    // swallows into its future. Same reason verify_email_screen defers.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyServer());
   }
 
   /// Point a freshly opened web/app at the backend named in the link —

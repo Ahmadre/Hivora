@@ -46,8 +46,8 @@ class AppStorage {
 
   bool _sessionIsMemoryOnly = false;
 
-  /// True when the tokens could not be written to secure storage, so the
-  /// session lives only as long as this process.
+  /// True when the tokens could not be read from or written to secure storage,
+  /// so the session lives only as long as this process.
   ///
   /// Linux is the platform where this actually happens: its secure storage is
   /// the Secret Service, which means a running keyring (GNOME Keyring,
@@ -207,7 +207,13 @@ class AppStorage {
         if (access != null) _accessCache[server.url] = access;
         if (refresh != null) _refreshCache[server.url] = refresh;
       } catch (_) {
-        // Secure storage unavailable for this server — treat as signed out.
+        // Secure storage unavailable for this server — treat as signed out, and
+        // remember why. This is the half of the problem the user actually meets:
+        // the tokens were written on a previous run, the keyring is there but
+        // locked at boot, and the app simply asks for the password again. The
+        // warning that goes with the flag is the only thing that connects the
+        // two.
+        _sessionIsMemoryOnly = true;
       }
     }
   }
