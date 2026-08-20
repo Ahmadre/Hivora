@@ -528,6 +528,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb xdotool dbus-x11
+          # `snap run` places the app in a transient systemd scope so snapd can
+          # track it, and that needs a `systemd --user` instance. A CI runner
+          # logs in without one, so snapd refuses with
+          #
+          #   /system.slice/... is not a snap cgroup for tag snap.hinata.hinata
+          #
+          # before the app is ever executed. Lingering starts user@$UID.service,
+          # which is what a desktop session would have had from the start — this
+          # is a property of the runner, not of the snap.
+          sudo loginctl enable-linger "$USER"
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          for i in $(seq 1 30); do
+            [ -d "$XDG_RUNTIME_DIR" ] && systemctl --user show-environment >/dev/null 2>&1 && break
+            sleep 1
+          done
+          systemctl --user show-environment >/dev/null 2>&1 \
+            || { echo "::error::no systemd --user instance; snap run cannot be tracked"; exit 1; }
           # No server is configured, so the app lands on its connect screen —
           # which is exactly the assertion worth making: reaching a drawn
           # window means the confined GTK stack resolved, the Flutter engine
