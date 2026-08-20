@@ -1620,7 +1620,9 @@
       "reprocessFullBody": "Für jede E-Mail in „{{name}}“ ohne Ticket wird ein neues erstellt – auch für absichtlich gelöschte. Das lässt sich nicht in einem Schritt rückgängig machen.",
       "reprocessFullConfirm": "Neu erstellen",
       "reprocessDone": "{{scanned}} geprüft · {{updated}} neu aufgebaut · {{created}} erstellt"
-    }
+    },
+    "windowsStoreUrl": "Microsoft-Store-URL",
+    "linuxStoreUrl": "Linux-Download-URL"
   },
   "audit": {
     "title": "Audit-Protokoll",

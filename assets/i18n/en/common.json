@@ -1620,7 +1620,9 @@
       "reprocessFullBody": "Every e-mail in \"{{name}}\" without a ticket gets a new one — including any you deleted intentionally. This cannot be undone in bulk.",
       "reprocessFullConfirm": "Re-create",
       "reprocessDone": "{{scanned}} scanned · {{updated}} rebuilt · {{created}} created"
-    }
+    },
+    "windowsStoreUrl": "Microsoft Store URL",
+    "linuxStoreUrl": "Linux download URL"
   },
   "audit": {
     "title": "Audit log",
