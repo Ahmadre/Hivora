@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/platform/desktop_camera_delegate.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 
 /// Desktop has no OS capture UI, so the app brings its own via an
 /// [ImagePickerCameraDelegate]. Every failure used to resolve to `null`, which
@@ -160,6 +161,27 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  test('Linux is offered no camera at all, because it has none', () {
+    final original = ImagePickerPlatform.instance;
+    addTearDown(() => ImagePickerPlatform.instance = original);
+    final picker = _FakeDelegatingPicker();
+    ImagePickerPlatform.instance = picker;
+
+    // No delegate means image_picker reports the camera source as unsupported,
+    // which is what keeps the composer from offering an entry that could only
+    // ever apologise for itself.
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    installDesktopCameraDelegate(GlobalKey<NavigatorState>());
+    expect(picker.cameraDelegate, isNull);
+    expect(picker.supportsImageSource(ImageSource.camera), isFalse);
+
+    // Windows ships camera_windows, so there the delegate is exactly right.
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    installDesktopCameraDelegate(GlobalKey<NavigatorState>());
+    expect(picker.cameraDelegate, isNotNull);
+    expect(picker.supportsImageSource(ImageSource.camera), isTrue);
+  });
+
   test('the settings deep link follows the OS, and is absent elsewhere', () {
     debugDefaultTargetPlatformOverride = TargetPlatform.windows;
     expect(cameraPrivacySettingsUri().toString(), 'ms-settings:privacy-webcam');
@@ -199,3 +221,8 @@ class _FakeCameraPlatform extends CameraPlatform {
   @override
   Future<void> dispose(int cameraId) async {}
 }
+
+/// Stands in for image_picker_linux / _windows / _macos: the delegating
+/// implementations all inherit their camera behaviour from this base, so the
+/// bare subclass is the whole surface these tests need.
+class _FakeDelegatingPicker extends CameraDelegatingImagePickerPlatform {}

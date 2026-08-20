@@ -22,6 +22,8 @@ import 'core/storage/app_storage.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'features/knowledge/data/knowledge_repository.dart';
+import 'features/sprint/modals/glass_modal.dart'
+    show GlassToastKind, showGlassToast;
 
 class HinataApp extends StatefulWidget {
   const HinataApp({
@@ -56,6 +58,9 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   // The server the realtime streams (SSE sign-out + FCM) are currently bound to,
   // so a switch tears them down and reopens them against the new backend.
   String? _streamServer;
+  // One warning per launch that the session is not being persisted; repeating
+  // it on every re-authentication would be nagging, not informing.
+  bool _warnedMemoryOnlySession = false;
   // Shared backend-backed Knowledge Base store: the KB screen and the real
   // issue detail both resolve smart-links / "Documented in" against this single
   // instance. Loaded lazily on first use (post-auth), not at startup.
@@ -164,11 +169,35 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
       // starts push — otherwise the OS notification-permission prompt would pop
       // over the very screen we're capturing. Normal launches are unaffected.
       if (widget.storage.screenshotRoute == null) _fcm.start();
+      _warnIfSessionWontPersist();
     } else {
       _streamServer = null;
       _accountEvents.stop();
       _fcm.stop();
     }
+  }
+
+  /// Says once per launch when the sign-in could not be written to disk.
+  ///
+  /// [AppStorage.sessionIsMemoryOnly] is set when the secure-storage write
+  /// fails, which in practice means Linux without a running keyring. Staying
+  /// quiet would make the login look like it worked right up until the next
+  /// launch asks for the password again, with nothing to connect the two.
+  void _warnIfSessionWontPersist() {
+    if (_warnedMemoryOnlySession || !widget.storage.sessionIsMemoryOnly) return;
+    _warnedMemoryOnlySession = true;
+    // After the frame: this runs from a bloc listener, and the overlay the
+    // toast inserts itself into is part of the navigator that is still being
+    // rebuilt for the newly authenticated route.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = rootNavigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      showGlassToast(
+        context,
+        context.t('errors.sessionNotPersisted'),
+        kind: GlassToastKind.warning,
+      );
+    });
   }
 
   /// Subscribes to the two doors a deep link can come through: the link the app

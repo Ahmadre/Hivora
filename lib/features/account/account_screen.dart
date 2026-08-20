@@ -17,9 +17,12 @@ import '../../core/blocs/theme_cubit.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/account_models.dart';
 import '../../core/models/core_models.dart' show PlatformFlags;
+import '../../core/notifications/fcm_service.dart'
+    show pushSupportedOnThisPlatform;
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/file_pick_failure.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/hex_mark.dart';
@@ -199,10 +202,21 @@ class _AccountScreenState extends State<AccountScreen> {
     final updated = context.t('account.avatar.updated');
     final failed = context.t('account.avatar.failed');
 
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: kIsWeb,
-    );
+    final pickFailed = context.t(filePickFailureKey('account.avatar.failed'));
+
+    final FilePickerResult? picked;
+    try {
+      picked = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: kIsWeb,
+      );
+    } catch (_) {
+      // A dialog that cannot open used to throw straight past this screen. It
+      // is the one failure here the user can fix themselves — on Linux the
+      // picker is an external program that may simply not be installed.
+      if (mounted) _toast(pickFailed, kind: GlassToastKind.error);
+      return;
+    }
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;
     final multipart = kIsWeb
@@ -1083,6 +1097,7 @@ class _AccountScreenState extends State<AccountScreen> {
           LucideIcons.smartphone,
           prefs.pushEnabled,
           (v) => _onTogglePrefs(prefs.copyWith(pushEnabled: v)),
+          unavailable: !pushSupportedOnThisPlatform,
         ),
         const SizedBox(height: 8),
         if (context.isCompact)
@@ -1095,21 +1110,39 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  /// One channel's master switch, or — where the platform cannot deliver that
+  /// channel at all — a plain statement that it cannot.
+  ///
+  /// [unavailable] deliberately leaves the stored preference alone and only
+  /// changes what is shown: the same account is used from a phone, and a Linux
+  /// session must not turn push off for the devices that do receive it.
   Widget _channelMaster(
     String label,
     IconData icon,
     bool value,
-    ValueChanged<bool> onChanged,
-  ) {
+    ValueChanged<bool> onChanged, {
+    bool unavailable = false,
+  }) {
     return SettingRow(
       label: label,
-      description: value
+      description: unavailable
+          ? context.t('account.notifications.pushUnsupported')
+          : value
           ? context.t('account.notifications.channelOn')
           : context.t('account.notifications.channelOff'),
       icon: icon,
-      trailing: HiveSwitch(value: value, onChanged: onChanged),
+      trailing: unavailable
+          ? AccountPill(label: context.t('account.notifications.unavailable'))
+          : HiveSwitch(value: value, onChanged: onChanged),
     );
   }
+
+  /// Whether the push column is live: the account has push on *and* this
+  /// platform can actually receive it. Every push cell reads this, so a
+  /// platform without push shows its switches greyed out rather than inviting
+  /// the user to configure something that will never arrive.
+  bool get _pushDeliverable =>
+      pushSupportedOnThisPlatform && (_prefs?.pushEnabled ?? false);
 
   Widget _matrixHeader() {
     return Padding(
@@ -1192,7 +1225,7 @@ class _AccountScreenState extends State<AccountScreen> {
           _matrixCell(
             locked: e.locked,
             value: pair.push,
-            enabled: _prefs!.pushEnabled,
+            enabled: _pushDeliverable,
             onChanged: (v) => _setChannel(e.id, push: v),
           ),
         ],
@@ -1299,7 +1332,7 @@ class _AccountScreenState extends State<AccountScreen> {
           channel(
             context.t('account.notifications.colPush'),
             pair.push,
-            _prefs!.pushEnabled,
+            _pushDeliverable,
             (v) => _setChannel(e.id, push: v),
           ),
         ],

@@ -152,11 +152,24 @@ Uri? cameraPrivacySettingsUri() {
 
 /// Wires the delegate into whichever image_picker implementation is active.
 ///
-/// No-op where the platform handles the camera itself (Android, iOS, web) — and
-/// deliberately driven by [ImagePickerPlatform.instance] rather than by a
-/// `Platform.isWindows` check, so it stays correct if a platform gains native
-/// camera support later.
+/// No-op where the platform handles the camera itself (Android, iOS, web), and
+/// otherwise driven by [ImagePickerPlatform.instance] rather than by a
+/// `Platform.isWindows` check, so it stays correct if a desktop platform gains
+/// native camera support later.
+///
+/// Linux is the exception, and deliberately a platform check. `image_picker_
+/// linux` extends `CameraDelegatingImagePickerPlatform` exactly like the
+/// Windows and macOS ones, so it *would* take a delegate — but no camera
+/// implementation exists for Linux at all: `camera` ships android, iOS and web,
+/// Windows is only covered because the app depends on `camera_windows`, and
+/// there is no third package we trust for Linux. Taking the delegate makes
+/// `supportsImageSource(ImageSource.camera)` true, which puts a camera entry in
+/// the composer that can only ever open a dialog saying there is no camera —
+/// and on Linux that dialog cannot even offer a settings link, because no
+/// desktop environment has a stable one ([cameraPrivacySettingsUri] returns
+/// null). Not offering the entry is the honest answer.
 void installDesktopCameraDelegate(GlobalKey<NavigatorState> navigatorKey) {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) return;
   final platform = ImagePickerPlatform.instance;
   if (platform is CameraDelegatingImagePickerPlatform) {
     platform.cameraDelegate = DesktopCameraDelegate(navigatorKey);

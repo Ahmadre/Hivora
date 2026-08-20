@@ -44,6 +44,19 @@ class AppStorage {
   final Map<String, String> _accessCache = {};
   final Map<String, String> _refreshCache = {};
 
+  bool _sessionIsMemoryOnly = false;
+
+  /// True when the tokens could not be written to secure storage, so the
+  /// session lives only as long as this process.
+  ///
+  /// Linux is the platform where this actually happens: its secure storage is
+  /// the Secret Service, which means a running keyring (GNOME Keyring,
+  /// KWallet). A desktop without one — a minimal window manager, a container, a
+  /// login that never unlocked the keyring — fails every write. The app keeps
+  /// working, but the user is signed out again on the next launch, and being
+  /// told that once beats discovering it every morning.
+  bool get sessionIsMemoryOnly => _sessionIsMemoryOnly;
+
   static Future<AppStorage> create() async {
     // flutter_secure_storage 10.x defaults to strong encryption on every
     // platform (Android: RSA-OAEP key + AES-GCM storage; iOS/macOS: Keychain),
@@ -151,8 +164,11 @@ class AppStorage {
     try {
       await _secure.write(key: _accessKey(url), value: access);
       await _secure.write(key: _refreshKey(url), value: refresh);
+      _sessionIsMemoryOnly = false;
     } catch (_) {
-      // Non-fatal: keep the in-memory session.
+      // Non-fatal: keep the in-memory session, and remember that it is only
+      // that, so the app can say so instead of silently losing the login.
+      _sessionIsMemoryOnly = true;
     }
   }
 
