@@ -317,8 +317,23 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   /// origin server, so without this guard *every* one of them took that detour.
   /// A failed connection is still re-submitted, since that is the case where
   /// re-connecting is the whole point.
+  ///
+  /// The value is checked before it is stored. It arrives inside a link — from
+  /// the OS scheme handler, from the process arguments on Linux, from a relay
+  /// payload — so it is an outside claim about which backend this app should
+  /// talk to, and [AppConfigBloc] refuses anything that is not an absolute
+  /// http(s) URL with a host. Writing first and letting the bloc refuse
+  /// afterwards would leave that refused value in storage as the API client's
+  /// base URL.
   Future<void> _selectServer(String? server) async {
     if (server == null || server.isEmpty) return;
+    final uri = Uri.tryParse(server);
+    if (uri == null ||
+        !uri.isAbsolute ||
+        !(uri.isScheme('https') || uri.isScheme('http')) ||
+        uri.host.isEmpty) {
+      return;
+    }
     if (widget.storage.serverUrl == server &&
         _appConfig.state.status != AppConfigStatus.needsServerUrl) {
       return;
@@ -327,14 +342,27 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     _appConfig.add(ServerUrlSubmitted(server));
   }
 
-  /// Shared handoff for the token-carrying email deep links (invite / reset):
-  /// persist the server URL from the link so a fresh app can reach the backend,
-  /// then route to the in-app screen.
+  /// Shared handoff for the token-carrying email deep links (invite / reset /
+  /// verify): route to the in-app screen, carrying the server the link named.
+  ///
+  /// The server is *forwarded*, not applied here. Each of these three screens
+  /// already runs it through `applyServerFromLink`, which requires https and
+  /// asks the user before switching to a backend they have never used — the
+  /// whole point being that a link is not allowed to silently repoint the app
+  /// at somebody else's server and collect the password typed into the next
+  /// screen. Applying it here instead, and then dropping the parameter on the
+  /// way to the route, meant that consent gate was handed a null and never ran
+  /// on any deep link at all: `hinata://invite?token=…&server=http://attacker`
+  /// switched servers on its own. Passing it on is what makes the gate real.
   Future<void> _openTokenFlow(Uri uri, String route) async {
     final token = uri.queryParameters['token'];
     if (token == null || token.isEmpty) return;
-    await _selectServer(uri.queryParameters['server']);
-    _router.go('$route?token=${Uri.encodeQueryComponent(token)}');
+    final server = uri.queryParameters['server'];
+    final query = StringBuffer('token=${Uri.encodeQueryComponent(token)}');
+    if (server != null && server.isNotEmpty) {
+      query.write('&server=${Uri.encodeQueryComponent(server)}');
+    }
+    _router.go('$route?$query');
   }
 
   /// Dismiss the keyboard whenever the app leaves the foreground. If a TextField

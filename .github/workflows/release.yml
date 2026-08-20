@@ -63,6 +63,15 @@ on:
         options: ["false", "true"]
         default: "false"
 
+# Nothing here uses GITHUB_TOKEN: the stores are reached with their own
+# credentials from `secrets`, and the artifacts go to the run rather than to a
+# release. Spelling that out keeps the token read-only for every job in a file
+# that hands third-party actions (flutter-action, setup-ruby, fastlane) a room
+# full of signing secrets — without it the workflow runs at whatever the
+# repository default happens to be.
+permissions:
+  contents: read
+
 # One place per file for the SDK version — see the comment on the first
 # flutter-action use below.
 env:

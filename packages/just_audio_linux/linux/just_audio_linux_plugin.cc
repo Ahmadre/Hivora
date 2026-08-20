@@ -3,6 +3,7 @@
 #include <flutter_linux/flutter_linux.h>
 #include <gst/gst.h>
 
+#include <cmath>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -33,6 +34,34 @@ constexpr guint kPositionIntervalMs = 200;
 // milliseconds — and bounded because this runs on the platform thread.
 constexpr GstClockTime kPrerollTimeout = 5 * GST_SECOND;
 
+// playbin's `flags`, audio only. The values are GstPlayFlags, spelled out here
+// because that enum lives in gst-plugins-base's headers and this plugin links
+// against gstreamer-1.0 alone.
+//
+// This is an audio player, and playbin's default flags are not: they also
+// enable the video and subtitle chains, so a "voice comment" whose bytes are
+// really an MP4 with a video track would be handed to the video decoders and
+// pop an autovideosink window over the app. Those bytes come from the server,
+// which makes the whole video and subtitle decoding surface reachable by
+// anyone who can attach a comment. Audio is the only chain this plugin has a
+// use for; SOFT_VOLUME is what makes the `volume` property work regardless of
+// what the audio sink supports.
+constexpr guint kPlayFlagAudio = 0x002;
+constexpr guint kPlayFlagSoftVolume = 0x010;
+constexpr guint kAudioOnlyPlayFlags = kPlayFlagAudio | kPlayFlagSoftVolume;
+
+// The largest position, in microseconds, that can still be converted to
+// GStreamer's nanoseconds. Positions arrive over a method channel, so they are
+// whatever the caller sent — and `position * GST_USECOND` past this point
+// wraps around instead of seeking, which is how a scrub lands somewhere the
+// caller never asked for. Roughly 292 000 years; no clip comes near it.
+constexpr gint64 kMaxPositionUs = G_MAXINT64 / static_cast<gint64>(GST_USECOND);
+
+// Speed is a seek rate. Non-finite or non-positive values are not a slower or
+// faster clip, they are a malformed seek, and the ceiling keeps a stray value
+// from asking the decoder for an absurd rate.
+constexpr double kMaxSpeed = 16.0;
+
 // Mirrors ProcessingStateMessage in just_audio_platform_interface. The values
 // are an index into a Dart enum, so they are ordering, not decoration.
 enum class ProcessingState {
@@ -52,6 +81,9 @@ class Player {
         method_name_("hinata/just_audio_linux/methods/" + id),
         event_name_("hinata/just_audio_linux/events/" + id) {
     playbin_ = gst_element_factory_make("playbin", nullptr);
+    if (playbin_ != nullptr) {
+      g_object_set(playbin_, "flags", kAudioOnlyPlayFlags, nullptr);
+    }
 
     g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
     methods_ = fl_method_channel_new(messenger_, method_name_.c_str(),
@@ -124,8 +156,7 @@ class Player {
       Seek(IntArg(args, "position", 0));
       RespondNull(call);
     } else if (strcmp(method, "setVolume") == 0) {
-      // playbin's volume is a linear 0..1 gain, the same scale just_audio uses.
-      g_object_set(playbin_, "volume", FloatArg(args, "volume", 1.0), nullptr);
+      SetVolume(FloatArg(args, "volume", 1.0));
       RespondNull(call);
     } else if (strcmp(method, "setSpeed") == 0) {
       SetSpeed(FloatArg(args, "speed", 1.0));
@@ -138,7 +169,12 @@ class Player {
   }
 
   void Load(FlValue* args, FlMethodCall* call) {
-    FlValue* uri_value = fl_value_lookup_string(args, "uri");
+    // The map check before the lookup, because `args` is whatever the caller
+    // encoded: looking a key up in a non-map is a GLib critical, not a null.
+    FlValue* uri_value = nullptr;
+    if (args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      uri_value = fl_value_lookup_string(args, "uri");
+    }
     if (uri_value == nullptr ||
         fl_value_get_type(uri_value) != FL_VALUE_TYPE_STRING) {
       g_autoptr(FlMethodResponse) response = FL_METHOD_RESPONSE(
@@ -147,10 +183,29 @@ class Player {
       return;
     }
 
+    // Local files only, and this is a security boundary rather than a
+    // convenience check. playbin resolves a uri by asking GStreamer for a
+    // source element that claims its scheme, and a desktop GStreamer install
+    // claims http, https, rtsp, rtmp, mms and whatever else its plugins add —
+    // so handing this property an unfiltered string turns an audio player into
+    // a request the app makes from inside the user's session, to a host it was
+    // told to contact. This player is only ever pointed at a temp file the app
+    // wrote itself (createPlayableSource in the app writes the downloaded
+    // bytes and passes back that file's URI), so anything else is either a bug
+    // or a caller that should not be trusted, and both stop here.
+    const gchar* uri = fl_value_get_string(uri_value);
+    if (!gst_uri_is_valid(uri) || !gst_uri_has_protocol(uri, "file")) {
+      g_autoptr(FlMethodResponse) response =
+          FL_METHOD_RESPONSE(fl_method_error_response_new(
+              "invalid", "just_audio_linux plays file:// URIs only", nullptr));
+      fl_method_call_respond(call, response, nullptr);
+      return;
+    }
+
     // NULL first: playbin only takes a new uri from a stopped pipeline, and a
     // bubble can be replayed after another one has already loaded here.
     gst_element_set_state(playbin_, GST_STATE_NULL);
-    g_object_set(playbin_, "uri", fl_value_get_string(uri_value), nullptr);
+    g_object_set(playbin_, "uri", uri, nullptr);
     completed_ = false;
     playing_ = false;
     duration_us_ = -1;
@@ -163,9 +218,14 @@ class Player {
     gst_element_set_state(playbin_, GST_STATE_PAUSED);
     GstStateChangeReturn change =
         gst_element_get_state(playbin_, nullptr, nullptr, kPrerollTimeout);
-    if (change == GST_STATE_CHANGE_FAILURE) {
-      // The bus watch has already logged what GStreamer said; the caller only
-      // needs to know that nothing will play.
+    if (change == GST_STATE_CHANGE_FAILURE ||
+        change == GST_STATE_CHANGE_ASYNC) {
+      // FAILURE is a file GStreamer could not make sense of; ASYNC is the
+      // pre-roll timeout above expiring with the pipeline still working on it.
+      // Both mean nothing is going to play, and both have to go back to NULL:
+      // a pipeline left half-open holds whatever its source opened for as long
+      // as the player lives, and the next play() would look like it worked.
+      gst_element_set_state(playbin_, GST_STATE_NULL);
       Emit(ProcessingState::kIdle, 0);
       g_autoptr(FlMethodResponse) response =
           FL_METHOD_RESPONSE(fl_method_error_response_new(
@@ -211,7 +271,10 @@ class Player {
   }
 
   void Seek(gint64 position_us) {
+    // Clamped, not trusted: the position comes off a method channel, and the
+    // conversion to nanoseconds below wraps around above kMaxPositionUs.
     if (position_us < 0) position_us = 0;
+    if (position_us > kMaxPositionUs) position_us = kMaxPositionUs;
     gst_element_seek_simple(
         playbin_, GST_FORMAT_TIME,
         static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_KEY_UNIT),
@@ -222,8 +285,18 @@ class Player {
     Emit(ProcessingState::kReady, position_us);
   }
 
+  void SetVolume(double volume) {
+    // playbin's volume is a linear 0..1 gain, the same scale just_audio uses.
+    // Clamped because g_object_set validates the property itself and answers a
+    // NaN or an out-of-range gain with a runtime warning rather than a value.
+    if (std::isnan(volume)) return;
+    if (volume < 0) volume = 0;
+    if (volume > 1) volume = 1;
+    g_object_set(playbin_, "volume", volume, nullptr);
+  }
+
   void SetSpeed(double speed) {
-    if (speed <= 0) return;
+    if (!std::isfinite(speed) || speed <= 0 || speed > kMaxSpeed) return;
     gint64 position = 0;
     if (!gst_element_query_position(playbin_, GST_FORMAT_TIME, &position)) {
       position = 0;
@@ -432,6 +505,17 @@ static void handle_init(JustAudioLinuxPlugin* self, FlMethodCall* method_call) {
   }
 
   std::string id = fl_value_get_string(id_value);
+
+  // Any player already registered under this id goes first, before the
+  // replacement is built. Both share a channel name, and a Player's destructor
+  // drops that name from the messenger — so constructing first and erasing
+  // afterwards (which is what assigning into the map does) would have the old
+  // player's teardown unregister the *new* player's channels on its way out,
+  // leaving a live pipeline nothing can reach. The Dart side refuses a
+  // duplicate id before it gets here; this is what makes that a convenience
+  // rather than the only thing holding the native side together.
+  self->players->erase(id);
+
   auto player = std::make_unique<Player>(self->registrar, id);
   if (!player->ok()) {
     // No playbin means GStreamer's base plugins are not installed. Saying so is
@@ -446,9 +530,6 @@ static void handle_init(JustAudioLinuxPlugin* self, FlMethodCall* method_call) {
     return;
   }
 
-  // Assignment, not insert: the Dart side refuses a duplicate id before it gets
-  // here, and replacing tears the previous pipeline down rather than orphaning
-  // it if that ever stops being true.
   (*self->players)[id] = std::move(player);
   respond_null(method_call);
 }

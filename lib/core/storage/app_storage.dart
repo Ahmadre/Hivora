@@ -172,13 +172,29 @@ class AppStorage {
     }
   }
 
+  /// Drops this server's tokens: out of the in-memory caches first, then out of
+  /// secure storage.
+  ///
+  /// Best-effort on the storage side, and deliberately so. The desktop that
+  /// cannot *write* a token (see [sessionIsMemoryOnly]) cannot delete one
+  /// either, and this used to throw straight out of the sign-out handler —
+  /// past the `emit(unauthenticated)` that follows it, leaving the user in the
+  /// authenticated shell with a session that had already been dropped from
+  /// memory and every request failing. Each key is deleted on its own so a
+  /// failure on the first cannot skip the second.
   Future<void> clearTokens() async {
     final url = serverUrl;
     if (url == null) return;
     _accessCache.remove(url);
     _refreshCache.remove(url);
-    await _secure.delete(key: _accessKey(url));
-    await _secure.delete(key: _refreshKey(url));
+    for (final key in [_accessKey(url), _refreshKey(url)]) {
+      try {
+        await _secure.delete(key: key);
+      } catch (_) {
+        // A store this cannot reach is a store that never held the token.
+        // Clearing the caches above is what signs this run out.
+      }
+    }
   }
 
   /// Loads every saved server's tokens from secure storage into the in-memory

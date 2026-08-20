@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
@@ -24,8 +26,7 @@ Future<DownloadResult> downloadBytes(
   String mimeType, {
   Rect? sharePositionOrigin,
 }) async {
-  final safe = filename.replaceAll(RegExp(r'[\\/\x00]'), '_').trim();
-  final name = safe.isEmpty ? 'download' : safe;
+  final name = _safeName(filename);
   try {
     if (Platform.isLinux) return await _saveToDownloads(name, bytes);
 
@@ -94,17 +95,52 @@ Future<DownloadResult> _saveToDownloads(String name, Uint8List bytes) async {
       xdgDownloads ??
       Directory('${Platform.environment['HOME'] ?? '.'}/Downloads');
   await directory.create(recursive: true);
-  final file = File('${directory.path}/${_freeName(directory, name)}');
-  await file.writeAsBytes(bytes, flush: true);
-  return DownloadResult(
-    DownloadOutcome.saved,
-    fileName: file.uri.pathSegments.last,
-  );
+  final target = '${directory.path}/${_freeName(directory, name)}';
+
+  // Written under a private name and moved into place, rather than opened at
+  // [target] directly. The Downloads folder is shared ground — every other
+  // program the user runs can write there — and `writeAsBytes` follows a
+  // symlink it finds at the path it opens. Planting one ahead of time is
+  // therefore a way to have this download land somewhere it was never meant
+  // to: a shell profile, an autostart entry, an SSH config. `rename` closes
+  // that: it replaces a symlink at the destination instead of writing through
+  // it, and the staging name carries random bytes so nothing can be lying in
+  // wait at that path either.
+  final staging = File('${directory.path}/.hinata-download-${_stagingToken()}');
+  try {
+    await staging.writeAsBytes(bytes, flush: true);
+    final saved = await staging.rename(target);
+    return DownloadResult(
+      DownloadOutcome.saved,
+      fileName: saved.uri.pathSegments.last,
+    );
+  } catch (_) {
+    // A half-written staging file is this function's own, created moments ago
+    // under a name nothing else can hold, so cleaning it up cannot take
+    // anything the user owns with it.
+    try {
+      if (staging.existsSync()) staging.deleteSync();
+    } catch (_) {
+      // Nothing more to do; the caller already reports the failure.
+    }
+    rethrow;
+  }
+}
+
+/// Random bytes for the staging file's name, so no other program can have
+/// created something at that path first. [Random.secure] rather than the
+/// default generator: predicting the name is the whole attack.
+String _stagingToken() {
+  final random = Random.secure();
+  return List.generate(
+    8,
+    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+  ).join();
 }
 
 /// [name], or `name (2).ext` — the first spelling nothing in [directory] uses.
 String _freeName(Directory directory, String name) {
-  if (!File('${directory.path}/$name').existsSync()) return name;
+  if (_isFree(directory, name)) return name;
   final dot = name.lastIndexOf('.');
   final stem = dot > 0 ? name.substring(0, dot) : name;
   final extension = dot > 0 ? name.substring(dot) : '';
@@ -112,7 +148,80 @@ String _freeName(Directory directory, String name) {
   // nobody wants a download to run, and a timestamped fallback still lands.
   for (var i = 2; i < 1000; i++) {
     final candidate = '$stem ($i)$extension';
-    if (!File('${directory.path}/$candidate').existsSync()) return candidate;
+    if (_isFree(directory, candidate)) return candidate;
   }
   return '$stem-${DateTime.now().millisecondsSinceEpoch}$extension';
+}
+
+/// Whether nothing at all sits at that name — asked without following links.
+///
+/// `File.existsSync` resolves a symlink and answers false for one that points
+/// nowhere, so it would call a dangling link a free name and hand the write
+/// straight to whatever the link names. Every entry type counts as taken here,
+/// which is also the honest answer for a directory or a socket sharing the
+/// name.
+bool _isFree(Directory directory, String name) =>
+    FileSystemEntity.typeSync(
+      '${directory.path}/$name',
+      followLinks: false,
+    ) ==
+    FileSystemEntityType.notFound;
+
+/// The name a downloaded file is allowed to have, given the [filename] the
+/// server reported for it.
+///
+/// The name is chosen by whoever uploaded the attachment, so it is data, not
+/// instruction, and three separate things have to be taken out of it:
+///
+///  * **Path separators and NUL.** `../../.bashrc` has to stay one file name
+///    rather than becoming a path, and a name made only of dots (`.`, `..`) is
+///    a reference to a directory rather than a name at all.
+///  * **Control characters and the bidi overrides.** They are invisible: a name
+///    ending in `\u202Egnp.exe` renders as `…exe.png` in the toast that
+///    announces the download and in every file manager after it, which is the
+///    oldest attachment disguise there is. Stripped rather than escaped —
+///    nothing legitimate puts them in a file name.
+///  * **Length.** A name past the file system's limit fails the write outright,
+///    which would let a server turn a download into a dead button.
+String _safeName(String filename) {
+  final stripped = filename.replaceAll(_unsafeNameCharacters, '_').trim();
+  if (stripped.isEmpty || _onlyDots.hasMatch(stripped)) return 'download';
+  return _withinNameLimit(stripped);
+}
+
+/// Separators, NUL and the rest of C0, DEL, C1, and the Unicode bidi
+/// controls (LRM/RLM, the embedding + override block, the isolates).
+final _unsafeNameCharacters = RegExp(
+  r'[\\/\x00-\x1f\x7f-\x9f\u200e\u200f\u202a-\u202e\u2066-\u2069]',
+);
+
+final _onlyDots = RegExp(r'^\.+$');
+
+/// Linux allows 255 **bytes** per name; the uniqueness suffix `_freeName` may
+/// add still has to fit next to it, hence a little under.
+const _maxNameBytes = 200;
+
+/// [name] cut to [_maxNameBytes], keeping the extension — that is the part of
+/// a long name a user actually reads. Measured in encoded bytes and cut on
+/// rune boundaries, because a name is UTF-8 on disk and half a character is
+/// not a name.
+String _withinNameLimit(String name) {
+  if (utf8.encode(name).length <= _maxNameBytes) return name;
+  final dot = name.lastIndexOf('.');
+  // Only a plausible suffix is worth preserving: a dot far from the end of a
+  // long name is as likely to be part of the text as an extension, and cutting
+  // the name off there would throw away almost all of it.
+  final hasExtension = dot > 0 && name.length - dot <= 16;
+  final extension = hasExtension ? name.substring(dot) : '';
+  final stem = hasExtension ? name.substring(0, dot) : name;
+  final budget = _maxNameBytes - utf8.encode(extension).length;
+  final kept = StringBuffer();
+  var used = 0;
+  for (final rune in stem.runes) {
+    final size = utf8.encode(String.fromCharCode(rune)).length;
+    if (used + size > budget) break;
+    kept.writeCharCode(rune);
+    used += size;
+  }
+  return kept.isEmpty ? 'download$extension' : '$kept$extension';
 }

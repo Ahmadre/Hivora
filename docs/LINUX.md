@@ -121,16 +121,22 @@ link arrives on a warm start. `GApplication::command-line` uses
 emission — and it has to be the plugin's, because the link matters more than the
 window stacking.
 
-> **Verified:** point 2. With one instance running under a D-Bus session,
-> `./hinata 'hinata://verify-email?token=…'` exits 0 in under a second having
-> printed nothing at all — no second Flutter engine starts — while the first
-> instance keeps running. Before the runner change the same command started a
-> whole second app.
+> **Verified end to end**, in the build container under Xvfb, against a real
+> server:
 >
-> **Unverified:** points 3 and 4, the last hop into the router. Those are read
-> out of the GLib signal semantics and the `gtk` / `app_links_linux` sources;
-> the navigation is not observable from a headless run, so click a real link on
-> a real desktop before calling deep linking done.
+> * **Warm start (points 2 and 3).** With one instance running and signed in,
+>   `./hinata 'hinata://verify-email?token=deadbeef'` exits 0 in under a second
+>   having printed nothing — no second Flutter engine starts, the first instance
+>   keeps running — and that instance navigates to the verify-email screen,
+>   which reports the bogus token as invalid. Before the runner change the same
+>   command started a whole second app and the first heard nothing.
+> * **Cold start (point 4).** Launching the same URI as the *first* process
+>   lands on the verify-email screen directly, which is the
+>   `main(List<String> args)` → `_launchDeepLink` → `initialLink` path.
+>
+> What is still worth doing on a real desktop is the hop *before* all of this —
+> `xdg-open` picking the desktop entry — since the tests above invoked the
+> binary directly.
 
 **Register and test the handler:**
 
@@ -370,14 +376,30 @@ flatpak run com.ahmadre.hinata
 The permission set is deliberately short — `wayland` + `fallback-x11` (not a
 blanket `x11`, which would be a sandbox escape on a Wayland session), `ipc`,
 `dri`, `network`, `pulseaudio`, `--talk-name=org.freedesktop.secrets` for the
-keyring, `--filesystem=home:ro` for the picker and `--filesystem=xdg-download:create`
-for downloads. Each one is justified in a comment next to it, including the ones
-that are deliberately absent.
+keyring, read-only access to the XDG documents/pictures/desktop folders for the
+picker and `--filesystem=xdg-download:create` for downloads. Each one is
+justified in a comment next to it, including the ones that are deliberately
+absent.
 
-`--filesystem=home:ro` is the concession the portal-less `file_picker` forces:
-zenity runs *inside* the sandbox, so it only ever shows the sandbox's view of the
-filesystem, and read access is the minimum that leaves uploads usable. If
-`file_picker` ever grows a portal backend, that line can go.
+Those three read-only folders are the concession the portal-less `file_picker`
+forces: zenity runs *inside* the sandbox, so it only ever shows the sandbox's
+view of the filesystem, and without a grant there is nothing to upload.
+Deliberately not `--filesystem=home:ro`: that also hands the app ~/.ssh,
+~/.gnupg and every browser profile, none of which is ever an attachment, and all
+of which the sandbox exists to keep away from anything the app decodes on a
+server's behalf. If `file_picker` ever grows a portal backend, all three lines
+can go.
+
+Someone who keeps the files they attach somewhere else — `~/projects`, a mounted
+share — can widen it per machine without rebuilding, which is the right place
+for that decision because it is one person's filesystem layout, not a default:
+
+```bash
+flatpak override --user --filesystem=~/projects:ro com.ahmadre.hinata
+```
+
+(or the same toggle in Flatseal). `flatpak override --user --reset
+com.ahmadre.hinata` puts it back.
 
 > **Not yet submitted to Flathub.** The manifest builds locally; a Flathub
 > submission additionally needs a `<screenshot>` in the metainfo pointing at a

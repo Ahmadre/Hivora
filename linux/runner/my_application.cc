@@ -120,11 +120,19 @@ static gint my_application_command_line(GApplication* application,
                                         GApplicationCommandLine* command_line) {
   MyApplication* self = MY_APPLICATION(application);
 
+  gint argc = 0;
   gchar** arguments =
-      g_application_command_line_get_arguments(command_line, nullptr);
-  // Strip out the first argument as it is the binary name.
+      g_application_command_line_get_arguments(command_line, &argc);
+  // Strip out the first argument as it is the binary name — but only if there
+  // is one. These arguments are not this process's argv: on a re-launch they
+  // arrive over D-Bus from whichever process asked this instance to open a
+  // link, and nothing on that wire guarantees a program name is present. An
+  // empty array is a one-element array holding only the NULL terminator, so
+  // `arguments + 1` would point past the end of the allocation and g_strdupv
+  // would read whatever follows it on the heap.
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
-  self->dart_entrypoint_arguments = g_strdupv(arguments + 1);
+  self->dart_entrypoint_arguments =
+      g_strdupv(argc > 0 ? arguments + 1 : arguments);
   g_strfreev(arguments);
 
   // GApplication does NOT activate by itself once an application claims to

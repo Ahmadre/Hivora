@@ -70,14 +70,25 @@ finish-args:
   # Attachments. file_picker 8.3.7 has no portal path on Linux: its Linux
   # implementation is pure Dart and shells out to zenity/qarma/kdialog, which
   # run INSIDE the sandbox and therefore only ever show the sandbox's view of
-  # the filesystem. So picking a file to upload needs real read access, and
-  # read-only is genuinely all it needs — the app only ever reads what the user
-  # selects.
+  # the filesystem. So picking a file to upload needs real read access.
+  #
+  # The user's document folders, and deliberately NOT `home:ro`. Read access to
+  # the whole home directory is read access to ~/.ssh, ~/.gnupg, the browser
+  # profiles and every dotfile besides — none of which is ever an attachment,
+  # and all of which a single memory-safety bug in something this app decodes
+  # (a GStreamer voice comment, a pdfium preview, an image) would be able to
+  # reach and upload. The sandbox is what stands between a bad attachment and
+  # the user's keys, and `home:ro` removes most of it in exchange for being
+  # able to pick a file out of a folder XDG does not name. Someone who keeps
+  # attachments somewhere else can copy them into one of these.
+  - --filesystem=xdg-documents:ro
+  - --filesystem=xdg-pictures:ro
+  - --filesystem=xdg-desktop:ro
   #
   # (Photo/video picking is different and needs nothing: image_picker_linux goes
   # through file_selector_linux, i.e. GtkFileChooserNative, which the portal
   # takes over automatically when sandboxed.)
-  - --filesystem=home:ro
+  #
   # Downloads are the one thing the app writes: share_plus throws
   # UnimplementedError for files on Linux, so a downloaded attachment is written
   # straight into the XDG Downloads directory. `create` so a machine without one
@@ -91,8 +102,9 @@ finish-args:
   #     permission would sit in the app's permission list doing nothing.
   #   --device=all / --device=camera — `camera` has no Linux implementation,
   #     so webcam capture is not offered on this platform.
-  #   --filesystem=host — see the home:ro entry above; the picker only needs
-  #     to read, and system paths are never a sensible attachment source.
+  #   --filesystem=host / --filesystem=home — see the xdg-* entries above; the
+  #     picker only needs to read the folders documents actually live in, and
+  #     neither system paths nor the user's dotfiles are an attachment source.
 
 modules:
   # record_linux 1.3.1 records by piping `parecord` into `ffmpeg`, and also
