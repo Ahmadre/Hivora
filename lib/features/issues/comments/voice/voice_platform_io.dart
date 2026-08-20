@@ -6,6 +6,17 @@ import 'package:path_provider/path_provider.dart';
 /// Native: `record` writes to a file we name up-front — hand it a temp dir.
 Future<String> recorderTempDir() async => (await getTemporaryDirectory()).path;
 
+/// Native: the helper program [error] says could not be launched, or null when
+/// the failure was something else.
+///
+/// `record_linux` does not record in-process: it pipes `parecord` (PulseAudio)
+/// into `ffmpeg`, and neither is guaranteed to be installed. Missing either one
+/// surfaces as a [ProcessException] that names it — which is the difference
+/// between telling the user the microphone was denied (it was not) and telling
+/// them which package to install.
+String? missingRecorderTool(Object error) =>
+    error is ProcessException ? error.executable : null;
+
 /// Native: the recorder wrote to a real file — read it straight back. The MIME
 /// type is whatever we asked the encoder for ([fallbackMime]); native encoders
 /// are deterministic, so there's nothing to sniff.

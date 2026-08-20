@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../api/api_client.dart';
 import '../repositories/media_repository.dart';
+import '../util/file_pick_failure.dart';
 import '../i18n/i18n.dart';
 import '../../features/sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'markdown_toolbar.dart';
@@ -31,7 +32,15 @@ Future<void> pickAndInsertMarkdownImage(
       withData: true,
     );
   } catch (_) {
-    picked = null;
+    // Silence here reads as a dead toolbar button; on Linux the dialog is an
+    // external program that may not be installed at all.
+    if (context.mounted) {
+      showGlassErrorToast(
+        context,
+        context.t(filePickFailureKey('errors.unexpected')),
+      );
+    }
+    return;
   }
   if (picked == null || picked.files.isEmpty) return;
   final file = picked.files.first;

@@ -6,6 +6,10 @@ import 'package:web/web.dart' as web;
 /// Web: `record` manages its own storage and ignores the path — no dir needed.
 Future<String> recorderTempDir() async => '';
 
+/// Web: never. The browser's MediaRecorder is in-process — there is no helper
+/// program that could be missing.
+String? missingRecorderTool(Object error) => null;
+
 /// Web: the recorder handed back a `blob:` URL. Fetch it to recover the raw
 /// bytes and, importantly, the browser's *actual* MIME type (Chrome/Firefox
 /// emit `audio/webm`, Safari `audio/mp4`) so the upload is content-typed
