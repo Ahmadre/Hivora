@@ -86,7 +86,28 @@ dependencies:
 
   # Attachments: native file picker + desktop drag-and-drop + photo/video gallery
   # & camera capture (image_picker drives the gallery/camera source on mobile).
+  #
+  # The file dialog is split across two packages, one per platform family, behind
+  # lib/core/util/file_pick.dart. file_picker covers Android, iOS, macOS, Windows
+  # and web — it is the only one of the two with an Android implementation, and
+  # everywhere else the two land in the same system dialog anyway.
   file_picker: ^8.1.2
+  # Linux uses file_selector instead, and the difference is not cosmetic:
+  # file_picker's Linux "implementation" is pure Dart and shells out to zenity,
+  # qarma or kdialog. A snap under strict confinement has none of them on $PATH,
+  # so the dialog never opened and nothing said why; a Flatpak runs them inside
+  # the sandbox, where they can only show the sandbox's view of the filesystem.
+  # file_selector_linux is a real plugin calling gtk_file_chooser_native_new,
+  # which GTK hands to the XDG FileChooser portal whenever the app is sandboxed.
+  #
+  # Both were already in the tree as transitive dependencies of
+  # image_picker_linux; they are named here because file_pick.dart imports them
+  # directly (depend_on_referenced_packages), and because the registration this
+  # relies on must not be an accident of what image_picker happens to pull in.
+  file_selector_linux: ^0.9.3
+  # FileSelectorPlatform + XTypeGroup: the interface file_pick.dart programs
+  # against, so it never names a platform implementation in its code.
+  file_selector_platform_interface: ^2.6.0
   image_picker: ^1.1.2
   # Desktop camera capture. image_picker_windows/_macos cannot use
   # ImageSource.camera on their own — they delegate it to an

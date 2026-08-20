@@ -17,30 +17,36 @@ desktop it says so.
 | Capability | Linux | Windows | macOS |
 | --- | :---: | :---: | :---: |
 | Sign-in, SSO, multi-server | ✅ | ✅ | ✅ |
-| Secure token storage (staying signed in) | ⚠️ needs a keyring | ✅ | ✅ |
+| Secure token storage (staying signed in) | ⚠️ needs a keyring (and, under snap, one permission) | ✅ | ✅ |
 | Deep links `hinata://…` (SSO / invite / reset / verify) | ✅ | ✅ | ✅ |
 | https Universal / App Links (`track.asta.hn`) | ❌ | ❌ | ✅ |
 | Push notifications | ❌ | ✅ (WNS) | ✅ (FCM) |
 | In-app + e-mail notifications | ✅ | ✅ | ✅ |
-| File picking (attachments) | ⚠️ needs zenity/kdialog | ✅ | ✅ |
+| File picking (attachments) | ✅ | ✅ | ✅ |
 | Photo / video picking from disk | ✅ | ✅ | ✅ |
 | Camera capture (webcam) | ❌ | ✅ | ❌ |
 | Voice comments — recording | ⚠️ needs PulseAudio + FFmpeg | ✅ | ✅ |
 | Voice comments — playback | ⚠️ needs GStreamer plugins | ✅ | ✅ |
 | Attachment download | ⚠️ writes to Downloads | ✅ share sheet | ✅ share sheet |
 | Printing / PDF & DOCX export | ✅ | ✅ | ✅ |
-| Drag & drop of files into the app | ✅ | ✅ | ✅ |
+| Drag & drop of files into the app | ⚠️ Flatpak/snap: from the XDG folders | ✅ | ✅ |
 | Rich clipboard (copy an image out of a comment) | ✅ | ✅ | ✅ |
 | Opening links in the browser | ✅ | ✅ | ✅ |
 | System tray icon | ❌ | ❌ | ❌ |
 
-✅ works · ⚠️ works, with a condition on the system · ❌ not available
+✅ works · ⚠️ works, with a condition on the system or the sandbox · ❌ not
+available
 
 The two ❌ rows that are Linux-only — push notifications and camera capture —
 are the whole of what a Linux user gives up. Everything marked ⚠️ works on a
 normal desktop install and is only listed because a minimal system (a container,
 a bare window manager, a login that never unlocked a keyring) can be missing the
-piece it leans on.
+piece it leans on. Drag & drop is the one ⚠️ whose condition is the *sandbox*
+rather than the system: in the Flatpak and the snap a drop works out of the
+folders those packages are given read access to, and everything else on disk is
+attached with the button instead, which goes through the portal and reaches
+anywhere. Picking and dropping each get a section below, because they take
+different routes into the app and only one of them has a portal on it.
 
 ---
 
@@ -78,18 +84,90 @@ saying there is no camera.
 
 `flutter_secure_storage_linux` stores tokens through libsecret, i.e. the
 freedesktop Secret Service. GNOME Keyring and KWallet (with its Secret Service
-bridge) both provide it; a minimal window manager or a container may not, and an
-SSH session into a desktop that never unlocked its keyring will not either.
+bridge) both provide it. Three kinds of system fail, and the fixes have nothing
+to do with each other:
 
-**What the user sees:** sign-in works and the session lasts as long as the app is
-open, and a toast says so once — the app knows the write failed
-(`AppStorage.sessionIsMemoryOnly`) rather than discovering it at the next launch.
-The next start asks for the password again.
+1. **No secret service at all** — a minimal window manager, a container, an SSH
+   session into a desktop that never unlocked its keyring.
+2. **A strictly confined snap.** The keyring is running perfectly well on the
+   session bus; the sandbox is simply not allowed to talk to it. The
+   `password-manager-service` interface carries `deny-auto-connection: true`, so
+   a fresh install has the permission declared and *not* connected.
+3. **A keyring that is merely locked** — the daemon is there, the snap plug (if
+   any) is connected, and the collection has not been unlocked this login.
+   Common on machines that autolog in.
+
+The important detail either way: libsecret does not answer `null` when it cannot
+reach the service — it **throws**. Every call in `AppStorage` is therefore
+guarded, and `AppStorage.restore()` (the boot sequence `main` awaits before
+`runApp`) cannot throw at all. A desktop with no keyring reaches its own login
+screen like any other. The environment detection is guarded for the same reason:
+`Platform.environment` is not a plain getter, and a failure there must not cost
+anyone their login screen over a question that only picks a sentence.
+
+**Which advice, from what.** Two inputs, because neither alone is enough.
+
+* The **error code** separates case 3 from cases 1 and 2. In
+  `flutter_secure_storage_linux` 3.0.2 a locked collection comes back as
+  `KeyringLocked` and an unreachable service as `Libsecret error`
+  (`secret_service_get_sync: …`). 3.0.1 threw `KeyringLocked` for both, which is
+  why this used to be treated as unknowable — the pinned version knows, and a
+  snap whose plug *is* connected must never be told to connect it.
+* The **environment** separates case 1 from case 2: snapd's `SNAP`,
+  `SNAP_NAME` and `SNAP_INSTANCE_NAME`. Every one of those is *inherited* by
+  every child process, so a `.deb`, a Flatpak, an AppImage or `flutter run`
+  started from the terminal of the VS Code snap sees a full snap environment
+  naming `code`. `SecretStoreEnvironment` therefore also requires
+  `Platform.resolvedExecutable` to live under `$SNAP` — a confined app is
+  executed out of its own mount — so nobody is ever handed a `snap connect` line
+  for somebody else's snap.
+
+**When the app finds out.** On a restart with a saved session, at boot — the
+stored tokens are read, the read throws, and the user is on the login screen with
+an explanation instead of a mystery. On a first run, at the first write, i.e.
+the moment they sign in. There is deliberately **no** availability probe at
+launch: the plugin unlocks a locked collection before *every* read, so a
+throwaway read at startup raises the desktop's keyring-password dialog on every
+launch of a correctly configured install whose keyring is simply locked — a
+recurring password box for people with nothing wrong with their setup, in
+exchange for saving one sign-in for people who have an interface to connect.
+
+**What the user sees:** the app starts, sign-in works, and the session lasts as
+long as the app is open — one glass toast, once per launch, says that it will not
+outlive it and names the one fix that applies *here*: install a keyring, connect
+the interface, or unlock what is already there. The toast carries a copy button
+only where there is a command to copy, and (like every actionable toast) is
+dismissed by tapping it.
+
+The toast also fires when the app is *signed out* at boot — tokens written on a
+previous run that cannot be read back now. That is the case users actually meet
+(the app bounces to the login screen every morning) and the only thing that
+connects it to its cause.
+
+Nothing is written anywhere else as a fallback. The in-memory session is memory
+and only memory: a long-lived refresh token in a plaintext file, on precisely the
+systems that just said they have nowhere safe to keep one, is a worse outcome
+than signing in again. The single exception is a token an older,
+pre-secure-storage build already wrote to SharedPreferences: that one is lifted
+into the store (and deleted from prefs) on the first launch the store will take
+it, and left alone — never copied — until then, because deleting it would throw
+away a session an unlocked keyring tomorrow would have kept.
 
 ```bash
+# 1 — a desktop with no keyring
 sudo apt install gnome-keyring        # Debian / Ubuntu
 sudo dnf install gnome-keyring        # Fedora
+
+# 2 — inside the snap (or the same toggle under Permissions in App Center)
+sudo snap connect hinata:password-manager-service
+
+# 3 — a keyring that is there but locked: unlock the "Login" collection, e.g.
+seahorse                              # GNOME: right-click Login → Unlock
 ```
+
+All three are one-time (3 recurs only if the login keyring's password differs
+from the account password, which is what stops it unlocking at login). After any
+of them, sign in once more and the session persists.
 
 ### Deep links `hinata://`
 
@@ -156,25 +234,100 @@ freedesktop counterpart, so `https://track.asta.hn/issues/HN-42` opens in the
 browser. The browser's page offers the in-app route. `_launchDeepLink` matches on
 the `hinata` scheme alone for the same reason.
 
-### File picking — needs zenity or kdialog
+### File picking — the portal, not a helper program
 
-`file_picker` 8.3.7 has no native Linux plugin: its Linux implementation is pure
-Dart and shells out to `zenity`, `qarma` or, on KDE, `kdialog`. There is no XDG
-portal path in that version, which is also why the Flatpak needs real filesystem
-access rather than relying on the portal (see the manifest's comments).
+Linux uses a different picker from every other platform, chosen in
+`lib/core/util/file_pick.dart`. That file is the seam: every upload surface —
+the attachments section, comment attachments, the two Markdown/Lexical image
+buttons, both avatar editors, the organisation logo, the e-mail reply sheet, and
+on Linux the comment composer's gallery entry — calls
+`pickFilesToUpload(context, …)`, and none of them knows which package answers.
+(`grep -rn 'pickFilesToUpload(' lib` is the list; this document deliberately
+does not carry a count of it.)
 
-`zenity` is installed by default on Ubuntu, Fedora Workstation and most GNOME
-spins; `kdialog` comes with Plasma.
+`file_picker` — still what Android, iOS, macOS, Windows and web use — has no
+native Linux plugin. Its Linux implementation is pure Dart and shells out to
+`zenity`, `qarma` or, on KDE, `kdialog`. That is a hard failure under
+confinement: a snap's `$PATH` is `$SNAP/usr/bin` plus the base snap's
+`/usr/bin`, so none of those programs is reachable no matter what the host has
+installed, and the dialog simply never appeared — no error, no window, a dead
+button. Inside a Flatpak a staged copy *did* run, but inside the sandbox, so it
+could only show the sandbox's view of the filesystem; that is what originally
+put read access to three XDG directories in the manifest. (They are still
+there — for drag & drop, which is a different mechanism with a different
+answer; see below.)
 
-**What the user sees when neither is installed:** every place that opens a file
-dialog — attachments, comment attachments, the editor's image button, avatars,
-the org logo, e-mail replies — reports it, and on Linux names the three programs
-to install. Four of those used to fail in silence, which reads as a dead button.
+Linux now goes through `file_selector_linux`, a real plugin calling
+`gtk_file_chooser_native_new`. GTK hands that to the XDG **FileChooser portal**
+whenever the app is sandboxed — unconditionally inside Flatpak (`/.flatpak-info`
+exists, so `gdk_should_use_portal()` is true), and via `GTK_USE_PORTAL=1` in a
+snap, which the gnome extension sets and `snapcraft.yaml` sets again explicitly.
+The dialog is then drawn by the *host*, browses the host's filesystem, and the
+chosen file is handed back through the **document portal**: it appears inside
+the sandbox at `/run/user/<uid>/doc/<hash>/<name>`.
 
-Photo/video picking is a different code path and needs nothing extra:
-`image_picker_linux` delegates to `file_selector_linux`, which is
-`GtkFileChooserNative` — and that one *is* taken over by the desktop portal when
-the app is sandboxed.
+That last detail is the one thing to keep in mind when touching upload code. The
+path the app receives is **not** the path the user browsed to — only the final
+segment survives, and that segment is the file's name. Everything in the app
+uploads under `ChosenFile.name` and shows `ChosenFile.name` — the seam's own
+type, deliberately *not* called `PickedFile`, because `image_picker` exports a
+deprecated class by that name and two of these screens import it. Nothing
+derives a name from a directory, which is why the remapping is invisible. Keep
+it that way.
+
+Two smaller consequences, both improvements:
+
+- A file outside the XDG folders — `~/projects`, a mounted share, a USB stick —
+  is now selectable in the sandboxed builds. It was not before.
+- The image filter gained WebP. The zenity filter was `*.bmp *.gif *.jpeg *.jpg
+  *.png`, so a WebP the server happily accepts was not selectable at all.
+
+Unsandboxed (a `.deb`-style install, `flutter run`), GTK opens its own dialog as
+always and nothing here applies.
+
+Photo/video picking never had the problem: `image_picker_linux` has delegated to
+`file_selector_linux` all along. The file picker has simply caught up with it.
+What it does not do is speak the user's language — it passes a hard-coded
+English `Images` filter and no `confirmButtonText`, so GTK labels its accept
+button `_Open`. The comment composer's "Galerie" entry therefore goes through
+the seam as well on Linux (`galleryIsAFileDialog` in `file_pick.dart`): the
+identical dialog, with the same two translated strings the attachment button
+gets. On every platform with a real photo library, `image_picker` still opens
+it.
+
+### Drag & drop — the one upload path with no portal in it
+
+Dropping files onto the attachments section does not go through the picker, and
+so does not go through the portal either. `desktop_drop`'s Linux plugin
+registers plain URI targets (`gtk_drag_dest_add_uri_targets`) and reads the raw
+selection, so what the app receives is the host path the file always had —
+`/home/u/Documents/report.pdf` — with nothing remapping it into the sandbox.
+GTK has a portal for exactly this case (`org.freedesktop.portal.FileTransfer`,
+negotiated through the `application/vnd.portal.filetransfer` target); the plugin
+does not ask for it.
+
+Unsandboxed that is just a path and every drop works. Inside a sandbox the path
+resolves only where a grant mounts it, which is why both packages keep read
+access to the folders a drag realistically starts in: three read-only XDG
+directories in the Flatpak (`xdg-documents`, `xdg-pictures`, `xdg-desktop`, plus
+the Downloads grant that already exists for writing), and the `home` plug in the
+snap, which has no per-directory equivalent. **Those grants are for drag & drop
+alone** — the picker needs none. The Flatpak still refuses
+`--filesystem=home:ro`, and the snap's `home` plug excludes every top-level
+dotfile (`owner @{HOME}/[^s.]** rwkl`), so `~/.ssh`, `~/.gnupg` and browser
+profiles stay out of reach of an app that decodes attachments for a living.
+
+**What the user sees** when a drop lands outside them — a file dragged out of
+`~/projects`, or a folder dropped instead of a file — is a toast saying the
+dropped file could not be read, pointing at **Add files**. That button goes
+through the portal and reaches the file wherever it lives. It is deliberately
+*not* the picker's message: no dialog was involved, and "couldn't open the file
+dialog" would send someone looking in the wrong place.
+
+Closing that asymmetry for good needs the plugin to speak the FileTransfer
+portal. Until then the grants are the honest price of a drop that works, and
+they are commented as such in both manifests so nobody drops them again while
+reading only the picker's half of the story.
 
 ### Voice comments — recording
 
@@ -228,6 +381,18 @@ with the name made unique (`report (2).pdf`) rather than overwriting. A desktop
 without `xdg-user-dirs` configured has no such directory to look up, so the app
 falls back to `~/Downloads` and creates it — a file the user can find beats a
 failure.
+
+Inside the snap the lookup is not asked at all, because there it does not fail —
+it lies. snapd points `HOME` at the sandbox's own data directory and the `home`
+interface hides `~/.config/user-dirs.dirs` (a top-level dotfile), so
+`xdg-user-dir DOWNLOAD` answers with the *snap's* home and the file would land
+in `~/snap/hinata/current/Downloads`, a folder no file manager bookmarks. snapd
+exports `SNAP_REAL_HOME` for exactly this, so the app writes to
+`$SNAP_REAL_HOME/Downloads` whenever `HOME` is not the user's real home — the
+same `~/Downloads` the Flatpak reaches through `--filesystem=xdg-download:create`
+and the AppImage reaches directly. If that write is refused (the `home` interface
+disconnected, or Ubuntu Core), the download still lands in the confined home
+directory rather than failing.
 
 **What the user sees:** a toast naming the saved file — which is needed here in a
 way it is not on the other platforms, because no dialog went by to confirm that
@@ -318,7 +483,6 @@ Runtime dependencies beyond GTK itself, all present on a normal desktop:
 | --- | --- | --- |
 | `libgtk-3-0` | the app itself | does not start |
 | `libsecret-1-0` + a keyring (`gnome-keyring`, KWallet) | staying signed in | signed out on next launch |
-| `zenity` or `kdialog` | attachment file picker | picker never opens |
 | `pulseaudio-utils`, `ffmpeg` | recording a voice comment | recorder does not start |
 | `gstreamer1.0-plugins-base/good/bad`, `gstreamer1.0-libav` | playing a voice comment | base missing: an error naming the package. libav missing: recorded AAC will not decode |
 | `xdg-user-dirs` | locating the Downloads folder | the app falls back to `~/Downloads` and creates it |
@@ -374,8 +538,8 @@ too. It is the real asset, scaled; the brand is never redrawn.
 `packaging/linux/flatpak/com.ahmadre.hinata.yml`, on `org.freedesktop.Platform`
 25.08 (the current stable branch; 26.08 was still in beta when this was written).
 That runtime happens to carry almost everything the app shells out to — gtk3,
-zenity, gstreamer with base/good/bad/ugly/libav, libsecret and ffmpeg are all
-elements of the platform image. The one exception is PulseAudio's *client tools*:
+gstreamer with base/good/bad/ugly/libav, libsecret and ffmpeg are all elements
+of the platform image. The one exception is PulseAudio's *client tools*:
 the runtime builds libpulse with the daemon disabled and ships no binaries, so
 the manifest builds `parecord`/`pactl` itself as a small module. Without it the
 mic button would fail to spawn anything.
@@ -391,23 +555,40 @@ flatpak run com.ahmadre.hinata
 The permission set is deliberately short — `wayland` + `fallback-x11` (not a
 blanket `x11`, which would be a sandbox escape on a Wayland session), `ipc`,
 `dri`, `network`, `pulseaudio`, `--talk-name=org.freedesktop.secrets` for the
-keyring, read-only access to the XDG documents/pictures/desktop folders for the
-picker and `--filesystem=xdg-download:create` for downloads. Each one is
-justified in a comment next to it, including the ones that are deliberately
-absent.
+keyring, `--filesystem=xdg-download:create` for downloads, and three read-only
+XDG directories for drag & drop. Each one is justified in a comment next to it,
+including the ones that are deliberately absent.
 
-Those three read-only folders are the concession the portal-less `file_picker`
-forces: zenity runs *inside* the sandbox, so it only ever shows the sandbox's
-view of the filesystem, and without a grant there is nothing to upload.
-Deliberately not `--filesystem=home:ro`: that also hands the app ~/.ssh,
-~/.gnupg and every browser profile, none of which is ever an attachment, and all
-of which the sandbox exists to keep away from anything the app decodes on a
-server's behalf. If `file_picker` ever grows a portal backend, all three lines
-can go.
+**The file picker has no read grant, and does not need one.** `xdg-documents:ro`,
+`xdg-pictures:ro` and `xdg-desktop:ro` were originally the picker's, because
+zenity ran *inside* the sandbox and could only show the sandbox's view of the
+filesystem. With the FileChooser portal the dialog runs on the host and the app
+is handed exactly one file through the document portal — stricter (the app can
+no longer read a directory it was never pointed at) and less restrictive in
+practice (a file in `~/projects` or on a mounted share is selectable now, which
+it was not before).
 
-Someone who keeps the files they attach somewhere else — `~/projects`, a mounted
-share — can widen it per machine without rebuilding, which is the right place
-for that decision because it is one person's filesystem layout, not a default:
+They stay for the two things the portal does *not* answer, both described under
+"Drag & drop" above: `desktop_drop` hands the app raw host paths, and
+`gtk_file_chooser_native_show` falls back to an in-process dialog that browses
+the sandbox when no `xdg-desktop-portal` backend is running at all. With no
+grants the first breaks outright and the second shows an empty tree with no
+error — the same invisible dead end this change set out to remove. The snap
+keeps its `home` plug for these two reasons, and for a third the Flatpak grants
+separately: writing a downloaded attachment into the user's real `~/Downloads`.
+
+`--filesystem=home:ro` is still refused: read access to a home directory is read
+access to `~/.ssh`, `~/.gnupg` and every browser profile, none of which is ever
+an attachment.
+
+`--filesystem=xdg-download:create` stays: it is for *writing* a downloaded
+attachment, which no portal is involved in — `share_plus` throws
+`UnimplementedError` for files on Linux, so downloads go straight to the XDG
+Downloads folder. It happens to make a just-downloaded file droppable too.
+
+Someone who wants to widen the sandbox anyway — to drag files in out of
+`~/projects`, say — can do it per machine without rebuilding, which is the right
+place for that decision because it is one person's setup, not a default:
 
 ```bash
 flatpak override --user --filesystem=~/projects:ro com.ahmadre.hinata

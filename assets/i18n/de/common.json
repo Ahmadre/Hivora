@@ -90,9 +90,14 @@
       "noSmtp": "Es ist noch kein Mailserver konfiguriert. Bitte wende dich an die Plattform-Admins, um E-Mails senden zu können.",
       "sendFailed": "Die Antwort konnte nicht gesendet werden. Bitte versuche es erneut."
     },
-    "sessionNotPersisted": "Angemeldet, aber diese Sitzung lässt sich nicht speichern — es läuft kein Schlüsselbunddienst. Nach einem Neustart ist eine erneute Anmeldung nötig.",
-    "filePickFailed": "Der Dateidialog ließ sich nicht öffnen. Bitte versuche es erneut.",
-    "filePickerMissing": "Der Dateidialog ließ sich nicht öffnen. Unter Linux werden zenity, qarma oder kdialog benötigt."
+    "sessionNotPersisted": {
+      "snap": "Hinata darf den Passwortspeicher dieses Systems noch nicht nutzen — nach jedem Neustart ist deshalb eine erneute Anmeldung nötig. Alles andere funktioniert normal. Einmalig erlauben mit {{command}} — oder in App Center bei Hinata „password manager service“ einschalten — und dann erneut anmelden.",
+      "keyring": "Hinata erreicht den Passwortspeicher dieses Systems nicht — nach jedem Neustart ist deshalb eine erneute Anmeldung nötig. Alles andere funktioniert normal. Um angemeldet zu bleiben, installiere und entsperre einen Schlüsselbund (GNOME Keyring oder KWallet) und melde dich dann erneut an.",
+      "generic": "Hinata erreicht den Passwortspeicher dieses Systems nicht — nach jedem Neustart ist deshalb eine erneute Anmeldung nötig. Alles andere funktioniert normal; betroffen ist nur das Angemeldetbleiben.",
+      "locked": "Hinata kann den Passwortspeicher dieses Systems nicht öffnen, weil er gesperrt ist — nach jedem Neustart ist deshalb eine erneute Anmeldung nötig. Alles andere funktioniert normal. Entsperre deinen Schlüsselbund (GNOME Keyring und KWallet fragen beim ersten Mal nach deinem Anmeldepasswort) und melde dich dann erneut an.",
+      "copyCommand": "Befehl kopieren"
+    },
+    "filePickFailed": "Der Dateidialog ließ sich nicht öffnen. Bitte versuche es erneut."
   },
   "connect": {
     "title": "Mit deinem Server verbinden",
@@ -386,6 +391,10 @@
     "recorderToolMissing": "Aufnahme nicht möglich: {{tool}} ist nicht installiert. Unter Linux wird über parecord (pulseaudio-utils) und ffmpeg aufgenommen.",
     "voiceNeedsGstreamer": "Diese Sprachnachricht lässt sich nicht abspielen: Die GStreamer-Basis-Plugins fehlen. Installiere gstreamer1.0-plugins-base."
   },
+  "filePicker": {
+    "images": "Bilder",
+    "confirm": "Öffnen"
+  },
   "camera": {
     "blockedTitle": "Keine Kamera verfügbar",
     "blockedBody": "Hinata erreicht keine Kamera. Prüfe, ob eine Kamera angeschlossen ist und ob der Kamerazugriff für Hinata in den Systemeinstellungen erlaubt ist, und versuche es erneut.",
@@ -545,6 +554,7 @@
       "deleteAllBody": "Die Datei wird dauerhaft für alle entfernt.",
       "deleteAllBody_plural": "{{count}} Dateien werden dauerhaft für alle entfernt.",
       "pickFailed": "Auswahl konnte nicht geöffnet werden. Bitte versuche es erneut.",
+      "dropFailed": "Die abgelegte Datei ließ sich nicht lesen. Ordner lassen sich nicht ablegen – nutze stattdessen „Dateien hinzufügen“.",
       "ageNow": "jetzt",
       "ageMinutes": "vor {{n}} Min.",
       "ageHours": "vor {{n}} Std.",

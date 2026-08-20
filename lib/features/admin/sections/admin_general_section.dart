@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart' show MultipartFile;
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,7 +9,7 @@ import 'package:hinata/core/widgets/hive_loader.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/i18n/i18n.dart';
-import '../../../core/util/file_pick_failure.dart';
+import '../../../core/util/file_pick.dart';
 import '../../../core/repositories/admin_repository.dart';
 import '../../../core/repositories/meta_repository.dart';
 import '../../../core/theme/app_colors.dart';
@@ -51,22 +50,22 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
     final updated = context.t('admin.logoUpdated');
     final failed = context.t('admin.logoUploadFailed');
 
-    final pickFailed = context.t(filePickFailureKey('admin.logoUploadFailed'));
-
-    final FilePickerResult? picked;
+    final List<ChosenFile> picked;
     try {
-      picked = await FilePicker.platform.pickFiles(
-        type: FileType.image,
+      picked = await pickFilesToUpload(
+        context,
+        kind: FilePickKind.image,
         withData: kIsWeb,
       );
     } catch (_) {
       // Unguarded until now: a dialog that will not open threw straight past
       // this screen instead of saying so.
-      if (mounted) showGlassErrorToast(context, pickFailed);
+      if (mounted) showGlassErrorToast(context, failed);
       return;
     }
-    if (picked == null || picked.files.isEmpty) return;
-    final file = picked.files.first;
+    // An empty list means cancelled — nothing to report.
+    if (picked.isEmpty) return;
+    final file = picked.first;
     final multipart = kIsWeb
         ? (file.bytes == null
               ? null

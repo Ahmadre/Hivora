@@ -1,0 +1,698 @@
+# Snap package for the Linux desktop build.
+#
+# This recipe builds the app from source, where the Flatpak and the AppImage
+# both package a bundle that was built beforehand. The two reasons those recipes
+# cannot build — the Flutter SDK downloads its engine artefacts on demand, and
+# `printing`'s linux/CMakeLists.txt fetches pdfium at CMake *configure* time —
+# only bite inside flatpak-builder, which runs its modules with no network. A
+# snapcraft build step has network, so the ordinary `flutter build linux
+# --release` runs here and libpdfium.so ends up inside the bundle exactly as it
+# does elsewhere.
+#
+# The recipe lives here, with the other packaging inputs, but it has to be RUN
+# from the repository root:
+#
+#   ln -sfn packaging/linux/snap snap     # once, from the repository root
+#   snapcraft
+#   sudo snap install gnome-46-2404       # all three, see below
+#   sudo snap install mesa-2404
+#   sudo snap install gtk-common-themes
+#   sudo snap install --dangerous ./hinata_<version>_amd64.snap
+#   sudo snap connect hinata:password-manager-service
+#   sudo snap connect hinata:audio-record
+#
+# The symlink is not cosmetic. Snapcraft takes the directory that holds
+# snap/snapcraft.yaml as the project directory, and that directory — and
+# nothing above it — is what gets mounted into the build container at
+# /root/project. Run from packaging/linux, this recipe would look out at a
+# handful of sibling files and no Flutter project, and a `source: ../..` at the
+# repository would resolve to whatever sits above the mount. So the symlink
+# makes the repository root the project directory while the file itself stays
+# with the Flatpak manifest and the AppImage script. It is one entry in the
+# tree, worth committing, and then a packaging job is just `snapcraft`.
+#
+# Those three installs are not optional for a local install, and none of them
+# stands in for another. snapd pulls a content snap's default provider only for
+# snaps that came from the store, so a `--dangerous` install of a file gets
+# whatever is on the machine already and an empty mount point for the rest —
+# and the gnome extension on core24 declares three providers, not one:
+#
+#   gnome-46-2404 ..... the GTK stack, mounted at $SNAP/gnome-platform.
+#                       Missing, the app dies before its first frame.
+#   mesa-2404 ......... plugged as `gpu-2404` and driven by the extension's own
+#                       snap/command-chain/gpu-2404-wrapper. It carries the
+#                       GL/EGL userspace *and* the llvmpipe software fallback,
+#                       so missing it leaves Flutter's embedder with no driver
+#                       at all — not a slow one, none — and the app dies the
+#                       same way, one step later.
+#   gtk-common-themes . the icon, cursor and sound themes. Missing, the app
+#                       does start, with blank icons and no theming.
+#
+# The part below copies the whole working tree; its override-pull deletes
+# build/ and .dart_tool/ out of that copy, which is why nothing here asks for a
+# `flutter clean` first — and why forgetting one can no longer ship a bundle
+# built for the other architecture.
+
+# The snap name is also the command name (/snap/bin/hinata), the prefix of
+# every `snap connect` line above, and the directory the app's data lands in.
+# It matches the executable the other two formats install, so every instruction
+# in docs/LINUX.md that starts with `hinata` keeps working.
+name: hinata
+
+# core24 is the 24.04 base, which is the same Ubuntu the gnome-46-2404 platform
+# snap is built from. That pairing is what lets the GStreamer plugins staged
+# below sit next to the platform's own: both come out of the noble archive at
+# GStreamer 1.24, and a plugin whose major.minor disagrees with the loaded
+# libgstreamer is refused at registry scan time. Moving one of the two forward
+# means moving both.
+base: core24
+confinement: strict
+grade: stable
+license: GPL-3.0-only
+
+# The version comes from the part, not from this file: a number written here
+# would be a second place to forget. See the part's override-pull.
+adopt-info: hinata
+
+# Where the part installed it, relative to the prime directory — snapcraft
+# looks there before it looks in the project, so this line does not also have
+# to encode where the file sits in the repository. It is the same 512x512 icon
+# the Flatpak and the AppImage install. snapcraft copies it to meta/gui/icon.png
+# and rewrites the desktop entry's `Icon=` to point at that copy, which is why
+# the entry can keep saying `Icon=com.ahmadre.hinata` and still resolve inside
+# a sandbox that has no host icon theme.
+icon: usr/share/icons/hicolor/512x512/apps/com.ahmadre.hinata.png
+
+summary: Open-source, self-hosted project and issue tracking
+description: |
+  Hinata is the desktop client for a self-hosted Hinata server: projects and
+  teams, an issue hierarchy from epic down to sub-task, agile boards, sprints,
+  a Gantt timeline, timesheets, reports, a knowledge base and threaded comments
+  with reactions and voice notes. Nothing is hosted for you — on first start
+  the app asks for your server URL, and it keeps as many servers side by side
+  as you like, each with its own tokens.
+
+  Two of its permissions do not connect themselves, because snapd wants you to
+  grant them deliberately:
+
+      snap connect hinata:password-manager-service
+      snap connect hinata:audio-record
+
+  Without the first, signing in works but the session only lasts until you quit
+  and the next start asks for your password again. Without the second, the
+  sound server refuses the microphone and a voice comment records nothing.
+
+  Some capabilities differ from the other desktops. Push notifications are not
+  available — Firebase has no Linux client, so notifications arrive by e-mail
+  and in the app's own notification centre. Capturing a photo or video from a
+  webcam is not offered; existing files attach as usual. Downloaded
+  attachments land in your ~/Downloads folder, the same place every other
+  packaging of this app puts them.
+
+  The interface is available in English and German.
+
+# core24 spells this `platforms`; `architectures` is the core22 key and is
+# rejected on this base. Each entry builds on its own architecture and for it:
+# `flutter build linux` is not a cross-compiler, so an arm64 snap has to be
+# built on arm64 hardware (or a remote builder that provides it).
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  hinata:
+    # The flutter plugin ends its build with
+    #   cp -r build/linux/*/release/bundle/* $CRAFT_PART_INSTALL/
+    # so the bundle lands at the root of the snap: $SNAP/hinata beside
+    # $SNAP/data and $SNAP/lib. That is exactly the layout the runner needs —
+    # it resolves data/flutter_assets and lib/ relative to its own executable,
+    # and the plugin libraries carry an RPATH of $ORIGIN/lib. core24 does not
+    # run patchelf over staged ELF files unless asked to (build-attributes:
+    # enable-patchelf), which is why those RPATHs survive packaging intact.
+    command: hinata
+
+    # The gnome extension wires up the GTK stack: it mounts the gnome-46-2404
+    # platform snap at $SNAP/gnome-platform, adds the desktop-launch
+    # command-chain that sets up themes, fonts, XDG dirs and LD_LIBRARY_PATH,
+    # and connects the mesa content snap for GPU access. Deliberately NOT one
+    # of the flutter-* extensions: those exist only for core18 and are dead.
+    extensions: [gnome]
+
+    # Ties the snap to the AppStream component the Flatpak and the AppImage
+    # also install, so GNOME Software shows one application rather than three.
+    common-id: com.ahmadre.hinata
+
+    # The desktop entry is what makes hinata:// links reach the app at all.
+    # snapcraft rewrites its Exec= to the snap command and copies it to
+    # meta/gui/hinata.desktop, from where snapd exports it to the host as
+    # hinata_hinata.desktop — that mangled name, not com.ahmadre.hinata.desktop,
+    # is what `xdg-mime query default x-scheme-handler/hinata` will answer with.
+    #
+    # snapd rewrites the file through an allowlist of desktop-entry keys on the
+    # way out. MimeType survives (localised [de] keys included, the locale
+    # suffix is stripped before the key is checked), and so do StartupWMClass
+    # and Categories. DBusActivatable does not — it is not on the list and is
+    # dropped silently. Nothing is lost here, because this entry never had it:
+    # the second `hinata` is a real process that hands its argv to the first
+    # over the session bus (see the dbus slot below), which is a different
+    # mechanism from D-Bus activation and the one the GTK runner implements.
+    desktop: usr/share/applications/com.ahmadre.hinata.desktop
+
+    plugs:
+      # The whole app is a client for a server the user names at first start,
+      # so there is no host to narrow this to. network-bind is deliberately
+      # absent: nothing in the app listens.
+      - network
+
+      # Attachments — no longer the interface the file picker rides on, still
+      # the one drag & drop rides on.
+      #
+      # It used to carry both, and it was the only thing that could. file_picker's Linux
+      # "implementation" is pure Dart: it shells out to zenity. Under strict
+      # confinement zenity is not on $PATH unless the snap stages it, and a
+      # staged zenity runs INSIDE the sandbox, so it could only ever show the
+      # sandbox's view of the filesystem — which is why `home` had to be here.
+      #
+      # Picking now goes through file_selector_linux (see
+      # lib/core/util/file_pick.dart), i.e. gtk_file_chooser_native_new, which
+      # GTK routes to the XDG FileChooser portal when GTK_USE_PORTAL=1 is set
+      # (the gnome extension sets it; this file sets it explicitly too — see
+      # `environment:` below). The dialog is then drawn by the HOST, sees the
+      # host's filesystem, and hands back one file through the document portal
+      # at /run/user/<uid>/doc/<hash>/<name>, which the `desktop` interface
+      # already grants. No `home` needed for the picker at all.
+      #
+      # `home` stays anyway, for three reasons — and none of them goes away by
+      # confirming the portal on more desktops, so this plug is not a leftover
+      # waiting to be deleted.
+      #
+      # One: drag & drop never touches a portal. desktop_drop's Linux plugin
+      # registers plain URI targets (gtk_drag_dest_add_uri_targets) and reads
+      # the raw selection, so a file dragged out of the host's file manager
+      # arrives as the host path it always had — /home/<user>/Documents/x.pdf —
+      # and nothing remaps it into the sandbox. Without `home` that path does
+      # not resolve and every drop fails on its first read.
+      #
+      # Two: the portal has a fallback and the fallback needs it. If no
+      # xdg-desktop-portal implementation is running — a bare window manager, a
+      # stripped-down session — the portal call fails and GTK silently falls
+      # back to its own in-process dialog. With `home` that dialog still shows
+      # the user's files; without it, it shows an empty sandbox, which is
+      # exactly the invisible dead end this whole change was made to remove.
+      #
+      # Three: the one thing the app writes. A downloaded attachment goes into
+      # $SNAP_REAL_HOME/Downloads — the user's real folder, not the sandbox's
+      # copy of one (see the note under stage-packages) — and `home` is the
+      # interface that makes that path writable. Without it the write is denied
+      # and the download falls back into the snap's own data directory, which
+      # is a folder no file manager bookmarks.
+      #
+      # The Flatpak answers the first two with three read-only XDG directories
+      # and the third with --filesystem=xdg-download:create — it can be that
+      # precise because Flatpak grants are per-directory; see
+      # packaging/linux/flatpak/com.ahmadre.hinata.yml.
+      #
+      # What it does NOT grant is unchanged and still the point: its AppArmor
+      # rule is `owner @{HOME}/[^s.]** rwkl`, so every top-level dotfile is
+      # excluded — ~/.ssh, ~/.gnupg and every browser profile stay out of reach
+      # of an app that decodes attachments, images and audio on a server's
+      # behalf. (It also means ~/.config/user-dirs.dirs cannot be read — see
+      # the note about downloads under stage-packages.)
+      #
+      # Auto-connects on classic desktops; on Ubuntu Core it has to be
+      # connected by hand. removable-media is deliberately not declared: with
+      # the portal a file on a USB stick is now reachable without it.
+      - home
+
+      # The six the gnome extension adds anyway, repeated so this file is the
+      # whole permission list rather than half of it. desktop/desktop-legacy
+      # cover the session bus, themes and the portal talk the app does through
+      # GTK; gsettings the settings the toolkit reads; opengl the GPU that
+      # Flutter's embedder renders through — without it the UI falls back to
+      # llvmpipe, which is visibly slow with these glass surfaces.
+      #
+      # x11 has no `fallback-x11` counterpart in snapd the way it does in
+      # Flatpak: the socket is granted whenever the plug is connected. On a
+      # Wayland session GDK connects to the Wayland socket and the X11 grant
+      # simply goes unused; on an X session it is the only way the app draws.
+      - desktop
+      - desktop-legacy
+      - gsettings
+      - opengl
+      - wayland
+      - x11
+
+      # Voice comments, playing them back: just_audio_linux renders through
+      # GStreamer's playbin, which ends at pulsesink. Auto-connects.
+      - audio-playback
+
+      # Voice comments, recording them: record_linux pipes parecord into
+      # ffmpeg. This one does NOT auto-connect — its base declaration carries
+      # `deny-auto-connection: true`, so a fresh install has a microphone
+      # button that cannot reach a microphone until:
+      #
+      #   snap connect hinata:audio-record
+      #
+      # What the user sees without it is the confusing case, and the reason it
+      # is called out in the description above. The interface itself installs
+      # almost no AppArmor policy: the socket comes from audio-playback and the
+      # enforcement lives in the sound server, whose snap policy module asks
+      # snapd whether this snap has audio-record connected before it opens a
+      # capture stream. So parecord spawns and is then refused — and
+      # record_linux awaits only the first of its two processes, so the failure
+      # cannot surface the way a missing binary does. It surfaces as a voice
+      # comment that recorded nothing.
+      - audio-record
+
+      # Staying signed in. flutter_secure_storage_linux stores tokens through
+      # libsecret, i.e. the freedesktop Secret Service (or KWallet), both of
+      # which live on the session bus outside the sandbox. This does NOT
+      # auto-connect either — `deny-auto-connection: true`, and reasonably so:
+      # it is access to every secret in the login keyring, not only to the ones
+      # this app wrote.
+      #
+      #   snap connect hinata:password-manager-service
+      #
+      # Without it the app behaves exactly as it does on a desktop with no
+      # keyring at all, which is a path it already handles: every libsecret call
+      # is guarded, AppStorage.sessionIsMemoryOnly is set, and the next start
+      # asks for the password again rather than crashing on the way to the login
+      # screen. The difference is what the one toast says. AppStorage reads
+      # snapd's SNAP/SNAP_INSTANCE_NAME (see lib/core/storage/
+      # secret_store_environment.dart), so inside this sandbox it prints the
+      # exact `snap connect` line above — with the *instance* name, so a
+      # parallel install is told about itself — instead of the "install a
+      # keyring" advice that would be a dead end here.
+      - password-manager-service
+
+      # Deliberately NOT declared:
+      #   camera — `camera` has no Linux implementation, so webcam capture is
+      #     not offered on this platform and installDesktopCameraDelegate
+      #     returns early.
+      #   removable-media — see `home` above.
+      #   cups / cups-control — `printing` prints through gtk+-unix-print, and
+      #     GTK inside a sandbox takes the print portal, which the `desktop`
+      #     interface already permits. Adding a CUPS interface would only be
+      #     needed if that turns out not to hold.
+      #   browser-support — opening a link is url_launcher handing a URI to
+      #     GTK, which routes it to the portal; the app never drives a browser.
+      #   any notification interface — the Linux build has no notification path
+      #     at all (firebase_messaging has no Linux implementation and no
+      #     local-notification plugin is used), so a permission for it would
+      #     sit in the app's list doing nothing. The same call the Flatpak
+      #     manifest makes about --talk-name=org.freedesktop.Notifications.
+
+    slots:
+      - dbus-hinata
+
+    environment:
+      # $CRAFT_ARCH_TRIPLET_BUILD_FOR is expanded by snapcraft while it writes
+      # snap.yaml, not by snapd at runtime — the resolved triplet
+      # (x86_64-linux-gnu / aarch64-linux-gnu) is baked in. It is the core24
+      # spelling; the older $CRAFT_ARCH_TRIPLET is deprecated and would be left
+      # in the file verbatim, which is a path that resolves to nothing.
+      #
+      # GST_PLUGIN_SYSTEM_PATH REPLACES the compiled-in system path, so it has
+      # to name both directories or the platform's plugins disappear the moment
+      # ours appear: base, good, gl and pipewire live in gnome-46-2404, bad and
+      # libav in $SNAP. Losing the platform's half would take playbin, qtdemux,
+      # aacparse and pulsesink with it — everything, that is, except the
+      # decoder libav was staged for.
+      GST_PLUGIN_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer-1.0
+      GST_PLUGIN_SYSTEM_PATH: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer-1.0:$SNAP/gnome-platform/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer-1.0
+      # The helper GStreamer forks to inspect a plugin before trusting it. Its
+      # compiled-in location is an absolute /usr/lib path that exists on the
+      # build host and not in the sandbox; the copy that travels with the staged
+      # libgstreamer1.0-0 is the one that does exist. That copy is also one of
+      # the two exceptions the `cleanup` part at the end of this file makes,
+      # because the platform snap builds GStreamer from source and where *it*
+      # installs this helper is not something this recipe can pin — a path named
+      # here that resolves to nothing would be worse than a duplicated 30 kB
+      # binary. Getting it wrong is a warning rather than a failure — GStreamer
+      # falls back to scanning plugins in-process — which is precisely why it is
+      # worth setting to something that exists instead of finding out from a log
+      # nobody reads.
+      GST_PLUGIN_SCANNER: $SNAP/usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner
+      # What makes the file picker work under confinement at all.
+      #
+      # gtk_file_chooser_native_new only reaches the XDG FileChooser portal if
+      # gdk_should_use_portal() says so, and outside Flatpak that function
+      # reads exactly one thing: this variable. Unset, GTK opens its own dialog
+      # inside the sandbox, which sees $SNAP_USER_DATA and not the user's
+      # files — the silent dead end that made the old picker unusable here.
+      #
+      # The gnome extension already sets it on GTK desktops. It is repeated
+      # here on purpose: the attachment button working is not something to
+      # leave to an extension's own detection, and a variable that is set twice
+      # to the same value costs nothing. Where no portal is running at all, GTK
+      # falls back to its in-process dialog by itself (see the `home` plug).
+      GTK_USE_PORTAL: '1'
+
+slots:
+  # The GTK runner runs Hinata as a *unique* GApplication with
+  # G_APPLICATION_HANDLES_COMMAND_LINE, which means the first process owns
+  # com.ahmadre.hinata on the session bus and every later launch — `xdg-open
+  # 'hinata://auth-callback?code=…'`, a browser handing over an SSO redirect —
+  # ships its argv to that process instead of starting a second app with its
+  # own Dart isolate and its own idea of which server is selected.
+  #
+  # Owning a bus name is a privilege under strict confinement: without a dbus
+  # slot naming it, snapd denies the RequestName call, g_application_register()
+  # fails and the launch ends in an error instead of a window. So this is not a
+  # deep-link nicety — nothing starts without it.
+  #
+  # Session bus, not system: the base declaration lets an app snap install a
+  # session-bus dbus slot on its own, while a system-bus one needs a store
+  # override and human review.
+  #
+  # The slot's key cannot be the bus name itself — slot names are
+  # [a-z0-9] with single dashes, and com.ahmadre.hinata has dots.
+  dbus-hinata:
+    interface: dbus
+    bus: session
+    name: com.ahmadre.hinata
+
+parts:
+  hinata:
+    # The project directory, which the symlink at the top of this file makes
+    # the repository root: the app, the vendored packages/just_audio_linux and
+    # the shared packaging inputs that override-build installs below all come
+    # out of one tree.
+    source: .
+    source-type: local
+    plugin: flutter
+    flutter-target: lib/main.dart
+
+    override-pull: |
+      craftctl default
+
+      # Take the previous builds out of the COPY craft-parts just made — never
+      # out of the developer's tree, see below.
+      #
+      # `source: .` brings the whole working directory along, build/ included,
+      # and the flutter plugin ends its build with
+      #   cp -r build/linux/*/release/bundle/* $CRAFT_PART_INSTALL/
+      # — a glob, expanded alphabetically. A tree that has ever built for both
+      # architectures therefore holds build/linux/arm64 and build/linux/x64,
+      # x64 is copied second and wins, and an arm64 snap built on arm64
+      # hardware ships an x86_64 `hinata` plus x86_64 plugin libraries. The
+      # check at the end of override-build cannot catch that — the file is
+      # there and it is executable — so the first anyone hears of it is
+      # "Exec format error" on a user's machine. .dart_tool goes for a
+      # related reason: its package_config.json holds absolute paths from
+      # whichever machine last ran `pub get` in that tree.
+      #
+      # $CRAFT_PART_SRC is parts/hinata/src *inside the build instance*. Its
+      # entries are hard links to the project's files wherever craft-parts
+      # could make them, so removing them removes this copy's directory entries
+      # and nothing of the developer's. The variable is checked anyway, because
+      # an `rm -rf` one empty expansion away from the wrong tree is not a thing
+      # to leave unguarded.
+      if [ -z "${CRAFT_PART_SRC:-}" ]; then
+        echo "CRAFT_PART_SRC is unset; refusing to remove anything." >&2
+        exit 1
+      fi
+      rm -rf "$CRAFT_PART_SRC/build" "$CRAFT_PART_SRC/.dart_tool"
+
+      # The same sed as packaging/linux/appimage/build-appimage.sh, against the
+      # same file, so what `snap info` reports can never disagree with what the
+      # app reports about itself. `10.1.0+81` becomes `10.1.0`: snap revisions
+      # already count builds, so carrying the build number would only add a
+      # second number that means the same thing.
+      version="$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml | head -n1)"
+      if [ -z "$version" ]; then
+        echo "Could not read 'version:' from pubspec.yaml." >&2
+        exit 1
+      fi
+      craftctl set version="$version"
+
+    # On top of what the flutter plugin already installs (clang, curl, git,
+    # cmake, ninja-build, unzip). This is the list from the Linux CI job, for
+    # the same reasons — a missing one fails at CMake configure time with a
+    # pkg-config error that names a .pc file instead of the feature:
+    #
+    #   libgtk-3-dev ................. the embedder itself, and the
+    #                                  gtk+-unix-print-3.0 that `printing` needs
+    #   liblzma-dev, libjsoncpp-dev .. the Flutter tool's Linux toolchain
+    #   libsecret-1-dev .............. flutter_secure_storage_linux
+    #   libgstreamer*-dev ............ packages/just_audio_linux
+    #
+    # The gnome SDK snap the extension pulls in also carries a GTK, and its
+    # PKG_CONFIG_PATH comes first, so these are the floor rather than
+    # necessarily the headers that get used — which is the right way round,
+    # because the GTK the app runs against at the end is the platform snap's.
+    build-packages:
+      - pkg-config
+      - libgtk-3-dev
+      - liblzma-dev
+      - libjsoncpp-dev
+      - libsecret-1-dev
+      - libgstreamer1.0-dev
+      - libgstreamer-plugins-base1.0-dev
+
+    stage-packages:
+      # Read the `cleanup` part at the end of this file before adding anything
+      # here. Nothing in this list arrives alone: apt hands out a dependency
+      # closure, that closure overlaps the platform snap almost completely, and
+      # a staged copy of a library the platform also has is the copy that gets
+      # loaded. Left in, this list silently downgrades GLib and GTK underneath
+      # an app that was compiled against the platform's newer ones. The cleanup
+      # part is what takes the overlap back out.
+      #
+      # gnome-46-2404 ships gstreamer with plugins base, good, gl and pipewire
+      # — and neither bad nor libav. libav is the one that matters: the
+      # recorder produces AAC in an MP4 container on every desktop platform,
+      # plugins-good supplies the demuxer (qtdemux) and the parser (aacparse)
+      # but no AAC decoder, and avdec_aac is it. Leaving libav out gives a
+      # voice comment that loads and then cannot play, which is the one shape
+      # of failure this list exists to prevent. plugins-bad covers the
+      # containers and codecs the other three sets do not, and is what
+      # docs/LINUX.md tells a user installing by hand to install.
+      - gstreamer1.0-plugins-bad
+      - gstreamer1.0-libav
+
+      # record_linux 1.3.1 does not link an audio library: it pipes `parecord`
+      # into `ffmpeg` and calls `pactl` to enumerate input devices. Both are
+      # looked up on PATH before capture starts, and under confinement PATH
+      # means $SNAP/usr/bin and the core24 base's /usr/bin — the host's copies
+      # are not visible and cannot be made visible by the user installing a
+      # package. So the tools that docs/LINUX.md asks a hand-installed system
+      # for have to travel inside the snap.
+      #
+      # ffmpeg is the heaviest thing in this package by a wide margin, and it
+      # is here for one feature. The alternative is a mic button that spawns
+      # nothing.
+      - pulseaudio-utils
+      - ffmpeg
+
+      # Deliberately NOT staged: zenity. It was here because file_picker's only
+      # Linux backend is a shell-out to it, and a confined app whose snap has
+      # no zenity has a dead attachment button on every desktop — including the
+      # ones where zenity is installed, because the host's copy is not on the
+      # sandbox's $PATH. Staging it made the dialog appear, but it appeared
+      # inside the sandbox and showed the sandbox's filesystem.
+      #
+      # The app now picks through file_selector_linux, i.e.
+      # GtkFileChooserNative, which the desktop portal takes over — the same
+      # path image_picker_linux has always used for photo and video. There is
+      # nothing left to spawn, so there is nothing left to ship.
+
+      # Deliberately NOT staged: xdg-user-dirs. It looks like the fix for
+      # downloads landing in the wrong place and it is the opposite. snapd
+      # points HOME at $SNAP_USER_DATA, and the `home` interface cannot read
+      # ~/.config/user-dirs.dirs (a top-level dotfile), so `xdg-user-dir
+      # DOWNLOAD` inside the sandbox cannot find the user's real Downloads
+      # folder either — it answers $HOME, confidently, and the download lands
+      # loose in the snap's own data directory. The lookup does not fail here,
+      # it lies, which is why the binary that performs it is not wanted.
+      #
+      # What the app does instead needs no package: snapd exports
+      # SNAP_REAL_HOME, the `home` plug above makes it writable, and
+      # lib/core/util/file_download_io.dart prefers $SNAP_REAL_HOME/Downloads
+      # whenever HOME is not the user's real home — so a download from the snap
+      # lands in ~/Downloads exactly like one from the Flatpak
+      # (--filesystem=xdg-download:create) or the AppImage. A user who renamed
+      # that folder gets the English default and nothing inside the sandbox can
+      # tell us otherwise; that is the whole of what is lost.
+
+    # cargokit (the Rust build under super_native_extensions, see
+    # override-build) happens to find rustup by probing $HOME/.cargo/bin before
+    # it looks at PATH, so today this line changes nothing. It is declared here
+    # rather than exported in override-build because an `export` there could
+    # never have been what makes a Rust build work: craft-parts runs a scriptlet
+    # as its own bash process, and runs the plugin's build commands — `flutter
+    # pub get`, `flutter build linux --release` — from a *separate* script that
+    # sources only the part's environment. Anything exported in the scriptlet is
+    # gone by the time the build proper starts. A part's build-environment is in
+    # both, so the next thing that expects cargo or rustc on PATH during the
+    # actual build (a second Rust plugin, a build_runner step, cargokit changing
+    # the order it looks in) finds them, instead of failing with "command not
+    # found" underneath a comment that points at the wrong cause.
+    build-environment:
+      - PATH: $HOME/.cargo/bin:$PATH
+
+    override-build: |
+      # Pin the SDK, by cloning it before the plugin gets the chance. The
+      # flutter plugin tracks a channel and only clones when
+      # $CRAFT_PART_BUILD/flutter-distro is missing, so leaving it to the
+      # plugin means building against whatever `stable` pointed at that
+      # morning: a new SDK brings a new formatter and new analysis defaults,
+      # and this repository has been bitten by exactly that. 3.47.0 is what
+      # .fvmrc and both workflows pin — bump all three in one commit, so a red
+      # build points at the bump.
+      #
+      # Cloning by hand also means taking over the step the plugin would have
+      # run alongside its clone, since it skips them together.
+      if [ ! -d "$CRAFT_PART_BUILD/flutter-distro" ]; then
+        git clone --depth 1 -b 3.47.0 \
+          https://github.com/flutter/flutter.git "$CRAFT_PART_BUILD/flutter-distro"
+        flutter precache --linux
+      fi
+
+      # Outside that guard on purpose. The plugin skips its own `flutter pub
+      # get` whenever flutter-distro is already there, and override-pull now
+      # removes .dart_tool from the copied tree — so a second build in the same
+      # container would otherwise reach `flutter build` with no package
+      # resolution at all. Re-running it when nothing changed costs seconds.
+      flutter pub get
+
+      # super_native_extensions (rich clipboard, drag & drop) is a Rust crate
+      # that cargokit compiles from source on Linux — the project publishes
+      # precompiled binaries for Android only. cargokit does not merely want a
+      # cargo on PATH: it runs `rustup run stable cargo build`, installing the
+      # toolchain and the target itself, and throws RustupNotFoundException
+      # when rustup is absent. The archive's rustc/cargo would therefore never
+      # be touched, which is why this fetches rustup the same way the CI job
+      # does rather than adding a build-package.
+      #
+      # --no-modify-path, because the shell profile it would append to is read
+      # by nothing here; $HOME/.cargo/bin is on PATH for this script and for the
+      # plugin's own because `build-environment` above puts it in both.
+      if ! command -v rustup >/dev/null 2>&1; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+          | sh -s -- -y --no-modify-path --profile minimal
+      fi
+
+      # Not something the plugin does. A no-op on an SDK that has Linux desktop
+      # on by default, and the difference between a build and a one-line error
+      # on one that does not.
+      flutter config --enable-linux-desktop
+
+      craftctl default
+
+      # Everything below this line depends on where the plugin's final
+      # `cp -r build/linux/*/release/bundle/* $CRAFT_PART_INSTALL/` put things,
+      # and so does `command: hinata`. Assert it here, where the layout can be
+      # printed, rather than shipping a snap that exits with "cannot find
+      # command".
+      if [ ! -x "$CRAFT_PART_INSTALL/hinata" ]; then
+        echo "No hinata executable at the root of the part install directory." >&2
+        echo "The flutter plugin's install layout must have changed:" >&2
+        ls -la "$CRAFT_PART_INSTALL" >&2
+        exit 1
+      fi
+
+      # The three shared inputs every packaging format installs verbatim, from
+      # the one directory that holds them. Same files, same paths, as the
+      # Flatpak manifest and build-appimage.sh — the desktop entry because no
+      # browser hands a hinata:// URI to anything without it, the metainfo
+      # because GNOME Software and KDE Discover read it, the icon because the
+      # shell has to have something to draw.
+      install -Dm644 packaging/linux/com.ahmadre.hinata.desktop \
+        "$CRAFT_PART_INSTALL/usr/share/applications/com.ahmadre.hinata.desktop"
+      install -Dm644 packaging/linux/com.ahmadre.hinata.metainfo.xml \
+        "$CRAFT_PART_INSTALL/usr/share/metainfo/com.ahmadre.hinata.metainfo.xml"
+      install -Dm644 packaging/linux/icons/hicolor/512x512/apps/com.ahmadre.hinata.png \
+        "$CRAFT_PART_INSTALL/usr/share/icons/hicolor/512x512/apps/com.ahmadre.hinata.png"
+
+  # Everything the platform snap already provides, taken back out of the snap.
+  #
+  # This part is not a size optimisation, it is what keeps the app running at
+  # all. The four packages above are staged for two sets of GStreamer plugins
+  # and three binaries, but apt does not hand out plugins — it hands out their
+  # dependency closure, and that closure is most of a desktop: libglib2.0-0t64,
+  # libgtk-3-0t64, pango, cairo, librsvg, libgstreamer1.0-0 with plugins-base
+  # and -good, libdrm, libva, libvulkan, libwayland-client, and (through
+  # ffmpeg's libsdl2) libgbm. All of it unpacks into $SNAP/usr/lib/<triplet>.
+  #
+  # And that directory wins. snapcraft writes the app's LD_LIBRARY_PATH with
+  # $SNAP/lib, $SNAP/usr/lib and both <triplet> directories in it, and the gnome
+  # extension's desktop-launch only APPENDS the platform's directories to
+  # whatever is already there — so for every soname the two trees share, the
+  # staged copy is the one that loads. The staged copies are noble's: GLib 2.80,
+  # GTK 3.24.41. gnome-46-2404 builds its own from source: GLib 2.84, GTK
+  # 3.24.50 — and those are what the app was COMPILED against (the SDK's
+  # PKG_CONFIG_PATH comes first, see build-packages above), what libsecret, the
+  # GIO modules, the gdk-pixbuf loaders and the platform's own GStreamer plugins
+  # were built against, and what GDK_PIXBUF_MODULE_FILE, GI_TYPELIB_PATH and
+  # XDG_DATA_DIRS keep pointing at. Loading GLib 2.80 underneath all of that is
+  # an `undefined symbol: g_…` at load time: a snap that installs cleanly, opens
+  # nothing, and says why only in `journalctl`.
+  #
+  # So: delete from the prime tree every file the platform snap also ships, and
+  # let the platform's copy be the only one. What survives is what the list was
+  # written for — libgstbad*, libgstlibav and the libav* codecs, which the
+  # platform does not have — and it resolves against the platform's GLib the
+  # same way the app itself does.
+  #
+  # Two exceptions, both for things found by name rather than by the linker:
+  #
+  #   $SNAP/usr/bin ....... ffmpeg, parecord and pactl are staged BECAUSE a
+  #                         confined $PATH is $SNAP/usr/bin plus the base
+  #                         snap's, and nothing here guarantees the platform's
+  #                         own bin directory is on it. A duplicated binary
+  #                         costs megabytes; losing the one record_linux spawns
+  #                         costs the microphone.
+  #   gst-plugin-scanner .. its path is spelled out in the app's environment
+  #                         above, and the platform's layout for it is not
+  #                         something this recipe can pin.
+  #
+  # Scoped to usr/ deliberately. The prime tree's other top-level entries are
+  # the Flutter bundle (hinata, lib/, data/) and snap/command-chain, which the
+  # extension put there — sweeping from the platform's root would be matching
+  # those names against a tree that has its own. The core24 base is left out for
+  # a different reason: it and the stage-packages come from the same noble
+  # archive, so there is no version to skew, only bytes.
+  cleanup:
+    after: [hinata]
+    plugin: nil
+    # The runtime snap, not the SDK. The SDK carries build-time libraries that
+    # are never mounted at $SNAP/gnome-platform, so deleting a staged file
+    # because the *SDK* has it would leave the app with neither copy.
+    build-snaps: [gnome-46-2404]
+    override-prime: |
+      # No `craftctl default`: this part has no source and stages nothing, it
+      # only edits what the part before it primed (hence `after:`, which is what
+      # orders the two prime steps).
+      cd /snap/gnome-46-2404/current/usr
+      find . \( -type f -o -type l \) -print0 | while IFS= read -r -d '' path; do
+        case "$path" in
+          ./bin/*|*/gst-plugin-scanner) continue ;;
+        esac
+        rm -f "$CRAFT_PRIME/usr/$path"
+      done
+
+      # A sweep that matched nothing would be worse than no sweep at all: the
+      # snap would build, install, and die at load time, and the file would
+      # still read as though it had been dealt with. The sweep matches by path,
+      # so it depends on the platform snap keeping its libraries where the
+      # noble packages keep theirs — name the ones whose duplication is fatal
+      # and refuse to package while any of them is still here. If this ever
+      # fires, gnome-46-2404 moved its libdir and the sweep has to learn the
+      # new one; the alternative is finding out from a user whose window never
+      # appeared.
+      survivors=""
+      for soname in libglib-2.0.so.0 libgobject-2.0.so.0 libgio-2.0.so.0 \
+                    libgtk-3.so.0 libgdk-3.so.0 libgdk_pixbuf-2.0.so.0 \
+                    libpango-1.0.so.0 libcairo.so.2 libgstreamer-1.0.so.0; do
+        found="$(find "$CRAFT_PRIME/usr" -name "$soname" -print -quit)"
+        if [ -n "$found" ]; then
+          survivors="$survivors $found"
+        fi
+      done
+      if [ -n "$survivors" ]; then
+        echo "Still shipping the platform's own libraries:$survivors" >&2
+        echo "They would load instead of gnome-46-2404's newer ones, and the" >&2
+        echo "app would exit with 'undefined symbol' before its first frame." >&2
+        exit 1
+      fi

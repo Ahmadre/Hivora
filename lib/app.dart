@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -25,6 +26,31 @@ import 'core/theme/app_theme.dart';
 import 'features/knowledge/data/knowledge_repository.dart';
 import 'features/sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassToastIn;
+
+/// Whether the "this session will not be kept" notice belongs on screen.
+///
+/// Top-level and public so the rule can be tested without booting the whole
+/// app, because the states it must *not* fire on are as load-bearing as the
+/// ones it must. `unknown` (boot) and `authenticating` render a spinner or a
+/// disabled form and the router has not settled on a route to raise a toast
+/// over; `twoFactorRequired` is mid sign-in and interrupting it with storage
+/// advice would be noise at the worst moment. What is left is the two settled
+/// outcomes — signed in, and bounced back to the login screen — and both of
+/// them need the explanation for the same reason.
+///
+/// [alreadyAnnounced] keeps it to once per launch: the flag stays true for the
+/// life of the process, and re-authenticating (or switching servers) would
+/// otherwise repeat the same paragraph.
+@visibleForTesting
+bool shouldAnnounceMemoryOnlySession({
+  required AuthStatus status,
+  required bool sessionIsMemoryOnly,
+  required bool alreadyAnnounced,
+}) =>
+    !alreadyAnnounced &&
+    sessionIsMemoryOnly &&
+    (status == AuthStatus.authenticated ||
+        status == AuthStatus.unauthenticated);
 
 class HinataApp extends StatefulWidget {
   const HinataApp({
@@ -176,36 +202,104 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
       // starts push — otherwise the OS notification-permission prompt would pop
       // over the very screen we're capturing. Normal launches are unaffected.
       if (widget.storage.screenshotRoute == null) _fcm.start();
-      _warnIfSessionWontPersist();
     } else {
       _streamServer = null;
       _accountEvents.stop();
       _fcm.stop();
     }
+    _warnIfSessionWontPersist(state);
   }
 
-  /// Says once per launch when the sign-in could not be written to disk.
+  /// Says once per launch when the sign-in cannot be written to the OS secret
+  /// store — and names the one thing that would fix it.
   ///
-  /// [AppStorage.sessionIsMemoryOnly] is set when the secure-storage write
-  /// fails, which in practice means Linux without a running keyring. Staying
-  /// quiet would make the login look like it worked right up until the next
-  /// launch asks for the password again, with nothing to connect the two.
-  void _warnIfSessionWontPersist() {
-    if (_warnedMemoryOnlySession || !widget.storage.sessionIsMemoryOnly) return;
+  /// [AppStorage.sessionIsMemoryOnly] is set whenever a secure-storage call
+  /// throws, which in practice means Linux: a desktop with no keyring, a
+  /// strictly confined snap whose `password-manager-service` interface has not
+  /// been connected, or a keyring that is simply locked. Staying quiet would
+  /// make the login look like it worked right up until the next launch asks for
+  /// the password again, with nothing to connect the two.
+  ///
+  /// Fires from *both* halves of [_syncAccountStream], which is the half of the
+  /// problem that used to be missed. The user this hurts most never reaches
+  /// `authenticated` at all: their tokens were stored on a previous run,
+  /// [AppStorage] could not read them back, and the app drops them on the login
+  /// screen with no idea why. That is `unauthenticated`, and it now gets the
+  /// same explanation. The two in-flight states (`unknown` at boot,
+  /// `authenticating`) are skipped — they render as a spinner or a disabled
+  /// form, and the router has not settled anywhere to raise a toast over.
+  void _warnIfSessionWontPersist(AuthState state) {
+    if (!shouldAnnounceMemoryOnlySession(
+      status: state.status,
+      sessionIsMemoryOnly: widget.storage.sessionIsMemoryOnly,
+      alreadyAnnounced: _warnedMemoryOnlySession,
+    )) {
+      return;
+    }
+    // Which sentence this is, and whether there is a command to copy, comes
+    // from the storage layer: the environment says what kind of system this is,
+    // the thrown error says whether the store was unreachable or merely locked.
+    // A `snap connect` line is never shown to someone who is not running a
+    // snap, nor to a snap that already has the permission.
+    final notice = widget.storage.secretStoreNotice;
+    if (notice == null) return;
+    final command = notice.command;
+    // Claimed now, so a second settled auth state in this same frame cannot
+    // queue a second toast — and given back below if this frame turns out to
+    // have nowhere to put one.
     _warnedMemoryOnlySession = true;
     // After the frame: this runs from a bloc listener, and the navigator whose
-    // overlay the toast goes into is still being rebuilt for the newly
-    // authenticated route.
+    // overlay the toast goes into is still being rebuilt for the route it just
+    // settled on.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = rootNavigatorKey.currentContext;
       // The navigator's own overlay, not Overlay.of(context) — showGlassToastIn
       // carries the reason.
       final overlay = rootNavigatorKey.currentState?.overlay;
-      if (context == null || !context.mounted || overlay == null) return;
+      if (context == null || !context.mounted || overlay == null) {
+        // No root navigator on this frame: go_router renders nothing at all
+        // until its first match list resolves, and whether that has happened by
+        // now is a property of the router — a redirect that becomes async, a
+        // deep link that defers the first match — not of anything decided here.
+        // Nothing was said, so nothing counts as announced: the next settled
+        // auth state gets to try again instead of the notice being dropped for
+        // the whole launch with nothing to show it was ever due.
+        _warnedMemoryOnlySession = false;
+        return;
+      }
       showGlassToastIn(
         overlay,
-        context.t('errors.sessionNotPersisted'),
+        context.t(notice.messageKey, variables: {'command': ?command}),
         kind: GlassToastKind.warning,
+        // Long, because it carries a sentence to understand and sometimes a
+        // command to copy. The default 3.2s is sized for "Saved".
+        duration: const Duration(seconds: 12),
+        // Copying the command is only offered where there is one, i.e. inside a
+        // snap that still needs the permission. That also makes this pill
+        // interactive, so it stops ignoring pointers for those 12 seconds — and
+        // a Linux window can be narrower than the compact breakpoint (the GTK
+        // runner only sets a *default* size, and a tiling WM is free to hand it
+        // half a column), in which case the toast anchors to the *bottom*,
+        // right over the sign-in button. Tapping the pill anywhere but the
+        // action dismisses it; see [showGlassToastIn].
+        actionLabel: command == null
+            ? null
+            : context.t('errors.sessionNotPersisted.copyCommand'),
+        onAction: command == null
+            ? null
+            : () {
+                Clipboard.setData(ClipboardData(text: command));
+                final after = rootNavigatorKey.currentContext;
+                final overlayAfter = rootNavigatorKey.currentState?.overlay;
+                if (after == null || !after.mounted || overlayAfter == null) {
+                  return;
+                }
+                showGlassToastIn(
+                  overlayAfter,
+                  after.t('common.copied'),
+                  kind: GlassToastKind.success,
+                );
+              },
       );
     });
   }

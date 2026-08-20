@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,7 +12,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_image.dart';
 import '../../../core/util/file_download.dart';
-import '../../../core/util/file_pick_failure.dart';
+import '../../../core/util/file_pick.dart';
 import '../../../core/widgets/glass_popup_menu.dart';
 import '../../../core/widgets/hive_loader.dart';
 import '../../../core/widgets/preview_image.dart';
@@ -35,20 +34,17 @@ import 'upload_source_sheet.dart';
 
 part 'attachments_section.tiles.dart';
 
-/// A picked/dropped source file, abstracting file_picker's `PlatformFile` and
-/// desktop_drop's `DropItem` into the bits the upload needs.
-class _Src {
-  _Src({required this.name, required this.size, this.path, this.bytes});
-  final String name;
-  final int size;
-  final String? path;
-  final Uint8List? bytes;
-}
+// A picked or dropped source file is a `ChosenFile` (core/util/file_pick.dart).
+// This file used to declare the same four fields privately, to paper over
+// file_picker's `PlatformFile` and desktop_drop's `DropItem`; the picker seam
+// now hands that shape out directly, so every upload surface speaks it.
+// (`ChosenFile`, not `PickedFile`, because image_picker still exports a
+// deprecated `PickedFile` of its own and this file imports image_picker.)
 
 /// An in-flight (or failed) upload shown optimistically as a tile.
 class _Upload {
   _Upload(this.src) : kind = kindFromName(src.name);
-  final _Src src;
+  final ChosenFile src;
   final String kind;
   double progress = 0;
   bool failed = false;
@@ -211,31 +207,20 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
   /// System document picker (PDF, Office docs, archives, …). Allows any type and
   /// multiple selection; the kind/size/blocked-extension gate runs in [_enqueue].
   Future<void> _pickFiles() async {
-    final FilePickerResult? result;
+    final List<ChosenFile> result;
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await pickFilesToUpload(
+        context,
         allowMultiple: true,
         withData: kIsWeb, // web has no file path; we need the bytes
       );
     } catch (_) {
-      if (mounted) {
-        _toast(
-          context.t(filePickFailureKey('issues.attachments.pickFailed')),
-        );
-      }
+      if (mounted) _toast(context.t('issues.attachments.pickFailed'));
       return;
     }
-    if (result == null || _disposed) return;
-    // On web `PlatformFile.path` throws — only the bytes are available there.
-    _enqueue([
-      for (final f in result.files)
-        _Src(
-          name: f.name,
-          size: f.size,
-          path: kIsWeb ? null : f.path,
-          bytes: f.bytes,
-        ),
-    ]);
+    // Empty means cancelled — nothing to report.
+    if (result.isEmpty || _disposed) return;
+    _enqueue(result);
   }
 
   /// Photo library: images *and* videos, multi-select.
@@ -248,7 +233,7 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       return;
     }
     if (picked.isEmpty || _disposed) return;
-    final srcs = await Future.wait(picked.map(_srcFromXFile));
+    final srcs = await Future.wait(picked.map(_chosenFromXFile));
     if (!_disposed) _enqueue(srcs);
   }
 
@@ -264,35 +249,37 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
       return;
     }
     if (file == null || _disposed) return;
-    _enqueue([await _srcFromXFile(file)]);
+    _enqueue([await _chosenFromXFile(file)]);
   }
 
-  /// Adapts an [XFile] (from image_picker) into the upload's [_Src]. On web
-  /// there is no usable path, so the bytes are read eagerly; on native the path
-  /// is streamed straight from disk by [_multipart].
-  Future<_Src> _srcFromXFile(XFile f) async {
-    final bytes = kIsWeb ? await f.readAsBytes() : null;
-    final size = bytes?.length ?? await f.length();
-    return _Src(
-      name: f.name,
-      size: size,
-      path: kIsWeb ? null : f.path,
-      bytes: bytes,
-    );
-  }
+  /// Adapts an [XFile] (from image_picker) into a [ChosenFile]. On web there is
+  /// no usable path, so the bytes are read eagerly; on native the path is
+  /// streamed straight from disk by [_multipart].
+  Future<ChosenFile> _chosenFromXFile(XFile f) => describeChosenFile(f, kIsWeb);
 
+  /// Files dropped onto the section from the desktop's file manager.
+  ///
+  /// A drop is *not* a pick: `desktop_drop` hands over whatever the drag source
+  /// put on the clipboard — on Linux a list of `file://` URIs turned straight
+  /// into host paths (`gtk_drag_dest_add_uri_targets`), with no portal in
+  /// between and therefore no document-portal remapping. In a sandboxed build
+  /// that path only resolves if the sandbox can read it, which is why the
+  /// Flatpak keeps read grants for the XDG folders a drag realistically comes
+  /// from (see packaging/linux/flatpak/com.ahmadre.hinata.yml) and the snap
+  /// keeps `home`. A file dragged from somewhere else still fails here, and
+  /// says so — with a message about the drop, never about a dialog.
   Future<void> _onDrop(DropDoneDetails detail) async {
-    final srcs = <_Src>[];
+    final srcs = <ChosenFile>[];
     var failed = false;
     for (final item in detail.files) {
       // Read each item independently so one unreadable drop (a folder, a file
-      // deleted mid-drag, a permission-denied path) doesn't abort the whole
-      // batch — the valid files in the same drop still upload.
+      // deleted mid-drag, a path the sandbox cannot reach) doesn't abort the
+      // whole batch — the valid files in the same drop still upload.
       try {
         final len = await item.length();
         final bytes = kIsWeb ? await item.readAsBytes() : null;
         srcs.add(
-          _Src(
+          ChosenFile(
             name: item.name,
             size: len,
             path: kIsWeb ? null : item.path,
@@ -306,14 +293,19 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     if (_disposed) return;
     if (srcs.isNotEmpty) _enqueue(srcs);
     if (failed && mounted) {
-      _toast(context.t('issues.attachments.pickFailed'));
+      // Not `pickFailed`: no dialog was involved, and telling someone who just
+      // dragged a file to "try opening the picker again" explains nothing. The
+      // drop message names what actually went wrong and points at the button
+      // that goes through the portal, which works for files a drop cannot
+      // reach.
+      _toast(context.t('issues.attachments.dropFailed'));
     }
   }
 
-  void _enqueue(List<_Src> files) {
+  void _enqueue(List<ChosenFile> files) {
     if (files.isEmpty) return;
     final limits = _limits;
-    final accepted = <_Src>[];
+    final accepted = <ChosenFile>[];
     for (final f in files) {
       if (isBlockedFileName(f.name)) {
         _toast(
@@ -398,7 +390,7 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     }
   }
 
-  Future<MultipartFile> _multipart(_Src s) async {
+  Future<MultipartFile> _multipart(ChosenFile s) async {
     if (!kIsWeb && (s.path?.isNotEmpty ?? false)) {
       return MultipartFile.fromFile(s.path!, filename: s.name);
     }

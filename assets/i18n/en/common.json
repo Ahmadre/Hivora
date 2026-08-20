@@ -90,9 +90,14 @@
       "noSmtp": "No mail server is configured yet. Please contact your platform admins to enable sending emails.",
       "sendFailed": "The reply couldn't be sent. Please try again."
     },
-    "sessionNotPersisted": "Signed in, but this session can't be saved — no keyring is running, so you'll be asked to sign in again after a restart.",
-    "filePickFailed": "Couldn't open the file dialog. Please try again.",
-    "filePickerMissing": "Couldn't open the file dialog. Linux needs zenity, qarma or kdialog installed."
+    "sessionNotPersisted": {
+      "snap": "Hinata isn’t allowed to use this system’s password store yet, so you’ll have to sign in again after every restart. Everything else works normally. Allow it once with {{command}} — or switch on “password manager service” for Hinata in App Center — then sign in again.",
+      "keyring": "Hinata can’t reach this system’s password store, so you’ll have to sign in again after every restart. Everything else works normally. To stay signed in, install and unlock a keyring (GNOME Keyring or KWallet), then sign in again.",
+      "generic": "Hinata can’t reach this system’s password store, so you’ll have to sign in again after every restart. Everything else works normally — only staying signed in is affected.",
+      "locked": "Hinata can’t open this system’s password store because it’s locked, so you’ll have to sign in again after every restart. Everything else works normally. Unlock your keyring — GNOME Keyring and KWallet ask for your login password the first time you use them — then sign in again.",
+      "copyCommand": "Copy command"
+    },
+    "filePickFailed": "Couldn't open the file dialog. Please try again."
   },
   "connect": {
     "title": "Connect to your server",
@@ -386,6 +391,10 @@
     "recorderToolMissing": "Can't record: {{tool}} isn't installed. Linux records via parecord (pulseaudio-utils) and ffmpeg.",
     "voiceNeedsGstreamer": "This voice message can't play: GStreamer's base plugins are missing. Install gstreamer1.0-plugins-base."
   },
+  "filePicker": {
+    "images": "Images",
+    "confirm": "Open"
+  },
   "camera": {
     "blockedTitle": "No camera available",
     "blockedBody": "Hinata can't reach a camera. Check that a camera is connected and that camera access is allowed for Hinata in the system settings, then try again.",
@@ -545,6 +554,7 @@
       "deleteAllBody": "This permanently removes the file for everyone.",
       "deleteAllBody_plural": "This permanently removes {{count}} files for everyone.",
       "pickFailed": "Couldn't open the picker. Please try again.",
+      "dropFailed": "Couldn’t read the dropped file. Folders can’t be dropped — use “Add files” instead.",
       "ageNow": "now",
       "ageMinutes": "{{n}}m ago",
       "ageHours": "{{n}}h ago",

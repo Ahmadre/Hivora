@@ -37,9 +37,9 @@ on:
         default: "false"
       platforms:
         description: >-
-          "all", or a single platform (android|ios|macos|windows|linux) to run
-          just that store. "linux" has no store — it attaches an AppImage to
-          the run.
+          "all", or a single platform (android|ios|macos|windows|linux|snap) to
+          run just that store. "linux" has no store — it attaches an AppImage to
+          the run; "snap" is the Linux store lane.
         type: string
         required: false
         default: all
@@ -55,7 +55,7 @@ on:
       platforms:
         description: Which store to run.
         type: choice
-        options: [all, android, ios, macos, windows, linux]
+        options: [all, android, ios, macos, windows, linux, snap]
         default: all
       submit:
         description: Submit to the store for review (not just upload a draft).
@@ -458,3 +458,128 @@ jobs:
           path: build/linux/x64/release/bundle
           if-no-files-found: warn
           retention-days: 30
+
+  snap:
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'snap' }}
+    name: Snap → Snap Store (${{ matrix.arch }})
+    # The Linux store lane. Unlike the AppImage job above this one publishes,
+    # because the Snap Store is the channel Hinata ships Linux through.
+    #
+    # Why a GitHub runner rather than the container the repo already has: the
+    # gnome extension the recipe uses pulls the gnome-46-2404 SDK in as a
+    # `build-snap`, and nothing can `snap install` inside a Docker container —
+    # snapd is a daemon. canonical/action-build installs LXD and the snapcraft
+    # snap on the runner, which is the one arrangement where the extension
+    # works unmodified.
+    #
+    # Both architectures build natively; arm64 runners are free for public
+    # repositories. No QEMU, no cross-compile — a Flutter build under emulation
+    # would take hours and Rust (super_native_extensions) is the part that
+    # would suffer most.
+    #
+    # The runner image does NOT decide the runtime libc here, so the ubuntu-22.04
+    # pin the AppImage job needs does not apply: a snap's libc comes from its
+    # `base`, and core24 is 24.04 either way.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      # snapcraft reads snap/snapcraft.yaml relative to the project directory,
+      # and `snap` is a symlink to packaging/linux/snap so the recipe can live
+      # with the Flatpak manifest while the repository root stays the project
+      # directory. actions/checkout restores symlinks, but a missing one would
+      # fail deep inside the build with a confusing "no such file" — so say it
+      # here instead.
+      - name: Check the snap/ symlink survived checkout
+        run: |
+          test -L snap || { echo "snap/ is not a symlink"; exit 1; }
+          test -f snap/snapcraft.yaml || { echo "snap/snapcraft.yaml missing"; exit 1; }
+      - name: Build the snap
+        id: build
+        uses: canonical/action-build@v1.3.0
+      # A snap that builds is not a snap that runs: strict confinement is
+      # applied at INSTALL time, not at build time, so every mistake in the
+      # plug list, the staged GStreamer plugins or the layout only shows up
+      # here. This runner is a real Ubuntu with snapd, which is the whole
+      # reason to test before publishing rather than after.
+      - name: Install it the way a user would
+        run: |
+          # The content snaps the recipe's interfaces connect to. snapd pulls
+          # a default provider automatically for store installs only, so a
+          # --dangerous install of a local file needs them by hand.
+          sudo snap install gnome-46-2404 mesa-2404 gtk-common-themes
+          sudo snap install --dangerous "${{ steps.build.outputs.snap }}"
+          # Neither of these auto-connects — that is the documented cost of the
+          # two features behind them, and connecting them here proves the plugs
+          # are spelled right and the interfaces exist.
+          sudo snap connect hinata:password-manager-service
+          sudo snap connect hinata:audio-record
+          snap connections hinata
+      - name: Smoke-test it under Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xdotool dbus-x11
+          # No server is configured, so the app lands on its connect screen —
+          # which is exactly the assertion worth making: reaching a drawn
+          # window means the confined GTK stack resolved, the Flutter engine
+          # started and nothing died on a missing library. Anything past that
+          # needs a server and belongs in the app's own test suite.
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1280x800x24 &
+          sleep 3
+          dbus-run-session -- snap run hinata > /tmp/hinata.log 2>&1 &
+          app=$!
+          # Poll rather than sleep-and-hope: a window that never appears should
+          # fail fast with the log, not after a fixed wait.
+          for i in $(seq 1 40); do
+            if xdotool search --onlyvisible --name . 2>/dev/null | grep -q .; then
+              echo "A window appeared after ${i}s."
+              found=1
+              break
+            fi
+            kill -0 "$app" 2>/dev/null || { echo "The app exited early."; break; }
+            sleep 1
+          done
+          if [ "${found:-0}" != "1" ]; then
+            echo "::error::hinata drew no window under Xvfb"
+            cat /tmp/hinata.log
+            exit 1
+          fi
+          kill "$app" 2>/dev/null || true
+      - name: Upload the snap as a run artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hinata-snap-${{ matrix.arch }}
+          path: ./*.snap
+          if-no-files-found: warn
+          retention-days: 30
+      # `submit` means the same thing here as it does for the other stores: off,
+      # this uploads where the team can reach it and users cannot. The Snap
+      # Store has no review queue, so "submitting" is simply releasing to
+      # stable, and it is instant and public — which is why it stays opt-in.
+      - name: Publish to the Snap Store
+        if: ${{ steps.build.outcome == 'success' }}
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          if [ -z "$SNAPCRAFT_STORE_CREDENTIALS" ]; then
+            echo "No store credentials configured — keeping the run artifact only."
+            exit 0
+          fi
+          channel=edge
+          if [ "${{ inputs.submit }}" = "true" ]; then
+            channel=stable
+          fi
+          echo "Releasing to $channel"
+          sudo snap install snapcraft --classic
+          snapcraft upload --release="$channel" "${{ steps.build.outputs.snap }}"

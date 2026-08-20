@@ -1,12 +1,11 @@
 import 'package:dio/dio.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../api/api_client.dart';
 import '../repositories/media_repository.dart';
-import '../util/file_pick_failure.dart';
+import '../util/file_pick.dart';
 import '../i18n/i18n.dart';
 import '../../features/sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'markdown_toolbar.dart';
@@ -24,26 +23,26 @@ Future<void> pickAndInsertMarkdownImage(
 ) async {
   final repo = context.read<MediaRepository>();
 
-  FilePickerResult? picked;
+  final List<ChosenFile> picked;
   try {
-    picked = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      // Web has no file path, so we always need the bytes; harmless elsewhere.
-      withData: true,
+    picked = await pickFilesToUpload(
+      context,
+      kind: FilePickKind.image,
+      // Bytes only where there is no path to upload from — see the same call in
+      // hinata_editor_tools.dart. On Linux `withData` costs a full extra read
+      // of a file the code below streams from its path anyway.
+      withData: kIsWeb,
     );
   } catch (_) {
-    // Silence here reads as a dead toolbar button; on Linux the dialog is an
-    // external program that may not be installed at all.
+    // Silence here reads as a dead toolbar button.
     if (context.mounted) {
-      showGlassErrorToast(
-        context,
-        context.t(filePickFailureKey('errors.filePickFailed')),
-      );
+      showGlassErrorToast(context, context.t('errors.filePickFailed'));
     }
     return;
   }
-  if (picked == null || picked.files.isEmpty) return;
-  final file = picked.files.first;
+  // An empty list means cancelled, which is not worth a word.
+  if (picked.isEmpty) return;
+  final file = picked.first;
   final name = file.name;
 
   MultipartFile multipart;

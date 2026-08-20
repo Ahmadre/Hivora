@@ -80,21 +80,92 @@ Future<DownloadResult> downloadBytes(
 /// issue in one session are two files, and a download that silently replaced
 /// one the user still needed would be the worse surprise.
 Future<DownloadResult> _saveToDownloads(String name, Uint8List bytes) async {
-  // XDG_DOWNLOAD_DIR when the user-dirs config names one, ~/Downloads
-  // otherwise; the home directory if even that cannot be resolved, because a
-  // file the user can find beats a failure. The lookup is wrapped because it
-  // shells out to the XDG user directories, which a desktop without
-  // xdg-user-dirs configured does not have at all — and a download must not
-  // fail over a folder we can name ourselves.
-  Directory? xdgDownloads;
-  try {
-    xdgDownloads = await getDownloadsDirectory();
-  } catch (_) {
-    xdgDownloads = null;
+  final targets = await _downloadTargets();
+  // Every candidate but the last is an attempt. Inside a snap the first one is
+  // the user's real ~/Downloads, which is writable through the `home`
+  // interface — and on Ubuntu Core, or with that interface disconnected, the
+  // very same path is visible and refused by AppArmor on the first write. A
+  // download that lands in the confined home directory is a worse answer than
+  // one in ~/Downloads and a much better one than a failed download, so the
+  // refusal falls through to the next candidate instead of surfacing. The last
+  // candidate's failure is the caller's failure and travels up to
+  // [downloadBytes], which reports it.
+  for (final directory in targets.take(targets.length - 1)) {
+    try {
+      return await _saveInto(directory, name, bytes);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[download] ${directory.path} refused $name: $error');
+      }
+    }
   }
-  final directory =
-      xdgDownloads ??
-      Directory('${Platform.environment['HOME'] ?? '.'}/Downloads');
+  return _saveInto(targets.last, name, bytes);
+}
+
+/// The folders to write into, best first — see [downloadDirectories] for why
+/// the snap case does not ask the XDG user directories at all.
+Future<List<Directory>> _downloadTargets() async {
+  // The lookup is wrapped because it shells out to the XDG user directories,
+  // which a desktop without xdg-user-dirs configured does not have at all —
+  // and a download must not fail over a folder we can name ourselves.
+  String? xdg;
+  try {
+    xdg = (await getDownloadsDirectory())?.path;
+  } catch (_) {
+    xdg = null;
+  }
+  return downloadDirectories(
+    environment: Platform.environment,
+    xdgDownloads: xdg,
+  ).map(Directory.new).toList();
+}
+
+/// Where a download may land, in the order it should be tried.
+///
+/// Unconfined this is one entry: XDG_DOWNLOAD_DIR when the user-dirs config
+/// names one, `~/Downloads` otherwise, and the working directory if even $HOME
+/// cannot be resolved — because a file the user can find beats a failure.
+///
+/// Inside a snap it is two, and the XDG answer is deliberately not among them.
+/// snapd repoints HOME at $SNAP_USER_DATA (`~/snap/hinata/current`), and the
+/// `home` interface's AppArmor rule (`owner @{HOME}/[^s.]** rwkl`) excludes
+/// every top-level dotfile — so `~/.config/user-dirs.dirs`, the file that
+/// names the user's Downloads folder, cannot be read from in there.
+/// `xdg-user-dir DOWNLOAD` would answer with the snap's own HOME and the
+/// download would land in a data directory no file manager bookmarks: the
+/// lookup does not fail, it lies. snapd exports SNAP_REAL_HOME for this exact
+/// case, the `home` plug makes `$SNAP_REAL_HOME/Downloads` writable, and so
+/// the snap saves where the Flatpak (`--filesystem=xdg-download:create`), the
+/// AppImage and a plain `.deb` install all save.
+///
+/// The test is HOME against SNAP_REAL_HOME rather than "is this a snap",
+/// because that is the actual question. Those variables are inherited by every
+/// child of a snap — a terminal in the VS Code snap starts an unconfined app
+/// with both set — and there they are *equal*, so an unconfined process keeps
+/// the XDG lookup that is right for it. They differ only where HOME is not the
+/// user's home, which is precisely when SNAP_REAL_HOME is the answer.
+@visibleForTesting
+List<String> downloadDirectories({
+  required Map<String, String> environment,
+  String? xdgDownloads,
+}) {
+  final home = environment['HOME'] ?? '';
+  final realHome = environment['SNAP_REAL_HOME'] ?? '';
+  // Absolute, or it is not a home directory — an empty or relative value out
+  // of some build script is not something to write a user's file into.
+  if (realHome.startsWith('/') && realHome != home) {
+    return ['$realHome/Downloads', '${home.isEmpty ? '.' : home}/Downloads'];
+  }
+  if (xdgDownloads != null && xdgDownloads.isNotEmpty) return [xdgDownloads];
+  return ['${home.isEmpty ? '.' : home}/Downloads'];
+}
+
+/// One attempt: create [directory], pick a free name in it and write the bytes.
+Future<DownloadResult> _saveInto(
+  Directory directory,
+  String name,
+  Uint8List bytes,
+) async {
   await directory.create(recursive: true);
   final target = '${directory.path}/${_freeName(directory, name)}';
 
