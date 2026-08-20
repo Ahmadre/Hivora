@@ -633,7 +633,26 @@ jobs:
             revisions="$revisions $rev"
             echo "::endgroup::"
           done
+          # A revision the store is still reviewing cannot be put on a channel,
+          # and says so with resource-not-ready. That is not a build failure:
+          # the upload is done and the release happens by itself once a
+          # reviewer clears it. Report it and stay green, but ONLY for that
+          # message — every other release error is still fatal, because a
+          # silent one means a version nobody can install.
+          held=0
           for rev in $revisions; do
             echo "Releasing revision $rev to $channel"
-            snapcraft release hinata "$rev" "$channel"
+            if out=$(snapcraft release hinata "$rev" "$channel" 2>&1); then
+              echo "$out"
+            elif echo "$out" | grep -q 'resource-not-ready'; then
+              echo "$out"
+              echo "::notice::Revision $rev is uploaded but held in store review, so it is not on $channel yet."
+              held=1
+            else
+              echo "$out"
+              exit 1
+            fi
           done
+          if [ "$held" = "1" ]; then
+            echo "::warning::At least one revision is waiting on Snap Store review. Nothing more to do here; it releases when the review clears."
+          fi
