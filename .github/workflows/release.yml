@@ -527,7 +527,10 @@ jobs:
       - name: Smoke-test it under Xvfb
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb xdotool dbus-x11
+          # dbus-user-session is what puts a session bus at
+          # $XDG_RUNTIME_DIR/bus under the user's systemd instance. Without it
+          # there is no bus for snapd to reach systemd on — see below.
+          sudo apt-get install -y xvfb xdotool dbus-user-session
           # `snap run` places the app in a transient systemd scope so snapd can
           # track it, and that needs a `systemd --user` instance. A CI runner
           # logs in without one, so snapd refuses with
@@ -545,6 +548,14 @@ jobs:
           done
           systemctl --user show-environment >/dev/null 2>&1 \
             || { echo "::error::no systemd --user instance; snap run cannot be tracked"; exit 1; }
+          # And it has to be THAT instance's bus. `dbus-run-session` — the
+          # obvious way to give a GUI app a session bus — starts a private one
+          # that systemd is not on, so snapd asks it for org.freedesktop.systemd1,
+          # gets nothing, and fails the cgroup check anyway. The bus the user
+          # manager owns is the one that answers.
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+          test -S "$XDG_RUNTIME_DIR/bus" \
+            || { echo "::error::no session bus at $XDG_RUNTIME_DIR/bus"; exit 1; }
           # No server is configured, so the app lands on its connect screen —
           # which is exactly the assertion worth making: reaching a drawn
           # window means the confined GTK stack resolved, the Flutter engine
@@ -553,7 +564,7 @@ jobs:
           export DISPLAY=:99
           Xvfb :99 -screen 0 1280x800x24 &
           sleep 3
-          dbus-run-session -- snap run hinata > /tmp/hinata.log 2>&1 &
+          snap run hinata > /tmp/hinata.log 2>&1 &
           app=$!
           # Poll rather than sleep-and-hope: a window that never appears should
           # fail fast with the log, not after a fixed wait.
