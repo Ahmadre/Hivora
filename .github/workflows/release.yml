@@ -591,23 +591,49 @@ jobs:
           path: ./*.snap
           if-no-files-found: warn
           retention-days: 30
-      # `submit` means the same thing here as it does for the other stores: off,
-      # this uploads where the team can reach it and users cannot. The Snap
-      # Store has no review queue, so "submitting" is simply releasing to
-      # stable, and it is instant and public — which is why it stays opt-in.
-      - name: Publish to the Snap Store
-        if: ${{ steps.build.outcome == 'success' }}
+  # Publishing is a separate job on purpose. The store reviews one upload per
+  # snap at a time, so two matrix jobs uploading in parallel raced: the second
+  # was refused with "Waiting for previous upload(s) to complete their review
+  # process" and the whole run went red although both snaps were fine. One job,
+  # both architectures, in order — and the channel release happens once, after
+  # both revisions exist, so a channel never carries one architecture alone.
+  snap-publish:
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'snap' }}
+    name: Snap → publish both architectures
+    needs: snap
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hinata-snap-*
+          merge-multiple: true
+      - name: Upload each architecture, then release them together
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: |
           if [ -z "$SNAPCRAFT_STORE_CREDENTIALS" ]; then
-            echo "No store credentials configured — keeping the run artifact only."
+            echo "No store credentials configured — keeping the run artifacts only."
             exit 0
           fi
           channel=edge
           if [ "${{ inputs.submit }}" = "true" ]; then
             channel=stable
           fi
-          echo "Releasing to $channel"
           sudo snap install snapcraft --classic
-          snapcraft upload --release="$channel" "${{ steps.build.outputs.snap }}"
+          revisions=""
+          for f in *.snap; do
+            echo "::group::upload $f"
+            # No --release here: releasing per upload would put the first
+            # architecture on the channel while the second is still being
+            # reviewed, and an arm64 user would briefly see no candidate at all.
+            out=$(snapcraft upload "$f" 2>&1) || { echo "$out"; exit 1; }
+            echo "$out"
+            rev=$(echo "$out" | sed -n 's/.*revision \([0-9][0-9]*\).*/\1/p' | tail -1)
+            [ -n "$rev" ] || { echo "::error::could not read a revision number for $f"; exit 1; }
+            revisions="$revisions $rev"
+            echo "::endgroup::"
+          done
+          for rev in $revisions; do
+            echo "Releasing revision $rev to $channel"
+            snapcraft release hinata "$rev" "$channel"
+          done

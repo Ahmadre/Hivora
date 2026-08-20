@@ -83,6 +83,12 @@ adopt-info: hinata
 # a sandbox that has no host icon theme.
 icon: usr/share/icons/hicolor/512x512/apps/com.ahmadre.hinata.png
 
+# The name has to be lowercase; the display name does not. Without this the
+# store listing and the Ubuntu App Center both render the snap as "hinata",
+# which is the package identifier rather than the product. Changing it here
+# changes nothing about `snap install hinata`.
+title: Hinata
+
 summary: Open-source, self-hosted project and issue tracking
 description: |
   Hinata is the desktop client for a self-hosted Hinata server: projects and
