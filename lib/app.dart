@@ -360,13 +360,18 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   /// http(s) URL with a host. Writing first and letting the bloc refuse
   /// afterwards would leave that refused value in storage as the API client's
   /// base URL.
-  Future<void> _selectServer(String? server) async {
-    if (server == null || server.isEmpty) return;
+  Future<void> _selectServer(String? raw) async {
+    if (raw == null) return;
+    // Normalized and checked exactly the way [ServerUrlSubmitted] does it, and
+    // no more strictly: being stricter here would drop a link the connect
+    // screen would have accepted, and writing the un-normalized string would
+    // save a second profile for the same server the moment a link spelled it
+    // with a trailing slash. In particular not `isAbsolute`, which Dart also
+    // makes false for a URL that merely carries a fragment.
+    var server = raw.trim();
+    if (server.endsWith('/')) server = server.substring(0, server.length - 1);
+    if (server.isEmpty) return;
     final uri = Uri.tryParse(server);
-    // The same three questions [ServerUrlSubmitted] asks, and no more: being
-    // stricter here would drop a link the connect screen would have accepted.
-    // In particular not `isAbsolute`, which Dart also makes false for a URL
-    // that merely carries a fragment.
     if (uri == null ||
         !(uri.isScheme('https') || uri.isScheme('http')) ||
         uri.host.isEmpty) {

@@ -102,11 +102,29 @@ ln -sf "$APP_ID.png" "$APPDIR/.DirIcon"
 # both resolve through the symlink to usr/bin, where the bundle actually lives.
 ln -sf "usr/bin/hinata" "$APPDIR/AppRun"
 
-APPIMAGETOOL="$TOOLS_DIR/appimagetool-$APPIMAGE_ARCH.AppImage"
+# Pinned to a release, with its checksum, rather than tracking `continuous`.
+# This binary is downloaded and then executed — in CI as well as on a laptop —
+# so a moving tag means the build runs whatever that tag pointed at today, and
+# nobody would notice if that changed. Bump both lines together; the digests
+# come from the release's own asset list:
+#   curl -s https://api.github.com/repos/AppImage/appimagetool/releases/tags/$APPIMAGETOOL_VERSION \
+#     | grep -E '"(name|digest)"'
+APPIMAGETOOL_VERSION="1.9.1"
+case "$APPIMAGE_ARCH" in
+  x86_64)  APPIMAGETOOL_SHA256="ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0" ;;
+  aarch64) APPIMAGETOOL_SHA256="f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158" ;;
+esac
+
+APPIMAGETOOL="$TOOLS_DIR/appimagetool-$APPIMAGETOOL_VERSION-$APPIMAGE_ARCH.AppImage"
 if [[ ! -x "$APPIMAGETOOL" ]]; then
-  echo "Fetching appimagetool for $APPIMAGE_ARCH…"
-  curl -fSL --retry 3 -o "$APPIMAGETOOL" \
-    "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$APPIMAGE_ARCH.AppImage"
+  echo "Fetching appimagetool $APPIMAGETOOL_VERSION for $APPIMAGE_ARCH…"
+  # Downloaded beside the target and moved into place only once it matches, so
+  # a failed check cannot leave something executable behind for the next run to
+  # find and skip the check on.
+  curl -fSL --retry 3 -o "$APPIMAGETOOL.part" \
+    "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-$APPIMAGE_ARCH.AppImage"
+  echo "$APPIMAGETOOL_SHA256  $APPIMAGETOOL.part" | sha256sum -c -
+  mv "$APPIMAGETOOL.part" "$APPIMAGETOOL"
   chmod +x "$APPIMAGETOOL"
 fi
 
