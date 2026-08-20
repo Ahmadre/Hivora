@@ -1,6 +1,5 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,14 +13,20 @@ import '../../core/widgets/soft_card.dart';
 /// update gate can send the user straight to the correct store. Returns null
 /// on the web or when no URL is configured for the running platform.
 String? storeUrlForPlatform(ServerMeta? meta) {
+  // Web updates itself on reload, so there is nowhere to send anyone.
   if (meta == null || kIsWeb) return null;
-  final url = Platform.isIOS
-      ? meta.iosStoreUrl
-      : Platform.isAndroid
-      ? meta.androidStoreUrl
-      : Platform.isMacOS
-      ? meta.macosStoreUrl
-      : '';
+  // `defaultTargetPlatform` rather than dart:io's `Platform`: which storefront
+  // serves this build genuinely is a property of the OS — the case the app's
+  // house rule reserves a platform switch for — and unlike dart:io it can be
+  // overridden in a test, so every branch here is actually covered.
+  final url = switch (defaultTargetPlatform) {
+    TargetPlatform.iOS => meta.iosStoreUrl,
+    TargetPlatform.android => meta.androidStoreUrl,
+    TargetPlatform.macOS => meta.macosStoreUrl,
+    TargetPlatform.windows => meta.windowsStoreUrl,
+    TargetPlatform.linux => meta.linuxStoreUrl,
+    TargetPlatform.fuchsia => '',
+  };
   return url.trim().isEmpty ? null : url.trim();
 }
 

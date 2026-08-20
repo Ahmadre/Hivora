@@ -30,6 +30,8 @@ class ServerMeta extends Equatable {
     this.iosStoreUrl = '',
     this.androidStoreUrl = '',
     this.macosStoreUrl = '',
+    this.windowsStoreUrl = '',
+    this.linuxStoreUrl = '',
     this.featureFlags = const {},
     this.localAuthEnabled = true,
     this.registrationEnabled = true,
@@ -50,6 +52,11 @@ class ServerMeta extends Equatable {
   final String iosStoreUrl;
   final String androidStoreUrl;
   final String macosStoreUrl;
+  final String windowsStoreUrl;
+
+  /// Linux has no single store, so this is whatever the operator ships from —
+  /// a Flathub page, their own download page, a distribution's listing.
+  final String linuxStoreUrl;
   final Map<String, bool> featureFlags;
 
   /// Whether local email/password auth (sign-in, sign-up, forgot-password) is
@@ -82,6 +89,8 @@ class ServerMeta extends Equatable {
     iosStoreUrl: json['iosStoreUrl'] as String? ?? '',
     androidStoreUrl: json['androidStoreUrl'] as String? ?? '',
     macosStoreUrl: json['macosStoreUrl'] as String? ?? '',
+    windowsStoreUrl: json['windowsStoreUrl'] as String? ?? '',
+    linuxStoreUrl: json['linuxStoreUrl'] as String? ?? '',
     featureFlags: (json['featureFlags'] as Map<String, dynamic>? ?? {}).map(
       (k, v) => MapEntry(k, v == true),
     ),
@@ -113,6 +122,8 @@ class ServerMeta extends Equatable {
     iosStoreUrl,
     androidStoreUrl,
     macosStoreUrl,
+    windowsStoreUrl,
+    linuxStoreUrl,
     localAuthEnabled,
     registrationEnabled,
     adminApprovalRequired,
