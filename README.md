@@ -6,14 +6,14 @@
 <!-- Tagline -->
 <p align="center">
   <b>Open-source, self-hosted project &amp; issue tracking — the Flutter app for the <a href="https://github.com/Ahmadre/Hinata-Server">Hinata Server</a>.</b><br>
-  <sub>One codebase · Android · iOS · Web · macOS · no user or board limits, ever.</sub>
+  <sub>One codebase · Android · iOS · Web · Windows · macOS · Linux · no user or board limits, ever.</sub>
 </p>
 
 <!-- Badges -->
 <p align="center">
   <img alt="Flutter" src="https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white">
   <img alt="Dart" src="https://img.shields.io/badge/Dart-3.11-0175C2?style=for-the-badge&logo=dart&logoColor=white">
-  <img alt="Platforms" src="https://img.shields.io/badge/Android%20·%20iOS%20·%20Web%20·%20macOS-211F3D?style=for-the-badge&logo=apple&logoColor=white">
+  <img alt="Platforms" src="https://img.shields.io/badge/Android%20·%20iOS%20·%20Web%20·%20Windows%20·%20macOS%20·%20Linux-211F3D?style=for-the-badge&logoColor=white">
   <img alt="License" src="https://img.shields.io/badge/License-GPL%203.0-D9A032?style=for-the-badge&logo=gnu&logoColor=white">
   <a href="https://hinata-platform.github.io"><img alt="Documentation" src="https://img.shields.io/badge/Documentation-hinata--platform.github.io-D9A032?style=for-the-badge&logo=readthedocs&logoColor=white"></a>
 </p>
@@ -126,7 +126,7 @@ flowchart LR
 | **Networking** | dio (automatic token refresh, `Accept-Language`) |
 | **Modals** | wolt_modal_sheet (sheet on phones, dialog on desktop) |
 | **Charts** | fl_chart (burndown, velocity, completion) |
-| **Glass UI** | `liquid_glass_widgets` (vendored under `packages/`, MIT) |
+| **Glass UI** | `liquid_glass_widgets` (ours, tracked from git, MIT) |
 | **Attachments** | file_picker · desktop_drop · cross_file |
 | **Export** | pdf · printing |
 
@@ -138,7 +138,7 @@ lib/
                projects, issues, board, sprint, gantt, timesheet,
                reports, knowledge, search, notifications, settings, admin
 packages/
-  liquid_glass_widgets/   vendored glass surfaces (full control)
+  just_audio_linux/       GStreamer playback for Linux (docs/LINUX.md)
 ```
 </details>
 
@@ -256,6 +256,11 @@ dart run flutter_launcher_icons          # regenerate app icons
 Start the backend as described in
 [Hinata-Server/README.md](../Hinata-Server/README.md), then point the app at
 `http://localhost:8080` (Android emulator: `http://10.0.2.2:8080`).
+
+> 🐧 **Linux** — [docs/LINUX.md](docs/LINUX.md) has the build prerequisites, the
+> capability matrix (what degrades on Linux, why, and what the user sees), the
+> `hinata://` scheme registration and the Flatpak + AppImage recipes in
+> [packaging/linux](packaging/linux).
 
 ---
 

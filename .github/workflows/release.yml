@@ -37,8 +37,9 @@ on:
         default: "false"
       platforms:
         description: >-
-          "all", or a single platform (android|ios|macos|windows) to run just
-          that store.
+          "all", or a single platform (android|ios|macos|windows|linux) to run
+          just that store. "linux" has no store — it attaches an AppImage to
+          the run.
         type: string
         required: false
         default: all
@@ -54,13 +55,18 @@ on:
       platforms:
         description: Which store to run.
         type: choice
-        options: [all, android, ios, macos, windows]
+        options: [all, android, ios, macos, windows, linux]
         default: all
       submit:
         description: Submit to the store for review (not just upload a draft).
         type: choice
         options: ["false", "true"]
         default: "false"
+
+# One place per file for the SDK version — see the comment on the first
+# flutter-action use below.
+env:
+  FLUTTER_VERSION: 3.47.0
 
 jobs:
   android:
@@ -76,8 +82,15 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      # Pinned to an exact SDK, not just `channel: stable`. An unpinned stable
+      # drifts underneath the release: a new SDK arrives with a new formatter
+      # and new analysis defaults, and a tag that built yesterday fails today
+      # with no code change behind it. A release build in particular must be
+      # reproducible from its tag, so the version is data in this file, not
+      # whatever `stable` resolved to on the day.
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
       - uses: ruby/setup-ruby@v1
@@ -137,6 +150,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
       - uses: ruby/setup-ruby@v1
@@ -193,6 +207,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
       - uses: ruby/setup-ruby@v1
@@ -272,6 +287,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
       - uses: ruby/setup-ruby@v1
@@ -351,5 +367,75 @@ jobs:
           # warn, not error: the build step is the authority on whether this run
           # failed. If packaging never got that far, this step must not pile a
           # second, misleading failure on top of the real one.
+          if-no-files-found: warn
+          retention-days: 30
+
+  linux:
+    if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'linux' }}
+    name: Linux → AppImage (run artifact)
+    # There is no Linux store lane and `submit` is ignored here on purpose:
+    # Flathub publishes from its own repository, not from this workflow, and
+    # nothing else asks for an account. What this job owes a release is a file
+    # somebody can download and run — so it mirrors the Windows job's fallback
+    # half (build, package, attach to the run) and stops there.
+    #
+    # The Flatpak is NOT built here. packaging/linux/flatpak/com.ahmadre.hinata.yml
+    # packages this very same bundle, but doing it in CI means installing
+    # flatpak-builder, pulling ~2 GB of org.freedesktop.Platform/Sdk 25.08 and
+    # compiling PulseAudio's client tools — minutes of runner time for an
+    # artifact nobody consumes until there is a Flathub submission to make.
+    # Build it locally from the release artifact when that day comes.
+    #
+    # Same glibc reasoning as the ci.yml build-linux job: the oldest supported
+    # distribution decides the build image, so this is pinned rather than
+    # tracking `ubuntu-latest`.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Install the GTK desktop toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+      # cargokit compiles super_native_extensions from source on Linux; the
+      # runner image ships a toolchain, this only covers one that stops doing so.
+      - name: Ensure a Rust toolchain (super_native_extensions)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - name: Package as an AppImage
+        run: packaging/linux/appimage/build-appimage.sh
+      # Both artifacts, and on failure too — the same reasoning as the MSIX
+      # above. The raw bundle is what the Flatpak manifest consumes, so a run
+      # whose packaging step broke still hands over everything needed to package
+      # by hand.
+      - name: Upload the AppImage as a run artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hinata-appimage
+          path: build/linux/appimage/*.AppImage
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Upload the raw bundle as a run artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hinata-linux-bundle
+          path: build/linux/x64/release/bundle
           if-no-files-found: warn
           retention-days: 30
