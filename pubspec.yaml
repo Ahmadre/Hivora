@@ -116,6 +116,11 @@ dependencies:
   # fails to play (recording works, `record` supports Windows). Federated
   # platform package (WinRT MediaPlayer): no code change, just registration.
   just_audio_windows: ^0.2.2
+  # Linux has the same hole and no package to fill it — nobody publishes a
+  # just_audio_linux — so this one is ours: the same federated shape, with
+  # GStreamer's playbin behind it. See packages/just_audio_linux/README.md.
+  just_audio_linux:
+    path: packages/just_audio_linux
 
   # Comment reactions: full emoji picker (device emoji font) behind the "…" button
   # on the quick-reactions bar.
