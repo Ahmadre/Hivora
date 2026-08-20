@@ -80,9 +80,18 @@ Future<DownloadResult> downloadBytes(
 Future<DownloadResult> _saveToDownloads(String name, Uint8List bytes) async {
   // XDG_DOWNLOAD_DIR when the user-dirs config names one, ~/Downloads
   // otherwise; the home directory if even that cannot be resolved, because a
-  // file the user can find beats a failure.
+  // file the user can find beats a failure. The lookup is wrapped because it
+  // shells out to the XDG user directories, which a desktop without
+  // xdg-user-dirs configured does not have at all — and a download must not
+  // fail over a folder we can name ourselves.
+  Directory? xdgDownloads;
+  try {
+    xdgDownloads = await getDownloadsDirectory();
+  } catch (_) {
+    xdgDownloads = null;
+  }
   final directory =
-      await getDownloadsDirectory() ??
+      xdgDownloads ??
       Directory('${Platform.environment['HOME'] ?? '.'}/Downloads');
   await directory.create(recursive: true);
   final file = File('${directory.path}/${_freeName(directory, name)}');

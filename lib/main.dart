@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -81,9 +81,7 @@ Future<void> main(List<String> args) async {
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: kIsWeb
         ? HydratedStorageDirectory.web
-        : HydratedStorageDirectory(
-            (await getApplicationDocumentsDirectory()).path,
-          ),
+        : HydratedStorageDirectory((await _stateDirectory()).path),
   );
 
   // Pre-warm the liquid-glass shaders so the first frame of the bottom nav
@@ -123,6 +121,28 @@ Future<void> main(List<String> args) async {
       initialLink: _launchDeepLink(args),
     ),
   );
+}
+
+/// Where HydratedBloc keeps its state.
+///
+/// The documents directory wherever it exists: that is where this app's
+/// hydrated state has always lived, and moving it would silently reset every
+/// stored filter and preference for everyone already using it.
+///
+/// On Linux it may not exist at all. `path_provider` resolves that directory
+/// through the XDG user directories, and a desktop without xdg-user-dirs
+/// configured — a minimal window manager, a container, a freshly created
+/// account — simply has none, so the lookup throws before the app has drawn a
+/// single frame. It took down the whole launch, which is exactly the kind of
+/// failure a new platform must not ship with. The application-support directory
+/// is the dependable answer there (path_provider creates it if it is missing),
+/// and Linux is new enough that there is nothing to migrate.
+Future<Directory> _stateDirectory() async {
+  try {
+    return await getApplicationDocumentsDirectory();
+  } on MissingPlatformDirectoryException {
+    return await getApplicationSupportDirectory();
+  }
 }
 
 /// The `hinata://` link the app was launched with, if there is one.

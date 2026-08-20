@@ -23,7 +23,7 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'features/knowledge/data/knowledge_repository.dart';
 import 'features/sprint/modals/glass_modal.dart'
-    show GlassToastKind, showGlassToast;
+    show GlassToastKind, showGlassToastIn;
 
 class HinataApp extends StatefulWidget {
   const HinataApp({
@@ -192,14 +192,18 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   void _warnIfSessionWontPersist() {
     if (_warnedMemoryOnlySession || !widget.storage.sessionIsMemoryOnly) return;
     _warnedMemoryOnlySession = true;
-    // After the frame: this runs from a bloc listener, and the overlay the
-    // toast inserts itself into is part of the navigator that is still being
-    // rebuilt for the newly authenticated route.
+    // After the frame: this runs from a bloc listener, and the navigator whose
+    // overlay the toast goes into is still being rebuilt for the newly
+    // authenticated route.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final context = rootNavigatorKey.currentContext;
-      if (context == null || !context.mounted) return;
-      showGlassToast(
-        context,
+      // The overlay comes from the navigator rather than from its context: a
+      // navigator's own context sits above the overlay it owns, so looking one
+      // up from there finds nothing and throws.
+      final overlay = rootNavigatorKey.currentState?.overlay;
+      if (context == null || !context.mounted || overlay == null) return;
+      showGlassToastIn(
+        overlay,
         context.t('errors.sessionNotPersisted'),
         kind: GlassToastKind.warning,
       );
