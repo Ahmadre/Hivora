@@ -31,11 +31,17 @@ class HinataApp extends StatefulWidget {
     required this.storage,
     required this.apiClient,
     required this.repositories,
+    this.initialLink,
   });
 
   final AppStorage storage;
   final ApiClient apiClient;
   final HinataRepositories repositories;
+
+  /// A `hinata://` link the process was launched with, read from the command
+  /// line by `main`. Linux only — see `_launchDeepLink` there for why the
+  /// plugin cannot see that one.
+  final Uri? initialLink;
 
   @override
   State<HinataApp> createState() => _HinataAppState();
@@ -214,14 +220,17 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // it has not sent yet). Following one link twice re-submits the server and
     // bounces the app back out through /connecting — right out of the screen it
     // had just opened.
-    Uri? initial;
+    Uri? fromPlugin;
     try {
-      initial = await appLinks.getInitialLink();
+      fromPlugin = await appLinks.getInitialLink();
     } catch (e) {
       debugPrint('Initial deep link lookup failed: $e');
     }
     if (!mounted) return;
-    Uri? replay = initial;
+    // Only the plugin's own initial link is the one the stream replays; a link
+    // that came in on the command line was never in that stream to begin with.
+    Uri? replay = fromPlugin;
+    final initial = fromPlugin ?? widget.initialLink;
     _linkSubscription = appLinks.uriLinkStream.listen((uri) {
       // Only the *first* stream event can be that replay; from then on an
       // identical link is a second, deliberate tap and is followed again.

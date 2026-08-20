@@ -21,7 +21,9 @@ import 'core/router/app_router.dart' show rootNavigatorKey;
 import 'core/storage/app_storage.dart';
 import 'firebase_options.dart';
 
-Future<void> main() async {
+/// [args] are the process arguments the embedder hands to the Dart entrypoint.
+/// Only Linux puts anything there we care about — see [_launchDeepLink].
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   const screenshotMode = bool.fromEnvironment('SCREENSHOT_MODE');
@@ -118,6 +120,28 @@ Future<void> main() async {
       storage: storage,
       apiClient: apiClient,
       repositories: repositories,
+      initialLink: _launchDeepLink(args),
     ),
   );
+}
+
+/// The `hinata://` link the app was launched with, if there is one.
+///
+/// Linux only, and it exists because of how deep links arrive there: the
+/// `.desktop` file claims `x-scheme-handler/hinata`, so opening a link runs
+/// `hinata hinata://auth-callback?…` and GApplication forwards that argv to the
+/// instance already running. `app_links` learns of it through the resulting
+/// `::command-line` signal — which is emitted *before* the plugins of a
+/// cold-started process are registered, so the very first launch's link reaches
+/// nothing. It is still in the process arguments, which is where this reads it.
+///
+/// Matched by scheme rather than by position: the same argument list carries
+/// whatever the tooling passed (`flutter run` adds several), and https deep
+/// links are handled by the browser on Linux, never by the app.
+Uri? _launchDeepLink(List<String> args) {
+  for (final arg in args) {
+    final uri = Uri.tryParse(arg);
+    if (uri != null && uri.scheme == 'hinata') return uri;
+  }
+  return null;
 }

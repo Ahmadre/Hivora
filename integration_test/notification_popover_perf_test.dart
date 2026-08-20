@@ -76,7 +76,9 @@ void main() {
   testWidgets(
     'notification popover open/close frame timings',
     (tester) async {
-      await app.main();
+      // main now takes the process arguments (a Linux deep link arrives that
+      // way); a perf run launches with none.
+      await app.main(const []);
       await _pumpFor(tester, const Duration(seconds: 3));
 
       final bell = find.byIcon(LucideIcons.bell);
