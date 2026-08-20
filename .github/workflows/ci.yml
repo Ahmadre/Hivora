@@ -101,6 +101,20 @@ jobs:
       - name: Install the GTK desktop toolchain
         run: |
           sudo apt-get update
+          # The ubuntu-22.04 runner image ships LLVM's libunwind-*-dev, which
+          # conflicts with the GNU libunwind-dev that libgstreamer1.0-dev
+          # depends on. apt cannot resolve that itself — it stops with "held
+          # broken packages" and installs nothing at all. Removing the LLVM
+          # variant is safe for this build: Flutter's Linux toolchain compiles
+          # with clang against libstdc++ and never links LLVM's unwinder.
+          # Queried rather than named, so it keeps working when the image bumps
+          # its LLVM version and is a no-op on an image without the conflict.
+          conflicting=$(dpkg-query -W -f='${db:Status-Status} ${Package}\n' \
+            'libunwind-*-dev' 2>/dev/null | awk '$1 == "installed" { print $2 }' || true)
+          if [ -n "$conflicting" ]; then
+            echo "Removing conflicting: $conflicting"
+            sudo apt-get remove -y $conflicting
+          fi
           sudo apt-get install -y \
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
