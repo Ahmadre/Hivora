@@ -121,7 +121,14 @@ dependencies:
   # Direct dependency because desktop_camera_delegate.dart implements
   # ImagePickerCameraDelegate from it (implementation-imports lint).
   image_picker_platform_interface: ^2.10.0
-  desktop_drop: ^0.5.0
+  # 0.6.1 or newer, or the Linux build breaks on Ubuntu 24.04 and later: the
+  # plugin called std::getenv without including <cstdlib>, which compiles only
+  # where another header happens to pull it in. 22.04 does, core24 does not, so
+  # this surfaced the first time the snap was built and not before. Upstream
+  # fixed it in 0.6.1 — literally "fix Linux snap build failure due to missing
+  # stdlib.h include". 0.8.0 is deliberately not taken: it requires Android
+  # Gradle Plugin 9.
+  desktop_drop: ^0.7.1
   cross_file: ^0.3.4+2
   # Native download: present the OS share sheet on a downloaded attachment so the
   # user can "Save to Files" (iOS) / save to Downloads (Android) or send it on,
