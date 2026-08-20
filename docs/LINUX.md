@@ -416,10 +416,14 @@ flatpak override --user --filesystem=~/projects:ro com.ahmadre.hinata
 (or the same toggle in Flatseal). `flatpak override --user --reset
 com.ahmadre.hinata` puts it back.
 
-> **Not yet submitted to Flathub.** The manifest builds locally; a Flathub
-> submission additionally needs a `<screenshot>` in the metainfo pointing at a
-> hosted image, which is called out in a comment there rather than filled with a
-> URL that would 404.
+> **Not published on a hosted remote yet.** The manifest builds — locally, and
+> on Flathub's build bots, which produced working `x86_64` and `aarch64` images
+> from it. Flathub is nonetheless not the channel: their
+> [requirements](https://docs.flathub.org/docs/for-app-authors/requirements)
+> bar submissions whose content was produced with an LLM, which is a question
+> about how this app was written rather than anything about the packaging. The
+> manifest is kept as-is — a Flatpak still installs from it, and it stays valid
+> for any other remote — while a distribution channel is decided.
 
 ### AppImage
 
@@ -444,8 +448,9 @@ is the honest trade for an image that behaves like a native app instead of a
 frozen 1990s copy of one.
 
 `release.yml` builds it on a `linux` platform run and attaches it as the
-`hinata-appimage` artifact, alongside the raw bundle. There is no store lane:
-Flathub publishes from its own repository, and nothing else asks for an account.
+`hinata-appimage` artifact, alongside the raw bundle. There is no store lane
+yet — a Flatpak remote publishes from its own repository and an AppImage needs
+no account at all, so nothing here depends on one until a store is chosen.
 
 ---
 
