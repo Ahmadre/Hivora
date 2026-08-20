@@ -1429,12 +1429,40 @@ GlassToastController showGlassToast(
   VoidCallback? onAction,
   Widget? trailing,
   Brightness? brightness,
+}) => showGlassToastIn(
+  Overlay.of(context, rootOverlay: true),
+  message,
+  kind: kind,
+  icon: icon,
+  duration: duration,
+  actionLabel: actionLabel,
+  onAction: onAction,
+  trailing: trailing,
+  brightness: brightness,
+);
+
+/// The same toast, raised into an overlay the caller already holds.
+///
+/// For app-level callers that have no widget of their own — a bloc listener, a
+/// platform callback. All they have is the root navigator, and its own context
+/// sits *above* the overlay that navigator owns, so [Overlay.of] looks upwards
+/// and finds nothing at all. `navigatorKey.currentState?.overlay` is that
+/// overlay; pass it here.
+GlassToastController showGlassToastIn(
+  OverlayState overlay,
+  String message, {
+  GlassToastKind kind = GlassToastKind.info,
+  IconData? icon,
+  Duration? duration,
+  String? actionLabel,
+  VoidCallback? onAction,
+  Widget? trailing,
+  Brightness? brightness,
 }) {
   assert(
     trailing == null || actionLabel == null,
     'Pass either actionLabel/onAction or a custom trailing widget, not both.',
   );
-  final overlay = Overlay.of(context, rootOverlay: true);
   if (_activeGlassToast?.mounted ?? false) _activeGlassToast!.remove();
   _activeGlassToast = null;
   final hasAction = actionLabel != null && onAction != null;

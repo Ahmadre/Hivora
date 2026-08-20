@@ -19,9 +19,12 @@ import 'core/repositories/repositories.dart';
 import 'core/router/app_router.dart';
 import 'core/router/relay_link.dart';
 import 'core/storage/app_storage.dart';
+import 'core/util/server_link.dart' show knownServers, normalizeServerLink;
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'features/knowledge/data/knowledge_repository.dart';
+import 'features/sprint/modals/glass_modal.dart'
+    show GlassToastKind, showGlassToastIn;
 
 class HinataApp extends StatefulWidget {
   const HinataApp({
@@ -29,11 +32,17 @@ class HinataApp extends StatefulWidget {
     required this.storage,
     required this.apiClient,
     required this.repositories,
+    this.initialLink,
   });
 
   final AppStorage storage;
   final ApiClient apiClient;
   final HinataRepositories repositories;
+
+  /// A `hinata://` link the process was launched with, read from the command
+  /// line by `main`. Linux only — see `_launchDeepLink` there for why the
+  /// plugin cannot see that one.
+  final Uri? initialLink;
 
   @override
   State<HinataApp> createState() => _HinataAppState();
@@ -56,6 +65,9 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   // The server the realtime streams (SSE sign-out + FCM) are currently bound to,
   // so a switch tears them down and reopens them against the new backend.
   String? _streamServer;
+  // One warning per launch that the session is not being persisted; repeating
+  // it on every re-authentication would be nagging, not informing.
+  bool _warnedMemoryOnlySession = false;
   // Shared backend-backed Knowledge Base store: the KB screen and the real
   // issue detail both resolve smart-links / "Documented in" against this single
   // instance. Loaded lazily on first use (post-auth), not at startup.
@@ -164,11 +176,38 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
       // starts push — otherwise the OS notification-permission prompt would pop
       // over the very screen we're capturing. Normal launches are unaffected.
       if (widget.storage.screenshotRoute == null) _fcm.start();
+      _warnIfSessionWontPersist();
     } else {
       _streamServer = null;
       _accountEvents.stop();
       _fcm.stop();
     }
+  }
+
+  /// Says once per launch when the sign-in could not be written to disk.
+  ///
+  /// [AppStorage.sessionIsMemoryOnly] is set when the secure-storage write
+  /// fails, which in practice means Linux without a running keyring. Staying
+  /// quiet would make the login look like it worked right up until the next
+  /// launch asks for the password again, with nothing to connect the two.
+  void _warnIfSessionWontPersist() {
+    if (_warnedMemoryOnlySession || !widget.storage.sessionIsMemoryOnly) return;
+    _warnedMemoryOnlySession = true;
+    // After the frame: this runs from a bloc listener, and the navigator whose
+    // overlay the toast goes into is still being rebuilt for the newly
+    // authenticated route.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = rootNavigatorKey.currentContext;
+      // The navigator's own overlay, not Overlay.of(context) — showGlassToastIn
+      // carries the reason.
+      final overlay = rootNavigatorKey.currentState?.overlay;
+      if (context == null || !context.mounted || overlay == null) return;
+      showGlassToastIn(
+        overlay,
+        context.t('errors.sessionNotPersisted'),
+        kind: GlassToastKind.warning,
+      );
+    });
   }
 
   /// Subscribes to the two doors a deep link can come through: the link the app
@@ -185,14 +224,17 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // it has not sent yet). Following one link twice re-submits the server and
     // bounces the app back out through /connecting — right out of the screen it
     // had just opened.
-    Uri? initial;
+    Uri? fromPlugin;
     try {
-      initial = await appLinks.getInitialLink();
+      fromPlugin = await appLinks.getInitialLink();
     } catch (e) {
       debugPrint('Initial deep link lookup failed: $e');
     }
     if (!mounted) return;
-    Uri? replay = initial;
+    // Only the plugin's own initial link is the one the stream replays; a link
+    // that came in on the command line was never in that stream to begin with.
+    Uri? replay = fromPlugin;
+    final initial = fromPlugin ?? widget.initialLink;
     _linkSubscription = appLinks.uriLinkStream.listen((uri) {
       // Only the *first* stream event can be that replay; from then on an
       // identical link is a second, deliberate tap and is followed again.
@@ -219,11 +261,11 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
           // stranded the user on the login screen.
           _router.go('/auth-callback?${uri.query}');
         case 'invite':
-          await _openTokenFlow(uri, '/invite');
+          _openTokenFlow(uri, '/invite');
         case 'reset-password':
-          await _openTokenFlow(uri, '/reset-password');
+          _openTokenFlow(uri, '/reset-password');
         case 'verify-email':
-          await _openTokenFlow(uri, '/verify-email');
+          _openTokenFlow(uri, '/verify-email');
       }
       return;
     }
@@ -231,17 +273,18 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // Universal / App Links (https) from the production web domain. Verified
     // against /.well-known/{assetlinks.json,apple-app-site-association}, these
     // carry the same in-app routes as the website (e.g. /issues/MOB-9), so we
-    // forward the path straight to the router. The token flows still need their
-    // server-URL handoff, so they keep going through _openTokenFlow.
+    // forward the path straight to the router. The token flows carry a server
+    // their screen has to consent to before using, so they keep going through
+    // _openTokenFlow.
     if (uri.scheme == 'https' || uri.scheme == 'http') {
       if (uri.path.startsWith('/l/')) {
         await _openRelayLink(uri);
       } else if (uri.path.startsWith('/invite')) {
-        await _openTokenFlow(uri, '/invite');
+        _openTokenFlow(uri, '/invite');
       } else if (uri.path.startsWith('/reset-password')) {
-        await _openTokenFlow(uri, '/reset-password');
+        _openTokenFlow(uri, '/reset-password');
       } else if (uri.path.startsWith('/verify-email')) {
-        await _openTokenFlow(uri, '/verify-email');
+        _openTokenFlow(uri, '/verify-email');
       } else if (uri.path.isNotEmpty && uri.path != '/') {
         _router.go(uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path);
       }
@@ -262,8 +305,42 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     // that same `catch`, which turned any failure on the way to the screen into
     // a link that silently did nothing at all.
     if (link == null) return;
-    await _selectServer(link.server);
+
+    // The relay payload is decoded locally and is not authenticated — the
+    // gateway's signature only protects its own web fallback — so the server it
+    // names is a claim, exactly like the one in a hinata:// link.
+    //
+    // The three token routes gate that claim themselves, so it is handed to
+    // them. Every other relay link opens an ordinary screen with no gate, and
+    // those may only follow a server this device already uses: a notification
+    // link comes from a server the user is signed in to, so nothing legitimate
+    // needs more, and it means no link can move the app to a backend the user
+    // has never seen without ever asking.
+    final path = link.route.split('?').first;
+    if (_serverGatedRoutes.contains(path)) {
+      _router.go(_routeWithServer(link.route, link.server));
+      return;
+    }
+    final known = knownServers(widget.storage);
+    final server = normalizeServerLink(link.server, known: known);
+    if (server != null && known.contains(server)) await _selectServer(server);
     _router.go(link.route);
+  }
+
+  /// The routes that ask the user themselves before switching backends — see
+  /// [applyServerFromLink], which each of their screens runs.
+  static const _serverGatedRoutes = {
+    '/invite',
+    '/reset-password',
+    '/verify-email',
+  };
+
+  /// [route] with the link's `server` appended, merging into a query it may
+  /// already have rather than starting a second one.
+  static String _routeWithServer(String route, String? server) {
+    if (server == null || server.isEmpty) return route;
+    final separator = route.contains('?') ? '&' : '?';
+    return '$route${separator}server=${Uri.encodeQueryComponent(server)}';
   }
 
   /// Points the app at the server a deep link came from.
@@ -275,8 +352,31 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   /// origin server, so without this guard *every* one of them took that detour.
   /// A failed connection is still re-submitted, since that is the case where
   /// re-connecting is the whole point.
-  Future<void> _selectServer(String? server) async {
-    if (server == null || server.isEmpty) return;
+  ///
+  /// The value is checked before it is stored. It arrives inside a link — from
+  /// the OS scheme handler, from the process arguments on Linux, from a relay
+  /// payload — so it is an outside claim about which backend this app should
+  /// talk to, and [AppConfigBloc] refuses anything that is not an absolute
+  /// http(s) URL with a host. Writing first and letting the bloc refuse
+  /// afterwards would leave that refused value in storage as the API client's
+  /// base URL.
+  Future<void> _selectServer(String? raw) async {
+    if (raw == null) return;
+    // Normalized and checked exactly the way [ServerUrlSubmitted] does it, and
+    // no more strictly: being stricter here would drop a link the connect
+    // screen would have accepted, and writing the un-normalized string would
+    // save a second profile for the same server the moment a link spelled it
+    // with a trailing slash. In particular not `isAbsolute`, which Dart also
+    // makes false for a URL that merely carries a fragment.
+    var server = raw.trim();
+    if (server.endsWith('/')) server = server.substring(0, server.length - 1);
+    if (server.isEmpty) return;
+    final uri = Uri.tryParse(server);
+    if (uri == null ||
+        !(uri.isScheme('https') || uri.isScheme('http')) ||
+        uri.host.isEmpty) {
+      return;
+    }
     if (widget.storage.serverUrl == server &&
         _appConfig.state.status != AppConfigStatus.needsServerUrl) {
       return;
@@ -285,14 +385,27 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     _appConfig.add(ServerUrlSubmitted(server));
   }
 
-  /// Shared handoff for the token-carrying email deep links (invite / reset):
-  /// persist the server URL from the link so a fresh app can reach the backend,
-  /// then route to the in-app screen.
-  Future<void> _openTokenFlow(Uri uri, String route) async {
+  /// Shared handoff for the token-carrying email deep links (invite / reset /
+  /// verify): route to the in-app screen, carrying the server the link named.
+  ///
+  /// The server is *forwarded*, not applied here. Each of these three screens
+  /// already runs it through `applyServerFromLink`, which requires https and
+  /// asks the user before switching to a backend they have never used — the
+  /// whole point being that a link is not allowed to silently repoint the app
+  /// at somebody else's server and collect the password typed into the next
+  /// screen. Applying it here instead, and then dropping the parameter on the
+  /// way to the route, meant that consent gate was handed a null and never ran
+  /// on any deep link at all: `hinata://invite?token=…&server=http://attacker`
+  /// switched servers on its own. Passing it on is what makes the gate real.
+  void _openTokenFlow(Uri uri, String route) {
     final token = uri.queryParameters['token'];
     if (token == null || token.isEmpty) return;
-    await _selectServer(uri.queryParameters['server']);
-    _router.go('$route?token=${Uri.encodeQueryComponent(token)}');
+    _router.go(
+      _routeWithServer(
+        '$route?token=${Uri.encodeQueryComponent(token)}',
+        uri.queryParameters['server'],
+      ),
+    );
   }
 
   /// Dismiss the keyboard whenever the app leaves the foreground. If a TextField

@@ -44,6 +44,19 @@ class AppStorage {
   final Map<String, String> _accessCache = {};
   final Map<String, String> _refreshCache = {};
 
+  bool _sessionIsMemoryOnly = false;
+
+  /// True when the tokens could not be read from or written to secure storage,
+  /// so the session lives only as long as this process.
+  ///
+  /// Linux is the platform where this actually happens: its secure storage is
+  /// the Secret Service, which means a running keyring (GNOME Keyring,
+  /// KWallet). A desktop without one — a minimal window manager, a container, a
+  /// login that never unlocked the keyring — fails every write. The app keeps
+  /// working, but the user is signed out again on the next launch, and being
+  /// told that once beats discovering it every morning.
+  bool get sessionIsMemoryOnly => _sessionIsMemoryOnly;
+
   static Future<AppStorage> create() async {
     // flutter_secure_storage 10.x defaults to strong encryption on every
     // platform (Android: RSA-OAEP key + AES-GCM storage; iOS/macOS: Keychain),
@@ -151,18 +164,37 @@ class AppStorage {
     try {
       await _secure.write(key: _accessKey(url), value: access);
       await _secure.write(key: _refreshKey(url), value: refresh);
+      _sessionIsMemoryOnly = false;
     } catch (_) {
-      // Non-fatal: keep the in-memory session.
+      // Non-fatal: keep the in-memory session, and remember that it is only
+      // that, so the app can say so instead of silently losing the login.
+      _sessionIsMemoryOnly = true;
     }
   }
 
+  /// Drops this server's tokens: out of the in-memory caches first, then out of
+  /// secure storage.
+  ///
+  /// Best-effort on the storage side, and deliberately so. The desktop that
+  /// cannot *write* a token (see [sessionIsMemoryOnly]) cannot delete one
+  /// either, and this used to throw straight out of the sign-out handler —
+  /// past the `emit(unauthenticated)` that follows it, leaving the user in the
+  /// authenticated shell with a session that had already been dropped from
+  /// memory and every request failing. Each key is deleted on its own so a
+  /// failure on the first cannot skip the second.
   Future<void> clearTokens() async {
     final url = serverUrl;
     if (url == null) return;
     _accessCache.remove(url);
     _refreshCache.remove(url);
-    await _secure.delete(key: _accessKey(url));
-    await _secure.delete(key: _refreshKey(url));
+    for (final key in [_accessKey(url), _refreshKey(url)]) {
+      try {
+        await _secure.delete(key: key);
+      } catch (_) {
+        // A store this cannot reach is a store that never held the token.
+        // Clearing the caches above is what signs this run out.
+      }
+    }
   }
 
   /// Loads every saved server's tokens from secure storage into the in-memory
@@ -175,7 +207,13 @@ class AppStorage {
         if (access != null) _accessCache[server.url] = access;
         if (refresh != null) _refreshCache[server.url] = refresh;
       } catch (_) {
-        // Secure storage unavailable for this server — treat as signed out.
+        // Secure storage unavailable for this server — treat as signed out, and
+        // remember why. This is the half of the problem the user actually meets:
+        // the tokens were written on a previous run, the keyring is there but
+        // locked at boot, and the app simply asks for the password again. The
+        // warning that goes with the flag is the only thing that connects the
+        // two.
+        _sessionIsMemoryOnly = true;
       }
     }
   }

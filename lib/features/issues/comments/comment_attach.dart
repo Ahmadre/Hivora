@@ -10,6 +10,7 @@ import '../../../core/i18n/i18n.dart';
 import '../../../core/widgets/markdown_toolbar.dart';
 import '../../../core/repositories/issue_repository.dart';
 import '../../../core/repositories/media_repository.dart';
+import '../../../core/util/file_pick_failure.dart';
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassErrorToast, showGlassToast;
 
@@ -83,7 +84,16 @@ Future<void> attachFileToIssue(
     // Web has no file paths, so we always need the bytes there.
     picked = await FilePicker.platform.pickFiles(withData: kIsWeb);
   } catch (_) {
-    picked = null;
+    // A dialog that never opened used to end here in silence, which reads as a
+    // dead menu entry — and on Linux it usually means a helper the user can
+    // install in one command.
+    if (context.mounted) {
+      showGlassErrorToast(
+        context,
+        context.t(filePickFailureKey('errors.filePickFailed')),
+      );
+    }
+    return;
   }
   if (picked == null || picked.files.isEmpty) return;
   final file = picked.files.first;

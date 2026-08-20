@@ -17,6 +17,26 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // taps the notification (onMessageOpenedApp / getInitialMessage).
 }
 
+bool get _fcmSupported =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS);
+
+bool get _wnsSupported =>
+    !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
+/// Whether this platform can receive push notifications at all.
+///
+/// Android, iOS and macOS register an FCM token; Windows registers a WNS
+/// channel URI instead. Linux has neither — `firebase_messaging` ships no Linux
+/// implementation, and there is no desktop-wide push service to register with —
+/// and web is not wired up either. [FcmService.start] already returns quietly
+/// on those platforms, which is right for the plumbing and wrong for the
+/// settings screen: a switch that silently does nothing is worse than one that
+/// says why it is off.
+bool get pushSupportedOnThisPlatform => _fcmSupported || _wnsSupported;
+
 /// Owns the device's FCM lifecycle: request permission, fetch + register the
 /// token with the server (re-registering on refresh), and route notification
 /// taps to the in-app deep link. Started when the user signs in, stopped on
@@ -39,17 +59,12 @@ class FcmService {
   String? _currentToken;
   bool _started = false;
 
-  bool get _supported =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.macOS);
+  bool get _supported => _fcmSupported;
 
   /// Windows has no Firebase implementation, so it registers a WNS channel URI
   /// instead of an FCM token. The gateway routes on the shape of that value, so
   /// nothing else in the pipeline changes.
-  bool get _usesWns =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+  bool get _usesWns => _wnsSupported;
 
   Future<void> start() async {
     if (_started) return;

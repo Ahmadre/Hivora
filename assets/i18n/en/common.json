@@ -89,7 +89,10 @@
       "notEmailSourced": "This ticket wasn't created from an email, so there's no one to reply to.",
       "noSmtp": "No mail server is configured yet. Please contact your platform admins to enable sending emails.",
       "sendFailed": "The reply couldn't be sent. Please try again."
-    }
+    },
+    "sessionNotPersisted": "Signed in, but this session can't be saved — no keyring is running, so you'll be asked to sign in again after a restart.",
+    "filePickFailed": "Couldn't open the file dialog. Please try again.",
+    "filePickerMissing": "Couldn't open the file dialog. Linux needs zenity, qarma or kdialog installed."
   },
   "connect": {
     "title": "Connect to your server",
@@ -379,7 +382,9 @@
     "deleteSelectedTitle": "Delete comment?",
     "deleteSelectedTitle_plural": "Delete {{count}} comments?",
     "deleteSelectedBody": "This permanently removes it for everyone.",
-    "deleteSelectedBody_plural": "This permanently removes {{count}} comments for everyone."
+    "deleteSelectedBody_plural": "This permanently removes {{count}} comments for everyone.",
+    "recorderToolMissing": "Can't record: {{tool}} isn't installed. Linux records via parecord (pulseaudio-utils) and ffmpeg.",
+    "voiceNeedsGstreamer": "This voice message can't play: GStreamer's base plugins are missing. Install gstreamer1.0-plugins-base."
   },
   "camera": {
     "blockedTitle": "No camera available",
@@ -571,7 +576,8 @@
         "video": "Record Video",
         "files": "Choose File",
         "filesHint": "PDF, documents, archives…"
-      }
+      },
+      "savedToDownloads": "Saved to your Downloads folder as {{file}}"
     },
     "storyPoints": "Story points",
     "timeline": "Timeline",
@@ -698,7 +704,8 @@
       "docx": "Export as Word",
       "xml": "Export as XML",
       "started": "Download started",
-      "failed": "The export could not be saved. Please try again."
+      "failed": "The export could not be saved. Please try again.",
+      "saved": "Saved to your Downloads folder as {{file}}"
     },
     "clone": {
       "action": "Clone…",
@@ -2177,7 +2184,8 @@
           "label": "Security alerts",
           "desc": "New sign-ins, password & email changes"
         }
-      }
+      },
+      "pushUnsupported": "No push service here — this still applies to your phone and your other devices"
     },
     "access": {
       "title": "Access",

@@ -9,7 +9,7 @@ import 'file_download_types.dart';
 /// Web: trigger a browser download via an in-memory Blob + a temporary
 /// download anchor. The browser owns the save dialog, so [sharePositionOrigin]
 /// is ignored here.
-Future<DownloadOutcome> downloadBytes(
+Future<DownloadResult> downloadBytes(
   String filename,
   Uint8List bytes,
   String mimeType, {
@@ -26,5 +26,5 @@ Future<DownloadOutcome> downloadBytes(
   anchor.click();
   anchor.remove();
   web.URL.revokeObjectURL(url);
-  return DownloadOutcome.browser;
+  return DownloadResult.browser;
 }

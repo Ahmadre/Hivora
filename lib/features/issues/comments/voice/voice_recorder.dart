@@ -22,6 +22,22 @@ class VoiceRecording {
   final List<int> peaks;
 }
 
+/// Capture could not start because a program the recorder drives is missing.
+///
+/// Linux records by piping `parecord` into `ffmpeg`; a desktop without them
+/// fails in a way that looks exactly like a denied microphone unless it is told
+/// apart, so the caller can name the missing program instead of blaming the
+/// permission the user already granted.
+class MissingRecorderTool implements Exception {
+  const MissingRecorderTool(this.executable);
+
+  /// The program that could not be launched, e.g. `parecord` or `ffmpeg`.
+  final String executable;
+
+  @override
+  String toString() => 'MissingRecorderTool($executable)';
+}
+
 /// Thin wrapper over `record` that captures a voice message while streaming a
 /// live amplitude for the on-screen waveform, and returns the audio bytes +
 /// pre-computed peaks + duration on stop. Cross-platform: native encodes AAC in
@@ -60,8 +76,20 @@ class VoiceRecorder {
       sampleRate: 44100,
       numChannels: 1,
     );
+    // Before anything is opened: `record` cannot report a missing helper it
+    // never waits for, and a recording that turns out to be impossible after
+    // the user has finished talking is the worst moment to find out.
+    final missing = platform.missingRecorderDependency();
+    if (missing != null) throw MissingRecorderTool(missing);
+
     // Native needs a target path; web ignores it and returns a blob URL on stop.
-    await _recorder.start(config, path: kIsWeb ? '' : await _tempPath());
+    try {
+      await _recorder.start(config, path: kIsWeb ? '' : await _tempPath());
+    } catch (error) {
+      final tool = platform.missingRecorderTool(error);
+      if (tool != null) throw MissingRecorderTool(tool);
+      rethrow;
+    }
     _clock = Stopwatch()..start();
     _ampSub = _recorder
         .onAmplitudeChanged(const Duration(milliseconds: 80))

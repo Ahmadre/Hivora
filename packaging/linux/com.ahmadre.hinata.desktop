@@ -1,0 +1,52 @@
+# Desktop entry for the Linux build.
+#
+# It lives in packaging/linux/ rather than in linux/ because linux/ is the
+# Flutter tool's territory — `flutter create --platforms=linux .` rewrites the
+# files there — while this file, the icon, the AppStream metainfo and the two
+# packaging recipes are hand-maintained inputs that every distribution format
+# (Flatpak, AppImage, a distro package, a plain `make install`) installs
+# verbatim. Keeping them in one directory means the formats share one source of
+# truth instead of each carrying its own copy.
+#
+# Installed to /usr/share/applications (or /app/share/applications in a
+# Flatpak) under the reverse-DNS name, which is what AppStream, Flatpak and the
+# GNOME/KDE shells expect the file to be called.
+[Desktop Entry]
+# The version of the desktop-entry SPEC this file follows, not the app version.
+Version=1.5
+Type=Application
+Name=Hinata
+GenericName=Project Management
+GenericName[de]=Projektverwaltung
+Comment=Open-source, self-hosted project and issue tracking
+Comment[de]=Quelloffene, selbst gehostete Projekt- und Vorgangsverwaltung
+# %u, not %U: the app is single-instance and takes at most one URL per launch.
+# The scheme handler below is the only thing that ever passes an argument.
+Exec=hinata %u
+# Named after the application id so the icon theme lookup and the AppStream
+# component id agree; the file itself is installed as
+# …/icons/hicolor/512x512/apps/com.ahmadre.hinata.png.
+Icon=com.ahmadre.hinata
+Terminal=false
+StartupNotify=true
+# Office is the main category; ProjectManagement is an additional category and
+# the freedesktop menu spec only allows it next to Office or Development, so it
+# must not appear on its own.
+Categories=Office;ProjectManagement;
+# This is what makes SSO, invite, reset-password and verify-email links reach
+# the app: without an x-scheme-handler entry no desktop portal, browser or
+# mail client will ever hand a hinata:// URI to anything.
+#
+# Registering the handler is necessary but not sufficient — linux/runner/
+# my_application.cc has to forward the URI to the already-running instance.
+# See docs/LINUX.md, "Deep links".
+MimeType=x-scheme-handler/hinata;
+# Matches what the GTK runner reports: my_application_new() calls
+# g_set_prgname(APPLICATION_ID), which becomes the Wayland app_id and the X11
+# WM_CLASS instance name. (GDK derives the X11 WM_CLASS *class* from it by
+# upper-casing the first letter — "Com.ahmadre.hinata" — but both GNOME Shell
+# and KDE match StartupWMClass against the instance name as well, so the
+# lower-case application id is the right value here.)
+StartupWMClass=com.ahmadre.hinata
+Keywords=project;issue;tracker;kanban;sprint;agile;backlog;scrum;ticket;
+Keywords[de]=Projekt;Vorgang;Ticket;Kanban;Sprint;Agil;Backlog;Aufgabe;

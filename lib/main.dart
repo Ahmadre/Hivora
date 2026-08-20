@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +21,9 @@ import 'core/router/app_router.dart' show rootNavigatorKey;
 import 'core/storage/app_storage.dart';
 import 'firebase_options.dart';
 
-Future<void> main() async {
+/// [args] are the process arguments the embedder hands to the Dart entrypoint.
+/// Only Linux puts anything there we care about — see [_launchDeepLink].
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   const screenshotMode = bool.fromEnvironment('SCREENSHOT_MODE');
@@ -79,9 +81,7 @@ Future<void> main() async {
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: kIsWeb
         ? HydratedStorageDirectory.web
-        : HydratedStorageDirectory(
-            (await getApplicationDocumentsDirectory()).path,
-          ),
+        : HydratedStorageDirectory((await _stateDirectory()).path),
   );
 
   // Pre-warm the liquid-glass shaders so the first frame of the bottom nav
@@ -118,6 +118,58 @@ Future<void> main() async {
       storage: storage,
       apiClient: apiClient,
       repositories: repositories,
+      initialLink: _launchDeepLink(args),
     ),
   );
+}
+
+/// Where HydratedBloc keeps its state.
+///
+/// The documents directory on every platform that has had it: that is where
+/// this app's hydrated state has always lived, and moving it would silently
+/// reset every stored filter and preference for everyone already using it.
+///
+/// Linux is the exception, and always uses the application-support directory,
+/// because "the documents folder" is the wrong answer there twice over. It is
+/// resolved through the XDG user directories, so a desktop without
+/// xdg-user-dirs configured — a minimal window manager, a container, a freshly
+/// created account — has none at all and the lookup throws before the app has
+/// drawn a frame. And under Flatpak the app is only granted the user's
+/// documents *read-only*, so even where the lookup succeeds the first write
+/// would not. Application support is XDG_DATA_HOME, which path_provider creates
+/// if it is missing and the sandbox always makes writable; Linux is new enough
+/// that there is nothing there to migrate.
+///
+/// The catch stays for the platforms that do use documents: none of them is
+/// expected to fail, and falling back beats refusing to start.
+Future<Directory> _stateDirectory() async {
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+    return getApplicationSupportDirectory();
+  }
+  try {
+    return await getApplicationDocumentsDirectory();
+  } on MissingPlatformDirectoryException {
+    return await getApplicationSupportDirectory();
+  }
+}
+
+/// The `hinata://` link the app was launched with, if there is one.
+///
+/// Linux only, and it exists because of how deep links arrive there: the
+/// `.desktop` file claims `x-scheme-handler/hinata`, so opening a link runs
+/// `hinata hinata://auth-callback?…` and GApplication forwards that argv to the
+/// instance already running. `app_links` learns of it through the resulting
+/// `::command-line` signal — which is emitted *before* the plugins of a
+/// cold-started process are registered, so the very first launch's link reaches
+/// nothing. It is still in the process arguments, which is where this reads it.
+///
+/// Matched by scheme rather than by position: the same argument list carries
+/// whatever the tooling passed (`flutter run` adds several), and https deep
+/// links are handled by the browser on Linux, never by the app.
+Uri? _launchDeepLink(List<String> args) {
+  for (final arg in args) {
+    final uri = Uri.tryParse(arg);
+    if (uri != null && uri.scheme == 'hinata') return uri;
+  }
+  return null;
 }

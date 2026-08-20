@@ -1530,14 +1530,28 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         );
         return;
       }
-      final outcome = await downloadBytes(
+      final result = await downloadBytes(
         issueExportFileName(issue, extension),
         bytes,
         choice.mimeType!,
         sharePositionOrigin: origin,
       );
       if (!mounted) return;
-      switch (outcome) {
+      switch (result.outcome) {
+        // Saved straight into Downloads, because the platform has no share
+        // sheet to hand it to — so the toast is the only thing that tells the
+        // user it happened, and it names the file.
+        case DownloadOutcome.saved:
+          // Resolved here rather than passed as a key: _toast localizes what it
+          // is given, and this message needs the file name interpolated. `t` on
+          // an already-resolved string returns it unchanged.
+          _toast(
+            context.t(
+              'issues.export.saved',
+              variables: {'file': result.fileName ?? ''},
+            ),
+            kind: GlassToastKind.success,
+          );
         case DownloadOutcome.browser:
           _toast('issues.export.started', kind: GlassToastKind.info);
         case DownloadOutcome.failed:

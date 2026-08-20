@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:just_audio/just_audio.dart';
 
 import 'voice_platform.dart' as platform;
@@ -38,6 +39,7 @@ class VoicePlaybackController extends ChangeNotifier {
   bool _loading = false;
   bool _loaded = false;
   bool _failed = false;
+  String? _failureKey;
   bool _playing = false;
   bool _disposed = false;
   Duration _position = Duration.zero;
@@ -45,6 +47,15 @@ class VoicePlaybackController extends ChangeNotifier {
 
   bool get loading => _loading;
   bool get failed => _failed;
+
+  /// An i18n key explaining *why* playback failed, or null when there is
+  /// nothing more useful to say than "it failed".
+  ///
+  /// Only one failure is worth spelling out: Linux plays through GStreamer, and
+  /// a desktop without its base plugins cannot build a pipeline at all. That is
+  /// a package the user can install in one command, and a bare retry button
+  /// would never tell them so.
+  String? get failureKey => _failureKey;
   bool get playing => _playing;
   Duration get position => _position;
   Duration get duration =>
@@ -89,6 +100,7 @@ class VoicePlaybackController extends ChangeNotifier {
     if (_loading || _disposed) return;
     _loading = true;
     _failed = false;
+    _failureKey = null;
     notifyListeners();
     try {
       final audio = await _loader();
@@ -116,8 +128,14 @@ class VoicePlaybackController extends ChangeNotifier {
       if (resolved != null && resolved > Duration.zero) _duration = resolved;
       _wireStreams();
       _loaded = true;
+    } on PlatformException catch (e) {
+      _failed = true;
+      _failureKey = e.code == 'gstreamer'
+          ? 'comments.voiceNeedsGstreamer'
+          : null;
     } catch (_) {
       _failed = true;
+      _failureKey = null;
     } finally {
       _loading = false;
       if (!_disposed) notifyListeners();

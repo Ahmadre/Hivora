@@ -16,6 +16,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_widgets.dart';
 import '../../../core/lexical/hinata_document.dart';
+import '../../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'voice/voice_player.dart';
 
 part 'comment_thread.bubbles.dart';

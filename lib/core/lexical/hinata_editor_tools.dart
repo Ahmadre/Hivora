@@ -19,6 +19,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/api_client.dart';
 import '../i18n/i18n.dart';
 import '../repositories/media_repository.dart';
+import '../util/file_pick_failure.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../../features/knowledge/data/knowledge_models.dart' show lucideIcon;
@@ -115,7 +116,15 @@ class _HinataImageButtonState extends State<HinataImageButton> {
         withData: true,
       );
     } on Object {
-      picked = null;
+      // Silence here reads as a dead toolbar button; on Linux the dialog is an
+      // external program that may not be installed at all.
+      if (mounted) {
+        showGlassErrorToast(
+          context,
+          context.t(filePickFailureKey('errors.filePickFailed')),
+        );
+      }
+      return;
     }
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;

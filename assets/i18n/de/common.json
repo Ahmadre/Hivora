@@ -89,7 +89,10 @@
       "notEmailSourced": "Dieses Ticket wurde nicht aus einer E-Mail erstellt – es gibt keinen Empfänger für eine Antwort.",
       "noSmtp": "Es ist noch kein Mailserver konfiguriert. Bitte wende dich an die Plattform-Admins, um E-Mails senden zu können.",
       "sendFailed": "Die Antwort konnte nicht gesendet werden. Bitte versuche es erneut."
-    }
+    },
+    "sessionNotPersisted": "Angemeldet, aber diese Sitzung lässt sich nicht speichern — es läuft kein Schlüsselbunddienst. Nach einem Neustart ist eine erneute Anmeldung nötig.",
+    "filePickFailed": "Der Dateidialog ließ sich nicht öffnen. Bitte versuche es erneut.",
+    "filePickerMissing": "Der Dateidialog ließ sich nicht öffnen. Unter Linux werden zenity, qarma oder kdialog benötigt."
   },
   "connect": {
     "title": "Mit deinem Server verbinden",
@@ -379,7 +382,9 @@
     "deleteSelectedTitle": "Kommentar löschen?",
     "deleteSelectedTitle_plural": "{{count}} Kommentare löschen?",
     "deleteSelectedBody": "Er wird dauerhaft für alle entfernt.",
-    "deleteSelectedBody_plural": "{{count}} Kommentare werden dauerhaft für alle entfernt."
+    "deleteSelectedBody_plural": "{{count}} Kommentare werden dauerhaft für alle entfernt.",
+    "recorderToolMissing": "Aufnahme nicht möglich: {{tool}} ist nicht installiert. Unter Linux wird über parecord (pulseaudio-utils) und ffmpeg aufgenommen.",
+    "voiceNeedsGstreamer": "Diese Sprachnachricht lässt sich nicht abspielen: Die GStreamer-Basis-Plugins fehlen. Installiere gstreamer1.0-plugins-base."
   },
   "camera": {
     "blockedTitle": "Keine Kamera verfügbar",
@@ -571,7 +576,8 @@
         "video": "Video aufnehmen",
         "files": "Datei auswählen",
         "filesHint": "PDF, Dokumente, Archive…"
-      }
+      },
+      "savedToDownloads": "Im Downloads-Ordner gespeichert als {{file}}"
     },
     "storyPoints": "Story Points",
     "timeline": "Timeline",
@@ -698,7 +704,8 @@
       "docx": "Als Word-Datei exportieren",
       "xml": "Als XML-Datei exportieren",
       "started": "Download gestartet",
-      "failed": "Der Export konnte nicht gespeichert werden. Bitte erneut versuchen."
+      "failed": "Der Export konnte nicht gespeichert werden. Bitte erneut versuchen.",
+      "saved": "Im Downloads-Ordner gespeichert als {{file}}"
     },
     "clone": {
       "action": "Klonen …",
@@ -2177,7 +2184,8 @@
           "label": "Sicherheitshinweise",
           "desc": "Neue Anmeldungen, Passwort- & E-Mail-Änderungen"
         }
-      }
+      },
+      "pushUnsupported": "Hier kein Push-Dienst — gilt weiterhin für dein Handy und deine anderen Geräte"
     },
     "access": {
       "title": "Zugriff",

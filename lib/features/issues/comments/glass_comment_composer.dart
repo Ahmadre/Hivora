@@ -208,8 +208,17 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     _starting = true;
     final recorder = VoiceRecorder();
     bool ok;
+    // The message matters as much as the failure: a denied microphone and a
+    // desktop missing `parecord`/`ffmpeg` both stop the recording, and only one
+    // of them is about permissions.
+    String message = 'comments.micDenied';
+    Map<String, Object>? variables;
     try {
       ok = await recorder.start();
+    } on MissingRecorderTool catch (e) {
+      ok = false;
+      message = 'comments.recorderToolMissing';
+      variables = {'tool': e.executable};
     } catch (_) {
       // Some platforms throw instead of returning false when the mic is
       // unavailable (e.g. no device / permission race) — treat as denied.
@@ -219,7 +228,7 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     if (!ok) {
       await recorder.dispose();
       if (mounted) {
-        showGlassErrorToast(context, context.t('comments.micDenied'));
+        showGlassErrorToast(context, context.t(message, variables: variables));
       }
       return;
     }

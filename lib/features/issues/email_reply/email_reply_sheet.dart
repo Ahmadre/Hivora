@@ -11,6 +11,7 @@ import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/i18n/i18n.dart';
+import '../../../core/util/file_pick_failure.dart';
 import '../../../core/models/work_models.dart';
 import '../../../core/repositories/issue_repository.dart';
 import '../../../core/theme/app_colors.dart';
@@ -517,7 +518,7 @@ class EmailReplyComposerState extends State<EmailReplyComposer> {
       if (mounted) {
         showGlassErrorToast(
           context,
-          context.t('issues.attachments.pickFailed'),
+          context.t(filePickFailureKey('issues.attachments.pickFailed')),
         );
       }
       return;

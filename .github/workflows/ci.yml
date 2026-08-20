@@ -6,9 +6,19 @@ on:
     tags: ['v*']
   pull_request:
 
+# Read-only by default, for every job. `packages: write` is what publishes the
+# container image, and it is granted on the one job that publishes — not here,
+# where it would also be handed to the analyze/build jobs that run on every
+# pull request. Those jobs run the repository's own build tooling (pub, cargo,
+# CMake), which is a lot of third-party code to trust with a token that can
+# push `:latest` to the registry the production stacks pull from.
 permissions:
   contents: read
-  packages: write
+
+# One place per file for the SDK version — see the comment on the first
+# flutter-action use below.
+env:
+  FLUTTER_VERSION: 3.47.0
 
 jobs:
   quality:
@@ -16,13 +26,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Pinned to an exact SDK, not just `channel: stable`. An unpinned stable
+      # moves underneath the repository: a new SDK brings a new formatter and a
+      # new set of analysis defaults, so a run that passed yesterday fails today
+      # with nobody having changed a line of code. This repository has been
+      # bitten by exactly that. Bump FLUTTER_VERSION deliberately, in its own
+      # commit, so the red run points at the bump.
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # The Linux audio plugin is a package of its own, and analysis_options.yaml
+      # excludes packages/ — so the two commands above never see it. Its Dart
+      # half is the contract between the app and ~500 lines of C++, which is
+      # exactly the code that should not be the only thing nobody checks.
+      - name: Analyze and test the Linux audio plugin
+        working-directory: packages/just_audio_linux
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
 
   build-web:
     name: Build Web
@@ -32,6 +59,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
       - run: flutter pub get
@@ -41,11 +69,83 @@ jobs:
           name: hinata-web
           path: build/web
 
+  build-linux:
+    name: Build Linux
+    needs: quality
+    # Pinned, not `ubuntu-latest`: a Flutter Linux bundle is dynamically linked
+    # against the glibc it was built on, and glibc only guarantees forward
+    # compatibility. A binary built on a newer runner therefore refuses to start
+    # on an older distribution ("GLIBC_2.39 not found") while the same source
+    # built here runs everywhere from Ubuntu 22.04 up. The floor belongs in the
+    # build definition, not in whatever image GitHub happens to point the
+    # `latest` label at this month — the same reasoning the Windows release job
+    # pins `windows-2022` for.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      # Listed one by one rather than pulled in through a meta-package, because
+      # each of these is here for a specific plugin and a missing one fails at
+      # CMake configure time with a pkg-config error that names the .pc file
+      # instead of the feature:
+      #   libgtk-3-dev ............ the embedder itself
+      #   liblzma-dev, libjsoncpp-dev  the Flutter tool's Linux toolchain
+      #   libsecret-1-dev ......... flutter_secure_storage_linux (session tokens)
+      #   libgstreamer*-dev ....... just_audio_linux (voice-comment playback)
+      # `printing` additionally needs gtk+-unix-print-3.0, which ships inside
+      # libgtk-3-dev.
+      - name: Install the GTK desktop toolchain
+        run: |
+          sudo apt-get update
+          # The ubuntu-22.04 runner image ships LLVM's libunwind-*-dev, which
+          # conflicts with the GNU libunwind-dev that libgstreamer1.0-dev
+          # depends on. apt cannot resolve that itself — it stops with "held
+          # broken packages" and installs nothing at all. Removing the LLVM
+          # variant is safe for this build: Flutter's Linux toolchain compiles
+          # with clang against libstdc++ and never links LLVM's unwinder.
+          # Queried rather than named, so it keeps working when the image bumps
+          # its LLVM version and is a no-op on an image without the conflict.
+          conflicting=$(dpkg-query -W -f='${db:Status-Status} ${Package}\n' \
+            'libunwind-*-dev' 2>/dev/null | awk '$1 == "installed" { print $2 }' || true)
+          if [ -n "$conflicting" ]; then
+            echo "Removing conflicting: $conflicting"
+            sudo apt-get remove -y $conflicting
+          fi
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev libjsoncpp-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+      # super_native_extensions (rich clipboard + drag & drop) is a Rust crate,
+      # and cargokit compiles it from source on Linux — the project publishes
+      # precompiled binaries for Android only, so `flutter build linux` really
+      # does invoke cargo. The runner image ships a toolchain; this only covers
+      # a future image that drops it, exactly like the Android release job.
+      - name: Ensure a Rust toolchain (super_native_extensions)
+        run: |
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - run: flutter build linux --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hinata-linux
+          path: build/linux/x64/release/bundle
+
   docker:
     name: Publish Web Docker image
     needs: quality
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -85,6 +185,10 @@ jobs:
     # has the host docker socket, so it must not run untrusted/fork code).
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, astasrv01]
+    # Pulling the image the docker job just pushed, nothing more.
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Surgical redeploy of hinata-app (asta + bear)
         env:

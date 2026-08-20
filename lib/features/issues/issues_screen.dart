@@ -633,13 +633,13 @@ class _IssuesScreenState extends State<IssuesScreen> {
         // Browsers block window.open() to a data: URL ("Not allowed to navigate
         // top frame to data URL"), so trigger a real Blob download instead —
         // and surface a proper error if it fails rather than a false success.
-        final outcome = await downloadBytes(
+        final result = await downloadBytes(
           'issues-export.${isCsv ? 'csv' : 'json'}',
           Uint8List.fromList(utf8.encode(content)),
           mime,
         );
         if (!mounted) return;
-        if (outcome == DownloadOutcome.failed) {
+        if (result.outcome == DownloadOutcome.failed) {
           _toast(context.t('reports.exportFailed'), kind: GlassToastKind.error);
         } else {
           _toast(exportedMsg, kind: GlassToastKind.success);

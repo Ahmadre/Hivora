@@ -17,9 +17,12 @@ import '../../core/blocs/theme_cubit.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/account_models.dart';
 import '../../core/models/core_models.dart' show PlatformFlags;
+import '../../core/notifications/fcm_service.dart'
+    show pushSupportedOnThisPlatform;
 import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/util/file_pick_failure.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/hex_mark.dart';
@@ -199,10 +202,21 @@ class _AccountScreenState extends State<AccountScreen> {
     final updated = context.t('account.avatar.updated');
     final failed = context.t('account.avatar.failed');
 
-    final picked = await FilePicker.platform.pickFiles(
-      type: FileType.image,
-      withData: kIsWeb,
-    );
+    final pickFailed = context.t(filePickFailureKey('account.avatar.failed'));
+
+    final FilePickerResult? picked;
+    try {
+      picked = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: kIsWeb,
+      );
+    } catch (_) {
+      // A dialog that cannot open used to throw straight past this screen. It
+      // is the one failure here the user can fix themselves — on Linux the
+      // picker is an external program that may simply not be installed.
+      if (mounted) _toast(pickFailed, kind: GlassToastKind.error);
+      return;
+    }
     if (picked == null || picked.files.isEmpty) return;
     final file = picked.files.first;
     final multipart = kIsWeb
@@ -1083,6 +1097,7 @@ class _AccountScreenState extends State<AccountScreen> {
           LucideIcons.smartphone,
           prefs.pushEnabled,
           (v) => _onTogglePrefs(prefs.copyWith(pushEnabled: v)),
+          undeliverableHere: !pushSupportedOnThisPlatform,
         ),
         const SizedBox(height: 8),
         if (context.isCompact)
@@ -1095,15 +1110,27 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
+  /// One channel's master switch.
+  ///
+  /// [undeliverableHere] says the *device* cannot receive this channel — Linux
+  /// and the web build have no push service — and changes only the sentence
+  /// under the label. The switch stays live and the stored value is untouched
+  /// on purpose: these preferences belong to the account, not to this device,
+  /// and the phone in the user's pocket is the thing they actually govern.
+  /// Disabling the controls here would have let a desktop session quietly turn
+  /// push off everywhere.
   Widget _channelMaster(
     String label,
     IconData icon,
     bool value,
-    ValueChanged<bool> onChanged,
-  ) {
+    ValueChanged<bool> onChanged, {
+    bool undeliverableHere = false,
+  }) {
     return SettingRow(
       label: label,
-      description: value
+      description: undeliverableHere
+          ? context.t('account.notifications.pushUnsupported')
+          : value
           ? context.t('account.notifications.channelOn')
           : context.t('account.notifications.channelOff'),
       icon: icon,

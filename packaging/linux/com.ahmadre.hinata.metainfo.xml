@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AppStream metainfo. Required by the Flatpak build (flatpak-builder runs
+  appstream-compose over /app/share/metainfo and refuses a Flathub-style build
+  without it), and read by GNOME Software / KDE Discover / AppImageHub to show
+  the app in a store listing.
+
+  The component id is the application id — the same string as APPLICATION_ID in
+  linux/CMakeLists.txt, the Flatpak app-id and the .desktop file's basename.
+  AppStream links the three by that name alone, so they must never drift apart.
+-->
+<component type="desktop-application">
+  <id>com.ahmadre.hinata</id>
+
+  <!-- Licence of THIS metadata file, not of the app. -->
+  <metadata_license>CC0-1.0</metadata_license>
+  <!-- Mirrors README.md and LICENSE, which say "GPL-3.0" with no "or later"
+       clause; the deprecated SPDX id "GPL-3.0" resolves to GPL-3.0-only. -->
+  <project_license>GPL-3.0-only</project_license>
+
+  <name>Hinata</name>
+  <summary>Open-source, self-hosted project and issue tracking</summary>
+  <summary xml:lang="de">Quelloffene, selbst gehostete Projekt- und Vorgangsverwaltung</summary>
+
+  <developer id="com.ahmadre">
+    <name>Rebar Ahmad</name>
+  </developer>
+
+  <!--
+    AppStream localises INSIDE a tag, never by repeating the tag: one
+    <description>, with an xml:lang attribute on each translated child. A second
+    <description xml:lang="de"> is what appstreamcli rejects as
+    metainfo-localized-description-tag. <summary> and <name> are the exception —
+    those really do repeat.
+  -->
+  <description>
+    <p>
+      Hinata is the desktop client for a self-hosted Hinata Server: projects and
+      teams, an issue hierarchy from epic down to sub-task, agile boards,
+      sprints, a Gantt timeline, timesheets, reports, a knowledge base and
+      threaded comments with reactions and voice notes.
+    </p>
+    <p xml:lang="de">
+      Hinata ist der Desktop-Client für einen selbst gehosteten Hinata-Server:
+      Projekte und Teams, eine Vorgangshierarchie vom Epic bis zur Teilaufgabe,
+      agile Boards, Sprints, eine Gantt-Zeitleiste, Zeiterfassung, Berichte,
+      eine Wissensdatenbank und verschachtelte Kommentare mit Reaktionen und
+      Sprachnachrichten.
+    </p>
+    <p>
+      Nothing is hosted for you. On first start the app asks for your server URL
+      and keeps as many servers as you like side by side, each with its own
+      tokens, so one install can serve a work instance and a private one.
+    </p>
+    <p xml:lang="de">
+      Es wird nichts für Sie gehostet. Beim ersten Start fragt die App nach der
+      Adresse Ihres Servers und merkt sich beliebig viele davon nebeneinander,
+      jeden mit eigenen Zugangsdaten.
+    </p>
+    <p>The interface is available in English and German.</p>
+    <p xml:lang="de">Die Oberfläche gibt es auf Deutsch und Englisch.</p>
+    <p>Some capabilities differ on Linux from the other desktops:</p>
+    <p xml:lang="de">Einige Funktionen verhalten sich unter Linux anders als auf den anderen Desktops:</p>
+    <ul>
+      <li>Push notifications are not available — Firebase has no Linux client, so notifications arrive by e-mail and in the app itself.</li>
+      <li>Capturing a photo or video from a webcam is not available; existing files can be attached as usual.</li>
+      <li>Recording a voice comment needs PulseAudio and FFmpeg on the system.</li>
+    </ul>
+    <ul xml:lang="de">
+      <li>Push-Benachrichtigungen gibt es nicht — Firebase hat keinen Linux-Client; Benachrichtigungen kommen per E-Mail und in der App an.</li>
+      <li>Foto- und Videoaufnahmen über eine Webcam sind nicht möglich; vorhandene Dateien lassen sich wie gewohnt anhängen.</li>
+      <li>Für Sprachnachrichten werden PulseAudio und FFmpeg auf dem System benötigt.</li>
+    </ul>
+  </description>
+
+  <!-- Ties the component to the desktop entry, which is where the icon, the
+       categories and the x-scheme-handler/hinata registration come from. -->
+  <launchable type="desktop-id">com.ahmadre.hinata.desktop</launchable>
+  <provides>
+    <binary>hinata</binary>
+  </provides>
+
+  <categories>
+    <category>Office</category>
+    <category>ProjectManagement</category>
+  </categories>
+
+  <keywords>
+    <keyword>project</keyword>
+    <keyword xml:lang="de">Projekt</keyword>
+    <keyword>issue</keyword>
+    <keyword xml:lang="de">Vorgang</keyword>
+    <keyword>tracker</keyword>
+    <keyword xml:lang="de">Ticket</keyword>
+    <keyword>kanban</keyword>
+    <keyword xml:lang="de">Kanban</keyword>
+    <keyword>sprint</keyword>
+    <keyword xml:lang="de">Sprint</keyword>
+    <keyword>agile</keyword>
+    <keyword xml:lang="de">Agil</keyword>
+    <keyword>backlog</keyword>
+    <keyword xml:lang="de">Backlog</keyword>
+  </keywords>
+
+  <url type="homepage">https://hinata-platform.github.io</url>
+  <url type="bugtracker">https://github.com/hinata-platform/hinata-app/issues</url>
+  <url type="vcs-browser">https://github.com/hinata-platform/hinata-app</url>
+
+  <!--
+    OARS 1.1. Comments, voice comments and attachments are user-generated
+    content, but between named colleagues on an organisation's own server, and
+    an admin can moderate them — which is OARS "moderate", not the "intense"
+    reserved for uncontrolled public chat.
+  -->
+  <content_rating type="oars-1.1">
+    <content_attribute id="social-chat">moderate</content_attribute>
+    <content_attribute id="social-audio">moderate</content_attribute>
+  </content_rating>
+
+  <!--
+    Flathub additionally requires at least one <screenshot> with a publicly
+    reachable image URL. There is no hosted Linux screenshot yet (the shots in
+    docs/screenshots are device-framed mobile/desktop store assets), so the
+    element is deliberately absent rather than pointed at a URL that 404s.
+    Add it before a Flathub submission; nothing else here blocks a local build.
+  -->
+
+  <releases>
+    <release version="10.1.0" date="2026-08-20">
+      <description>
+        <p>First release with a native Linux desktop build.</p>
+        <p xml:lang="de">Erste Ausgabe mit einem nativen Linux-Desktop-Build.</p>
+      </description>
+    </release>
+  </releases>
+</component>
