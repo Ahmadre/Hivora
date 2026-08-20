@@ -81,7 +81,12 @@ adopt-info: hinata
 # and rewrites the desktop entry's `Icon=` to point at that copy, which is why
 # the entry can keep saying `Icon=com.ahmadre.hinata` and still resolve inside
 # a sandbox that has no host icon theme.
-icon: usr/share/icons/hicolor/512x512/apps/com.ahmadre.hinata.png
+# Project-relative, NOT a path inside the prime tree — snapcraft reads this
+# before anything is built. Pointing it at usr/share/... looked right, matched
+# where override-build installs the icon, and silently produced a snap with no
+# meta/gui/icon.png at all: the store listing came up with an empty icon and
+# nothing in the build log said so.
+icon: packaging/linux/icons/hicolor/512x512/apps/com.ahmadre.hinata.png
 
 # The name has to be lowercase; the display name does not. Without this the
 # store listing and the Ubuntu App Center both render the snap as "hinata",
