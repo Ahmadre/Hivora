@@ -13,6 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_image.dart';
 import '../../../core/util/file_download.dart';
+import '../../../core/util/file_pick_failure.dart';
 import '../../../core/widgets/glass_popup_menu.dart';
 import '../../../core/widgets/hive_loader.dart';
 import '../../../core/widgets/preview_image.dart';
@@ -217,7 +218,11 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
         withData: kIsWeb, // web has no file path; we need the bytes
       );
     } catch (_) {
-      if (mounted) _toast(context.t('issues.attachments.pickFailed'));
+      if (mounted) {
+        _toast(
+          context.t(filePickFailureKey('issues.attachments.pickFailed')),
+        );
+      }
       return;
     }
     if (result == null || _disposed) return;
@@ -454,14 +459,22 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
         if (mounted) _toast(context.t('errors.unexpected'));
         return;
       }
-      final outcome = await downloadBytes(
+      final result = await downloadBytes(
         fileName,
         Uint8List.fromList(res.bytes),
         res.contentType.isEmpty ? (fallbackMime ?? '') : res.contentType,
         sharePositionOrigin: origin,
       );
       if (!mounted) return;
-      switch (outcome) {
+      switch (result.outcome) {
+        case DownloadOutcome.saved:
+          _toast(
+            context.t(
+              'issues.attachments.savedToDownloads',
+              variables: {'file': result.fileName ?? ''},
+            ),
+            kind: GlassToastKind.success,
+          );
         case DownloadOutcome.browser:
           _toast(
             context.t('issues.attachments.downloadStarted'),
