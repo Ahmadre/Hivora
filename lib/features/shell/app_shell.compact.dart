@@ -5,6 +5,31 @@ part of 'app_shell.dart';
 /// Content height of the compact glass app bar (excludes the status-bar inset).
 const double _kCompactBarHeight = 52;
 
+/// Height of the floating tab pill itself — the `barHeight` GlassTabBar.bottom
+/// defaults to, restated here because the footprint below has to agree with it.
+const double _kNavBarHeight = 64;
+
+/// Breathing room around the floating nav. The horizontal value is cosmetic;
+/// the vertical one is the smallest gap that may ever sit between the pill and
+/// the bottom of the window.
+const double _kNavPaddingH = 24;
+const double _kNavPaddingV = 16;
+
+/// How far the floating nav has to be lifted so it is not sitting inside system
+/// chrome.
+///
+/// The bottom inset does not mean the same thing on both platforms, and Flutter
+/// reports both as `viewPadding.bottom`, so the distinction has to be drawn
+/// here. On Android it is the navigation bar: real chrome that occupies the
+/// screen and swallows every touch underneath it — 48dp with three buttons,
+/// which is exactly how far the nav pill used to disappear (HIN-57). On iOS it
+/// is the home indicator, a hairline the system draws *over* the app, and the
+/// design deliberately lets the pill sit beside it; lifting by it pushed the
+/// bar visibly too high, which is why the safe area was switched off for the
+/// nav in the first place.
+double _navLift(MediaQueryData mq) =>
+    defaultTargetPlatform == TargetPlatform.android ? mq.viewPadding.bottom : 0;
+
 class _CompactShell extends StatefulWidget {
   const _CompactShell({
     required this.location,
@@ -107,12 +132,19 @@ class _CompactShellState extends State<_CompactShell> {
                 // the root overlay: they float above this shell and get no
                 // MediaQuery of ours to read it from.
                 ShellInsets.publishTop(this, topFootprint - mq.viewPadding.top);
-                // Floating nav: GlassBottomBar barHeight(64) + verticalPadding
-                // (8 top + 8 bottom) + device safe-area. Immersive routes hide
-                // the nav, so only the device safe-area remains.
+                // Floating nav: the pill's own height and padding, plus the
+                // lift that keeps it out of system chrome, plus the device
+                // safe-area that content has to clear regardless. Derived from
+                // the same constants the pill is built from — the old literal
+                // 80 still described an 8px padding that had since become 16,
+                // so content cleared 16px less than the bar actually occupied.
+                // Immersive routes hide the nav, so only the safe-area remains.
                 final navFootprint = widget.immersive
                     ? mq.viewPadding.bottom
-                    : 80 + mq.viewPadding.bottom;
+                    : _kNavBarHeight +
+                          _kNavPaddingV * 2 +
+                          _navLift(mq) +
+                          mq.viewPadding.bottom;
                 // Likewise for the root overlay — so a toast rides above the
                 // nav where there is one, and drops to the bottom edge on the
                 // routes that hide it.
@@ -168,9 +200,15 @@ class _CompactShellState extends State<_CompactShell> {
                 // hoisted to this Row so both elements share the same inset and
                 // the footprint injected above (navFootprint) stays unchanged.
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
+                  // Not SafeArea(bottom: true): that would lift the pill by the
+                  // full inset on every platform, which is the look the design
+                  // moved away from on iOS. _navLift spends the inset only
+                  // where it is opaque chrome — see its doc comment.
+                  padding: EdgeInsets.fromLTRB(
+                    _kNavPaddingH,
+                    _kNavPaddingV,
+                    _kNavPaddingH,
+                    _kNavPaddingV + _navLift(MediaQuery.of(context)),
                   ),
                   child: Row(
                     children: [
