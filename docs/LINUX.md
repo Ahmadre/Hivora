@@ -516,22 +516,85 @@ libraries carry an RPATH of `$ORIGIN/lib`. A symlink into `PATH` is fine —
 
 ## Packaging
 
-Both formats package the **same prebuilt bundle** rather than building Flutter
-themselves, and for the same two reasons: the Flutter SDK downloads its engine
-artefacts on demand (impossible in an offline Flatpak build), and `printing`
-fetches pdfium during the CMake *configure* step, so even configuring the project
-needs network. Building first and packaging second sidesteps both, and pdfium
-ends up inside the bundle either way.
+Three formats, one of which is the channel: the **snap** is what Hinata ships
+Linux through, and the Flatpak and the AppImage are recipes anyone can build.
+
+The Flatpak and the AppImage package the **same prebuilt bundle** rather than
+building Flutter themselves, and for the same two reasons: the Flutter SDK
+downloads its engine artefacts on demand (impossible in an offline Flatpak
+build), and `printing` fetches pdfium during the CMake *configure* step, so even
+configuring the project needs network. Building first and packaging second
+sidesteps both, and pdfium ends up inside the bundle either way. The snap does
+run the Flutter build itself, because a snapcraft build step has network — see
+below.
 
 The shared inputs — desktop entry, icon, AppStream metainfo — live in
-`packaging/linux/` so both formats install the identical files. They are not in
-`linux/`, because that directory belongs to the Flutter tool and
+`packaging/linux/` so all three formats install the identical files. They are
+not in `linux/`, because that directory belongs to the Flutter tool and
 `flutter create --platforms=linux .` rewrites it.
 
 The icon is `assets/branding/app_icon_windows.png` scaled to 512×512. That file
 is the rounded variant of the brand mark, made for Windows because Windows does
 not mask app icons — and neither do GNOME or KDE, so it is the right source here
 too. It is the real asset, scaled; the brand is never redrawn.
+
+### Snap — the channel
+
+`packaging/linux/snap/snapcraft.yaml`: `core24`, `confinement: strict`, the
+`gnome` extension, built for `amd64` and `arm64`. It builds from source, and the
+file's own header explains the one non-obvious step — snapcraft takes the
+directory holding `snap/snapcraft.yaml` as the project directory, so the
+repository root carries a `snap` symlink to `packaging/linux/snap` and the recipe
+stays with the other packaging inputs:
+
+```bash
+ln -sfn packaging/linux/snap snap     # once, from the repository root
+snapcraft
+sudo snap install gnome-46-2404 mesa-2404 gtk-common-themes
+sudo snap install --dangerous ./hinata_<version>_amd64.snap
+sudo snap connect hinata:password-manager-service
+sudo snap connect hinata:audio-record
+```
+
+The three platform snaps are only needed for a local `--dangerous` install:
+snapd pulls a content snap's default provider by itself for store installs.
+Neither of the two `snap connect` lines auto-connects, and that is the price of
+the two features behind them — the keyring the session tokens live in, and the
+microphone.
+
+**Store status.** The name is registered and `release.yml` uploads both
+architectures, but no revision has reached a channel, and a snap with no
+released revision has no public listing: <https://snapcraft.io/hinata> answers
+404, and the store API answers `No snap named 'hinata' found in series '16'`.
+Do not link that URL anywhere until a revision is on a channel — a reader who
+follows it gets a 404, not a status.
+
+What holds a revision back is the store's own review, and the publish job is
+written around it: `snapcraft release` answers `resource-not-ready` while a
+revision is still being looked at, which the job reports as held instead of
+failing, so the revision reaches the channel by itself once the review clears.
+
+The `dbus` slot is **not** the reason, whatever an earlier version of this page
+said. Owning `com.ahmadre.hinata` is a privileged request in the sense that
+snapd denies it without a slot — `g_application_register()` fails and nothing
+starts — but snapd's base declaration lets an app snap install a *session*-bus
+slot on its own. It is a system-bus slot that needs a store override and a human
+(see the slot's own comment in `snapcraft.yaml`, which is the authority here).
+
+**Which channel.** That is this workflow's decision, not the store's:
+`release.yml` releases a tag build to **edge**, and switches to `stable` only
+when the run is started with `submit=true` — the same gate that separates a
+TestFlight drop from an App Store submission. A bare `snap install hinata` reads
+`stable`, so it is not the status check. `snap info hinata` is: it lists every
+channel that carries a revision, and errors with `no snap found for "hinata"`
+while none does. To install what a tag published, ask for the channel:
+`snap install hinata --edge`.
+
+**Flathub is not an option.** Its
+[submission requirements](https://docs.flathub.org/docs/for-app-authors/requirements)
+exclude applications whose content was produced with an LLM, and Hinata's was.
+The manifest below stays because it builds and installs; it is a recipe, not a
+channel.
 
 ### Flatpak
 
@@ -597,14 +660,11 @@ flatpak override --user --filesystem=~/projects:ro com.ahmadre.hinata
 (or the same toggle in Flatseal). `flatpak override --user --reset
 com.ahmadre.hinata` puts it back.
 
-> **Not published on a hosted remote yet.** The manifest builds — locally, and
-> on Flathub's build bots, which produced working `x86_64` and `aarch64` images
-> from it. Flathub is nonetheless not the channel: their
-> [requirements](https://docs.flathub.org/docs/for-app-authors/requirements)
-> bar submissions whose content was produced with an LLM, which is a question
-> about how this app was written rather than anything about the packaging. The
-> manifest is kept as-is — a Flatpak still installs from it, and it stays valid
-> for any other remote — while a distribution channel is decided.
+> **This manifest is for building it yourself.** It is not submitted anywhere,
+> and it is not going to be — see "Flathub is not an option" above. The
+> AppStream metainfo is still written to a store listing's standard (screenshots
+> pinned to a commit, exactly one `type="default"`), because GNOME Software and
+> KDE Discover read the same file for a locally installed app.
 
 ### AppImage
 
@@ -629,9 +689,11 @@ is the honest trade for an image that behaves like a native app instead of a
 frozen 1990s copy of one.
 
 `release.yml` builds it on a `linux` platform run and attaches it as the
-`hinata-appimage` artifact, alongside the raw bundle. There is no store lane
-yet — a Flatpak remote publishes from its own repository and an AppImage needs
-no account at all, so nothing here depends on one until a store is chosen.
+`hinata-appimage` artifact, alongside the raw bundle. It is not published to a
+store — the store lane is the `snap` job in the same workflow, which builds both
+architectures natively, installs and smoke-tests each one under Xvfb, and then
+uploads them from a single publish job (the store reviews one upload per snap at
+a time, so two parallel uploads race).
 
 ---
 

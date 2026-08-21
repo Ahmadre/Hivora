@@ -382,18 +382,22 @@ jobs:
   linux:
     if: ${{ inputs.platforms == '' || inputs.platforms == 'all' || inputs.platforms == 'linux' }}
     name: Linux → AppImage (run artifact)
-    # There is no Linux store lane and `submit` is ignored here on purpose:
-    # Flathub publishes from its own repository, not from this workflow, and
-    # nothing else asks for an account. What this job owes a release is a file
-    # somebody can download and run — so it mirrors the Windows job's fallback
-    # half (build, package, attach to the run) and stops there.
+    # `submit` is ignored here on purpose. The Linux store lane is the `snap`
+    # job below; this one publishes nothing and has no account to publish to.
+    # What it owes a release is a file somebody can build a release from — so it
+    # mirrors the Windows job's fallback half (build, package, attach to the run)
+    # and stops there. The AppImage is a run artifact, which means a GitHub login
+    # and a retention window: docs must point readers at the build script, never
+    # at a download.
     #
     # The Flatpak is NOT built here. packaging/linux/flatpak/com.ahmadre.hinata.yml
     # packages this very same bundle, but doing it in CI means installing
     # flatpak-builder, pulling ~2 GB of org.freedesktop.Platform/Sdk 25.08 and
     # compiling PulseAudio's client tools — minutes of runner time for an
-    # artifact nobody consumes until there is a Flathub submission to make.
-    # Build it locally from the release artifact when that day comes.
+    # artifact with nowhere to go: Flathub's submission requirements exclude
+    # applications whose content was produced with an LLM, so the manifest is a
+    # recipe for people who build it themselves (see docs/LINUX.md). Build it
+    # locally from the release artifact when you need one.
     #
     # Same glibc reasoning as the ci.yml build-linux job: the oldest supported
     # distribution decides the build image, so this is pinned rather than
@@ -615,6 +619,11 @@ jobs:
             echo "No store credentials configured — keeping the run artifacts only."
             exit 0
           fi
+          # edge unless the run was started with submit=true — the same gate that
+          # separates a TestFlight drop from an App Store submission. A bare
+          # `snap install hinata` reads stable, so anything published from the
+          # ordinary tag lane needs `--edge` to install. docs/LINUX.md and the
+          # docs site both say so; keep all three in step if this changes.
           channel=edge
           if [ "${{ inputs.submit }}" = "true" ]; then
             channel=stable
