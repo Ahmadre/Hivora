@@ -107,12 +107,21 @@ class _CompactShellState extends State<_CompactShell> {
                 // the root overlay: they float above this shell and get no
                 // MediaQuery of ours to read it from.
                 ShellInsets.publishTop(this, topFootprint - mq.viewPadding.top);
-                // Floating nav: GlassBottomBar barHeight(64) + verticalPadding
-                // (8 top + 8 bottom) + device safe-area. Immersive routes hide
-                // the nav, so only the device safe-area remains.
+                // Floating nav: up to the pill's top edge — which on Android
+                // includes the lift out of the navigation bar — plus the device
+                // safe-area on top of it. That second term reads like
+                // double-counting on Android, where the lift spans the same
+                // inset, but it is the convention the pages read back: content
+                // ends one safe-area above the pill instead of flush against
+                // it on every platform, and gantt_screen recovers the pill's
+                // own clearance as `bottomGutter - viewPadding.bottom`. `mq` is
+                // the Scaffold body's, keyboard-adjusted — the pill reads the
+                // same one, so the two can never disagree.
+                // Immersive routes hide the nav, so only the safe-area remains.
                 final navFootprint = widget.immersive
                     ? mq.viewPadding.bottom
-                    : 80 + mq.viewPadding.bottom;
+                    : floatingNavTopEdge(mq.viewPadding.bottom) +
+                          mq.viewPadding.bottom;
                 // Likewise for the root overlay — so a toast rides above the
                 // nav where there is one, and drops to the bottom edge on the
                 // routes that hide it.
@@ -153,60 +162,61 @@ class _CompactShellState extends State<_CompactShell> {
             ),
           // Floating liquid-glass nav (package GlassBottomBar). Kept in the
           // Stack (not Scaffold.bottomNavigationBar) so it floats over the
-          // content it refracts; SafeArea lifts it above the home indicator.
+          // content it refracts — which also means nothing lifts it off the
+          // bottom of the window for us. FloatingNavPadding does that, off the
+          // Scaffold body's MediaQuery, i.e. the same one navFootprint above is
+          // computed from, so the pill and the space reserved for it cannot
+          // drift apart when the keyboard moves.
           if (!widget.immersive)
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: SafeArea(
-                top: false,
-                bottom: false,
-                // iOS-26 layout: the tab pill and a detached global-search button
-                // are two separate floating glass elements with a gap between
-                // them. The padding that used to live inside GlassBottomBar is
-                // hoisted to this Row so both elements share the same inset and
-                // the footprint injected above (navFootprint) stays unchanged.
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 16,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GlassTabBar.bottom(
-                          horizontalPadding: 0,
-                          verticalPadding: 0,
-                          selectedIndex: _selectedIndex,
-                          onTabSelected: _onTap,
-                          // Black-tinted glass in dark mode (so it doesn't turn
-                          // milky), clean white frost in light — see _kNavGlass*.
-                          settings: dark ? kNavGlassDark : kNavGlassLight,
-                          // Honey-amber indicator (translucent so the glass shows
-                          // through).
-                          indicatorColor: AppColors.accent.withValues(
-                            alpha: dark ? 0.30 : 0.22,
-                          ),
-                          selectedIconColor: dark
-                              ? AppColors.accent
-                              : AppColors.accentStrong,
-                          unselectedIconColor: dark
-                              ? AppColors.inkDark
-                              : AppColors.ink,
-                          tabs: [
-                            for (final d in _bottomTabs)
-                              GlassTab(
-                                icon: Icon(d.icon),
-                                label: context.t(d.labelKey),
-                              ),
-                          ],
+              child: FloatingNavPadding(
+                // iOS-26 layout: the tab pill and a detached global-search
+                // button are two separate floating glass elements with a gap
+                // between them. The padding that used to live inside
+                // GlassBottomBar is hoisted out to the wrapper above so both
+                // elements share one inset and the footprint agrees with both.
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GlassTabBar.bottom(
+                        horizontalPadding: 0,
+                        verticalPadding: 0,
+                        // Ours, not the package default: navFootprint and the
+                        // scrim are built from this number, and a bump to the
+                        // default would otherwise push the pill over content
+                        // that still reserved the old height.
+                        barHeight: kFloatingNavBarHeight,
+                        selectedIndex: _selectedIndex,
+                        onTabSelected: _onTap,
+                        // Black-tinted glass in dark mode (so it doesn't turn
+                        // milky), clean white frost in light — see _kNavGlass*.
+                        settings: dark ? kNavGlassDark : kNavGlassLight,
+                        // Honey-amber indicator (translucent so the glass shows
+                        // through).
+                        indicatorColor: AppColors.accent.withValues(
+                          alpha: dark ? 0.30 : 0.22,
                         ),
+                        selectedIconColor: dark
+                            ? AppColors.accent
+                            : AppColors.accentStrong,
+                        unselectedIconColor: dark
+                            ? AppColors.inkDark
+                            : AppColors.ink,
+                        tabs: [
+                          for (final d in _bottomTabs)
+                            GlassTab(
+                              icon: Icon(d.icon),
+                              label: context.t(d.labelKey),
+                            ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      _GlassNavSearchButton(dark: dark),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    _GlassNavSearchButton(dark: dark),
+                  ],
                 ),
               ),
             ),
@@ -640,8 +650,10 @@ class _GlassNavSearchButton extends StatelessWidget {
       child: GlassButton(
         icon: const Icon(LucideIcons.search),
         onTap: () => openGlobalSearch(context),
-        width: 64,
-        height: 64,
+        // Square, on the pill's height: the two floating elements sit in one
+        // Row, so a button taller than the pill would silently stretch it.
+        width: kFloatingNavBarHeight,
+        height: kFloatingNavBarHeight,
         iconSize: 24,
         useOwnLayer: true,
         settings: dark ? kNavGlassDark : kNavGlassLight,
@@ -664,7 +676,12 @@ class _BottomNavScrim extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final pad = MediaQuery.viewPaddingOf(context).bottom;
     return SizedBox(
-      height: 96 + pad,
+      // The pill's top edge plus its top gap plus the device inset, i.e. the
+      // whole slot the nav occupies. Built from the same geometry as the pill
+      // so the pill always sits at the same point in the fade: with a literal
+      // here, Android's lift moved the pill up into the transparent end of the
+      // gradient and content stopped dissolving under it.
+      height: floatingNavTopEdge(pad) + kFloatingNavPaddingV + pad,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
