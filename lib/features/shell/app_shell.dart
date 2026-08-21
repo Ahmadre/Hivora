@@ -51,6 +51,7 @@ import '../search/global_search_dialog.dart';
 import '../search/search_tokens.dart';
 import '../sprint/modals/glass_modal.dart'
     show showGlassOptions, showGlassToast, GlassToastKind;
+import 'floating_nav.dart';
 import 'page_chrome.dart';
 import 'swipe_back.dart';
 
