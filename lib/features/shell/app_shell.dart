@@ -34,6 +34,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
         GlassAppBar,
         GlassTabBar,
         GlassTab,
+        GlassTabBarExtraButton,
         GlassButton,
         GlassContainer,
         GlassPopover,
