@@ -174,48 +174,55 @@ class _CompactShellState extends State<_CompactShell> {
               bottom: 0,
               child: FloatingNavPadding(
                 // iOS-26 layout: the tab pill and a detached global-search
-                // button are two separate floating glass elements with a gap
-                // between them. The padding that used to live inside
-                // GlassBottomBar is hoisted out to the wrapper above so both
-                // elements share one inset and the footprint agrees with both.
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GlassTabBar.bottom(
-                        horizontalPadding: 0,
-                        verticalPadding: 0,
-                        // Ours, not the package default: navFootprint and the
-                        // scrim are built from this number, and a bump to the
-                        // default would otherwise push the pill over content
-                        // that still reserved the old height.
-                        barHeight: kFloatingNavBarHeight,
-                        selectedIndex: _selectedIndex,
-                        onTabSelected: _onTap,
-                        // Black-tinted glass in dark mode (so it doesn't turn
-                        // milky), clean white frost in light — see _kNavGlass*.
-                        settings: dark ? kNavGlassDark : kNavGlassLight,
-                        // Honey-amber indicator (translucent so the glass shows
-                        // through).
-                        indicatorColor: AppColors.accent.withValues(
-                          alpha: dark ? 0.30 : 0.22,
-                        ),
-                        selectedIconColor: dark
-                            ? AppColors.accent
-                            : AppColors.accentStrong,
-                        unselectedIconColor: dark
-                            ? AppColors.inkDark
-                            : AppColors.ink,
-                        tabs: [
-                          for (final d in _bottomTabs)
-                            GlassTab(
-                              icon: Icon(d.icon),
-                              label: context.t(d.labelKey),
-                            ),
-                        ],
+                // button. The button is the package's own `extraButton` rather
+                // than a GlassButton we place beside the bar in a Row — that
+                // gave it a glass layer of its own, so it refracted
+                // independently of the pill and read as a separate material
+                // sitting next to the navigation instead of part of it. The
+                // padding that used to live inside GlassBottomBar is hoisted
+                // out to the wrapper above so both elements share one inset and
+                // the footprint agrees with both.
+                child: GlassTabBar.bottom(
+                  horizontalPadding: 0,
+                  verticalPadding: 0,
+                  // The gap between the pill and the search button. Was a
+                  // SizedBox in the Row this replaces; same 12.
+                  spacing: 12,
+                  extraButton: GlassTabBarExtraButton(
+                    icon: const Icon(LucideIcons.search),
+                    onTap: () => openGlobalSearch(context),
+                    label: context.t('appbar.search'),
+                    // Square, on the pill's height: the two float side by
+                    // side, and a button taller than the pill would
+                    // stretch the row that carries both.
+                    size: kFloatingNavBarHeight,
+                    iconColor: dark ? AppColors.inkDark : AppColors.ink,
+                  ),
+                  // Ours, not the package default: navFootprint and the
+                  // scrim are built from this number, and a bump to the
+                  // default would otherwise push the pill over content
+                  // that still reserved the old height.
+                  barHeight: kFloatingNavBarHeight,
+                  selectedIndex: _selectedIndex,
+                  onTabSelected: _onTap,
+                  // Black-tinted glass in dark mode (so it doesn't turn
+                  // milky), clean white frost in light — see _kNavGlass*.
+                  settings: dark ? kNavGlassDark : kNavGlassLight,
+                  // Honey-amber indicator (translucent so the glass shows
+                  // through).
+                  indicatorColor: AppColors.accent.withValues(
+                    alpha: dark ? 0.30 : 0.22,
+                  ),
+                  selectedIconColor: dark
+                      ? AppColors.accent
+                      : AppColors.accentStrong,
+                  unselectedIconColor: dark ? AppColors.inkDark : AppColors.ink,
+                  tabs: [
+                    for (final d in _bottomTabs)
+                      GlassTab(
+                        icon: Icon(d.icon),
+                        label: context.t(d.labelKey),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    _GlassNavSearchButton(dark: dark),
                   ],
                 ),
               ),
@@ -638,33 +645,6 @@ class _PageActionButton extends StatelessWidget {
 /// independently of the tab pill, matched to the same [kNavGlassDark] /
 /// [kNavGlassLight] preset so the two elements read as one material. Sized to
 /// the bar's 64px height so both align.
-class _GlassNavSearchButton extends StatelessWidget {
-  const _GlassNavSearchButton({required this.dark});
-
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: context.t('appbar.search'),
-      child: GlassButton(
-        icon: const Icon(LucideIcons.search),
-        onTap: () => openGlobalSearch(context),
-        // Square, on the pill's height: the two floating elements sit in one
-        // Row, so a button taller than the pill would silently stretch it.
-        width: kFloatingNavBarHeight,
-        height: kFloatingNavBarHeight,
-        iconSize: 24,
-        useOwnLayer: true,
-        settings: dark ? kNavGlassDark : kNavGlassLight,
-        iconColor: dark ? AppColors.inkDark : AppColors.ink,
-        // Keep the tactile press-scale but damp the liquid drag-follow so the
-        // isolated button doesn't over-stretch on tap.
-        stretch: 0.15,
-      ),
-    );
-  }
-}
 
 /// Black gradient that fades up from the bottom edge to behind the floating
 /// nav, so scrolling content dissolves beneath it (the liquid-glass scrim).
