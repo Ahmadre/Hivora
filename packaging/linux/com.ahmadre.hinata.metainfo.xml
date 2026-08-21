@@ -120,12 +120,14 @@
   </content_rating>
 
   <!--
-    Referenced by commit, not by branch: Flathub mirrors these to its own media
-    server at build time, and a branch URL would let the image drift away from
-    the one that was reviewed. Exactly one screenshot carries type="default" —
-    a missing default is a warning, and Flathub treats AppStream warnings as
-    fatal. No xml:lang on the images: tagging the only image with a locale is
-    an error of its own (screenshot-image-no-source-but-en-locale).
+    Referenced by commit, not by branch: a store or a software centre that
+    mirrors these fetches them once, and a branch URL would let what a user sees
+    drift away from the release it was attached to. Exactly one screenshot
+    carries type="default" — a missing default is an appstreamcli warning, and
+    GNOME Software and KDE Discover both read this file directly, so a warning
+    here is a listing that renders wrong rather than a build that fails. No
+    xml:lang on the images: tagging the only image with a locale is an error of
+    its own (screenshot-image-no-source-but-en-locale).
   -->
   <screenshots>
     <screenshot type="default">
