@@ -26,10 +26,9 @@ void main() {
     });
 
     test('unconfined without an XDG answer: ~/Downloads', () {
-      expect(
-        downloadDirectories(environment: const {'HOME': '/home/u'}),
-        ['/home/u/Downloads'],
-      );
+      expect(downloadDirectories(environment: const {'HOME': '/home/u'}), [
+        '/home/u/Downloads',
+      ]);
     });
 
     test('no HOME at all still names a folder', () {

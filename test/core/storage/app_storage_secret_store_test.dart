@@ -508,8 +508,7 @@ class _LockedSecretStore extends _RefusingSecretStore {
 /// A store that works — and counts what it was asked to do, so a test can say
 /// "and it was never called".
 class _WorkingSecretStore extends FlutterSecureStorage {
-  _WorkingSecretStore([Map<String, String>? initial])
-    : _items = {...?initial};
+  _WorkingSecretStore([Map<String, String>? initial]) : _items = {...?initial};
 
   final Map<String, String> _items;
   int reads = 0;

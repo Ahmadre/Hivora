@@ -15,7 +15,8 @@ void main() {
     minAppVersion: '2.0.0',
     setupCompleted: true,
     iosStoreUrl: 'https://apps.apple.com/app/id6781889251',
-    androidStoreUrl: 'https://play.google.com/store/apps/details?id=com.example',
+    androidStoreUrl:
+        'https://play.google.com/store/apps/details?id=com.example',
     macosStoreUrl: 'https://apps.apple.com/app/id6781889251',
     windowsStoreUrl: 'https://apps.microsoft.com/detail/9N5NVNPKBBLR',
     linuxStoreUrl: 'https://flathub.org/apps/com.example.app',

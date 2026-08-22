@@ -233,10 +233,7 @@ String _freeName(Directory directory, String name) {
 /// which is also the honest answer for a directory or a socket sharing the
 /// name.
 bool _isFree(Directory directory, String name) =>
-    FileSystemEntity.typeSync(
-      '${directory.path}/$name',
-      followLinks: false,
-    ) ==
+    FileSystemEntity.typeSync('${directory.path}/$name', followLinks: false) ==
     FileSystemEntityType.notFound;
 
 /// The name a downloaded file is allowed to have, given the [filename] the
