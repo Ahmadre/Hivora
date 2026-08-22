@@ -1,0 +1,339 @@
+#!/usr/bin/env python3
+"""Press "Release this version" the moment App Store Connect lets us.
+
+    python ios/fastlane/auto_release.py --platform IOS --expect-version 10.1.0
+
+Hinata's App Store versions are created with `automatic_release: false` (see the
+`release` lane in ios/fastlane/Fastfile), which is what you want while a release
+is being reviewed: approval and going live stay two separate decisions. The cost
+is that an approved version does nothing at all until somebody opens App Store
+Connect and presses a button. Apple approves when Apple approves — often outside
+office hours — so that button can sit unpressed for a night, and on iOS, where
+nothing has ever shipped, a night is a night the app does not exist.
+
+This script is that button, and nothing else. It reads the current state, and in
+exactly one of them — PENDING_DEVELOPER_RELEASE, the state that means "approved,
+waiting for you" — it POSTs the release request. Every other state is reported
+and left alone.
+
+Deliberately quiet: a watcher that runs every quarter of an hour must exit 0 when
+there is nothing to do, or "Apple is still reviewing" turns into a failed run and
+an email, four times an hour, for days. Only a broken credential or a rejected
+POST is an error here.
+
+Credentials are the same three values every lane uses:
+APP_STORE_CONNECT_API_KEY_ID, _ISSUER_ID, _API_KEY_CONTENT (base64 .p8).
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import datetime as dt
+import os
+import re
+import sys
+import time
+
+import jwt
+import requests
+
+API = "https://api.appstoreconnect.apple.com/v1"
+BUNDLE_ID = "com.ahmadre.hinata"
+
+# What each App Store version state means for a watcher. The API hands back a
+# single string and the difference between "wait", "act" and "a human is needed"
+# is not obvious from the name — PENDING_APPLE_RELEASE and
+# PENDING_DEVELOPER_RELEASE differ by one word and by who owns the next move.
+ACTIONABLE = "PENDING_DEVELOPER_RELEASE"  # approved; the button is ours to press
+
+LIVE = {
+    "READY_FOR_DISTRIBUTION",  # on the store
+}
+IN_FLIGHT = {
+    "WAITING_FOR_REVIEW",
+    "IN_REVIEW",
+    "PENDING_APPLE_RELEASE",       # approved, Apple releases it on its own date
+    "PROCESSING_FOR_DISTRIBUTION",  # we already pressed; it is on its way out
+    "WAITING_FOR_EXPORT_COMPLIANCE",
+}
+NEEDS_A_HUMAN = {
+    "REJECTED",
+    "METADATA_REJECTED",
+    "DEVELOPER_REJECTED",
+    "INVALID_BINARY",
+    "PREPARE_FOR_SUBMISSION",  # a draft nobody ever submitted
+    "READY_FOR_REVIEW",        # items attached, Submit never pressed
+}
+
+# REJECTED covers two situations the API cannot tell apart, and acting on the
+# wrong one is expensive. Apple uses it both for "we rejected your app, change
+# something and resubmit" and for Guideline 2.1(b) Information Needed, where the
+# reviewer paused to ask a question and the message says, in as many words,
+# "Reply to this message in App Store Connect". Only the Resolution Center thread
+# distinguishes them, and that thread is not on the public API.
+#
+# The distinction matters because the recovery paths are opposites. Answering a
+# 2.1(b) question keeps the submission's place in the queue. Cancelling and
+# resubmitting sends it to the back — which is how this app spent five weeks
+# waiting, four separate times, with its review item ending up REMOVED each time.
+AMBIGUOUS_REJECTION_HINT = (
+    "`REJECTED` means one of two things and App Store Connect will not say "
+    "which: Apple wants a change, or Apple asked a question under Guideline "
+    "2.1(b) and is waiting for an answer. Open the Resolution Center thread.\n\n"
+    "If you have already replied there, this is normal — the reviewer picks it "
+    "back up, usually within a day or two, and the version keeps its place in "
+    "the queue. Do **not** cancel the submission to restart it: a new "
+    "submission goes to the back of the queue."
+)
+
+
+def die(msg: str) -> None:
+    print(f"error: {msg}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def token() -> str:
+    kid = os.environ.get("APP_STORE_CONNECT_API_KEY_ID")
+    iss = os.environ.get("APP_STORE_CONNECT_ISSUER_ID")
+    key = os.environ.get("APP_STORE_CONNECT_API_KEY_CONTENT")
+    if not (kid and iss and key):
+        die("APP_STORE_CONNECT_API_KEY_ID / _ISSUER_ID / _API_KEY_CONTENT must be set")
+    # The secret is stored base64-encoded on CI and as a plain .p8 locally.
+    if "BEGIN PRIVATE KEY" not in key:
+        key = base64.b64decode(key).decode()
+    now = int(time.time())
+    return jwt.encode({"iss": iss, "iat": now, "exp": now + 900,
+                       "aud": "appstoreconnect-v1"}, key, algorithm="ES256",
+                      headers={"kid": kid, "typ": "JWT"})
+
+
+class ASC:
+    # Reads are retried, writes are not. A GET that fails on Apple's side costs
+    # nothing to repeat, and at 96 runs a day an occasional 502 would otherwise
+    # be an occasional red build and an email about nothing. The POST is a
+    # different animal: it publishes an app, and a retry after an ambiguous
+    # failure could press the button twice.
+    RETRY_ON = frozenset({429, 500, 502, 503, 504})
+    ATTEMPTS = 3
+
+    def __init__(self) -> None:
+        self.s = requests.Session()
+        self.s.headers["Authorization"] = f"Bearer {token()}"
+
+    def get(self, path: str, **params):
+        for attempt in range(1, self.ATTEMPTS + 1):
+            try:
+                r = self.s.get(f"{API}/{path}", params=params, timeout=60)
+            except requests.RequestException as e:
+                if attempt == self.ATTEMPTS:
+                    die(f"GET {path} failed after {attempt} tries: {e}")
+                r = None
+            if r is not None:
+                if r.status_code < 400:
+                    return r.json()
+                if r.status_code not in self.RETRY_ON or attempt == self.ATTEMPTS:
+                    die(f"GET {path} -> {r.status_code}: {r.text[:600]}")
+            time.sleep(2 ** attempt)
+        return {}  # unreachable; die() raises
+
+    def post(self, path: str, body: dict):
+        return self.s.post(f"{API}/{path}", json=body, timeout=60)
+
+
+def emit(**kv) -> None:
+    """Publish the outcome as GitHub Actions step outputs.
+
+    The workflow decides what to do next from these — pressing the button and
+    shipping the follow-up release are two separate runs, so the state has to
+    leave this process in a form a YAML `if:` can read.
+    """
+    for k, v in kv.items():
+        print(f"{k}={v}")
+    out = os.environ.get("GITHUB_OUTPUT")
+    if not out:
+        return
+    with open(out, "a", encoding="utf-8") as f:
+        for k, v in kv.items():
+            # `state` and `version` come out of Apple's JSON, and the file format
+            # is one `key=value` per line — so a newline in a value writes extra
+            # outputs, and every branch in the workflow is decided by these.
+            # Refusing beats sanitising: a version string that is not a version
+            # string means something is wrong that nobody should paper over.
+            if not re.fullmatch(r"[A-Za-z0-9._+-]*", str(v)):
+                die(f"refusing to emit {k}={v!r}: not a plain token")
+            f.write(f"{k}={v}\n")
+
+
+def summary(markdown: str) -> None:
+    """Append to the run summary, so a glance at the run says what happened."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(markdown.rstrip() + "\n")
+
+
+def newest_version(asc: ASC, app_id: str, platform: str) -> dict | None:
+    """The version record the store is currently working on for this platform.
+
+    Sorted newest-first by version string rather than by creation date: a
+    version record is created once and then lives through many submissions, so
+    createdDate says when the number was first reserved, not how current it is.
+    """
+    data = asc.get(f"apps/{app_id}/appStoreVersions",
+                   **{"filter[platform]": platform, "limit": 50})["data"]
+    if not data:
+        return None
+
+    def key(v):
+        raw = v["attributes"].get("versionString", "0")
+        return tuple(int(p) if p.isdigit() else 0 for p in raw.split("."))
+
+    return max(data, key=key)
+
+
+def release(asc: ASC, version_id: str) -> bool:
+    """POST the release request — the API form of the button.
+
+    Returns True when this run is the one that released it, False when someone
+    or something else got there first.
+
+    Creating an appStoreVersionReleaseRequest is the whole operation; there is
+    no field to flip on the version itself. Apple answers 201 with an (otherwise
+    useless) request object, and moves the version to
+    PROCESSING_FOR_DISTRIBUTION. 409 is the answer when the version is not in a
+    releasable state, which is the race this script can actually lose: Apple
+    releases it from their side between our GET and our POST.
+    """
+    r = asc.post("appStoreVersionReleaseRequests", {
+        "data": {
+            "type": "appStoreVersionReleaseRequests",
+            "relationships": {
+                "appStoreVersion": {
+                    "data": {"type": "appStoreVersions", "id": version_id},
+                },
+            },
+        },
+    })
+    if r.status_code in (200, 201):
+        return True
+    if r.status_code == 409:
+        # The race this function's own docstring names: Apple, or a person in
+        # App Store Connect, moved the version out of PENDING_DEVELOPER_RELEASE
+        # between our GET and our POST. The version is released either way, so
+        # failing the run here would be a red build for the thing going right.
+        print(f"already out of our hands (409) — {r.text[:200]}")
+        return False
+    die(f"POST appStoreVersionReleaseRequests -> {r.status_code}: {r.text[:600]}")
+    return False  # unreachable; die() raises
+
+
+def report_idle(platform: str, number: str, state: str) -> None:
+    """Record a state there is nothing to press in.
+
+    Worth more than a shrug, because the two kinds of waiting look identical
+    from a green check mark: Apple has the submission, or Apple handed it back
+    and is waiting on us. Only the second one costs days of nobody noticing.
+    """
+    waiting_on_us = state in NEEDS_A_HUMAN
+    if waiting_on_us:
+        note = AMBIGUOUS_REJECTION_HINT if state == "REJECTED" else (
+            "App Store Connect is waiting on us, not on Apple. Nothing moves "
+            "here until somebody resolves it.")
+        summary(f"### ⚠️ {platform} {number} — `{state}`\n\n{note}\n")
+    elif state in IN_FLIGHT:
+        summary(f"### ⏳ {platform} {number} — `{state}`\n\nApple has it. "
+                f"Nothing to do but wait.\n")
+    emit(state=state, released="false", live="false", version=number,
+         blocked="true" if waiting_on_us else "false")
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--bundle-id", default=BUNDLE_ID)
+    ap.add_argument("--platform", default="IOS", choices=["IOS", "MAC_OS"])
+    ap.add_argument("--expect-version", default="", metavar="X.Y.Z[,X.Y.Z...]",
+                    help="the only version strings this run may release. More "
+                         "than one is normal: a release train presses the button "
+                         "for the version waiting today and again for its "
+                         "successor a fortnight later")
+    ap.add_argument("--allow-any-version", action="store_true",
+                    help="release whatever is approved. Required to run without "
+                         "--expect-version, so that forgetting the guard cannot "
+                         "quietly turn into publishing anything at all")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="report what would happen and change nothing")
+    args = ap.parse_args(argv)
+
+    allowed = [v.strip() for v in args.expect_version.split(",") if v.strip()]
+    if not allowed and not args.allow_any_version:
+        die("refusing to run without --expect-version. This script publishes to "
+            "the public App Store; name the versions it may release, or pass "
+            "--allow-any-version to say you meant it.")
+
+    asc = ASC()
+    apps = asc.get("apps", **{"filter[bundleId]": args.bundle_id})["data"]
+    if not apps:
+        die(f"no app with bundle id {args.bundle_id}")
+    app_id = apps[0]["id"]
+
+    version = newest_version(asc, app_id, args.platform)
+    if not version:
+        print(f"no {args.platform} version exists yet")
+        emit(state="NONE", released="false", live="false", version="")
+        return 0
+
+    attrs = version["attributes"]
+    # appVersionState only. The record also carries the deprecated appStoreState,
+    # which describes the same situations in a different vocabulary —
+    # READY_FOR_SALE where this one says READY_FOR_DISTRIBUTION. Falling back to
+    # it would mean keeping two vocabularies in the tables above in step forever,
+    # and a value missing from one of them reads as "not live", which on the
+    # publish path is the wrong way to be wrong.
+    state = attrs.get("appVersionState") or "UNKNOWN"
+    number = attrs.get("versionString", "")
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    print(f"{args.platform} {number}: {state}  ({stamp})")
+
+    if state in LIVE:
+        emit(state=state, released="false", live="true", version=number)
+        return 0
+
+    if state != ACTIONABLE:
+        report_idle(args.platform, number, state)
+        return 0
+
+    # Approved and held. The one case with something to do.
+    if allowed and number not in allowed:
+        # A guard, not a nicety: this process publishes to the public App Store
+        # and cannot be undone from here. If the approved version is not one the
+        # watcher was set up for, the safe move is to stop and let a person look.
+        summary(f"### ⏸️ {args.platform} {number} is approved, but this watcher "
+                f"only releases {', '.join(f'`{v}`' for v in allowed)}\n\n"
+                f"Not releasing. Add it to `RELEASABLE_VERSIONS` in "
+                f"`.github/workflows/appstore-auto-release.yml` if that is "
+                f"what you want.\n")
+        emit(state=state, released="false", live="false", version=number,
+             blocked="true")
+        return 0
+
+    if args.dry_run:
+        print(f"dry run: would release {args.platform} {number} ({version['id']})")
+        emit(state=state, released="false", live="false", version=number)
+        return 0
+
+    if not release(asc, version["id"]):
+        # Someone got there first. Nothing to announce — whoever did it knows.
+        emit(state=state, released="false", live="false", version=number)
+        return 0
+
+    print(f"released {args.platform} {number}")
+    summary(f"### 🚀 Released {args.platform} **{number}** to the App Store\n\n"
+            f"`{state}` → release requested at {stamp}. Apple now processes it "
+            f"for distribution; it appears on the store within a few hours.\n")
+    emit(state=state, released="true", live="false", version=number)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
