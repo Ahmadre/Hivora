@@ -32,24 +32,6 @@ on:
         description: 'Exact version X.Y.Z (optional — overrides the bump above)'
         type: string
         default: ''
-  # Also callable, so automation can run the exact same publish a person would
-  # start from the Actions tab — see appstore-auto-release.yml, which waits for
-  # Apple to let go of the previous version and then ships the next one.
-  # workflow_call has no `choice` type, so `bump` arrives as a free string here
-  # where the dispatch input could only ever be one of three — hence the default
-  # arm added to the case below.
-  workflow_call:
-    inputs:
-      bump:
-        description: 'Version bump (ignored if "version" is set)'
-        type: string
-        required: false
-        default: patch
-      version:
-        description: 'Exact version X.Y.Z (optional — overrides the bump above)'
-        type: string
-        required: false
-        default: ''
 
 jobs:
   prepare:
@@ -94,11 +76,6 @@ jobs:
               patch) new_name="$MA.$MI.$((PA+1))" ;;
               minor) new_name="$MA.$((MI+1)).0" ;;
               major) new_name="$((MA+1)).0.0" ;;
-              # The dispatch input is a `choice` and can only be these three, but
-              # workflow_call has no choice type, so a caller can pass anything.
-              # Without this arm new_name stays unset and the failure surfaces
-              # four lines later as an unbound variable — same outcome, no clue.
-              *) echo "✗ Unknown bump '$BUMP' (expected patch, minor or major)"; exit 1 ;;
             esac
           fi
           new_code=$((code+1))
