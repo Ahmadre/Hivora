@@ -14,6 +14,7 @@ import 'package:printing/printing.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_image.dart';
 import '../../../core/i18n/i18n.dart';
+import '../../../core/platform/pdf_annotations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_panel.dart';

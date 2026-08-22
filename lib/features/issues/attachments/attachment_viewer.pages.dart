@@ -37,6 +37,23 @@ Future<Uint8List> _fetchBytes(BuildContext context, String path) async {
   return bytes;
 }
 
+/// The bytes the PDF stage hands to the rasterizer: the downloaded file, with
+/// its annotations drawn into the pages where the platform would otherwise drop
+/// them ([PdfAnnotations] — Apple only, a pass-through everywhere else).
+///
+/// Deliberately *not* folded into [_fetchBytes]: that cache is what a second
+/// look at the same attachment is served from, and what it holds must stay the
+/// file the server sent. Only this stage wants a redrawn copy of it, and only
+/// for as long as it is on screen — which is also why the copy is not cached
+/// itself. Re-flattening on a swipe back costs a redraw; keeping it would cost
+/// a second full document in memory for every PDF the viewer has passed.
+Future<Uint8List> _fetchPdfRenderBytes(
+  BuildContext context,
+  String path,
+) async {
+  return PdfAnnotations.flatten(await _fetchBytes(context, path));
+}
+
 /// Forgets a memoized download, so the next [_fetchBytes] really goes back to
 /// the server. What "retry" has to mean: re-awaiting the same future — or
 /// handing back the same LRU entry — would replay the exact bytes that just
@@ -620,14 +637,14 @@ class _PdfPageState extends State<_PdfPage> {
     if (old.item.id != widget.item.id) {
       _failed = false;
       _attempt++;
-      _bytes = _fetchBytes(context, widget.item.url!);
+      _bytes = _fetchPdfRenderBytes(context, widget.item.url!);
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _bytes ??= _fetchBytes(context, widget.item.url!);
+    _bytes ??= _fetchPdfRenderBytes(context, widget.item.url!);
   }
 
   @override
@@ -689,7 +706,7 @@ class _PdfPageState extends State<_PdfPage> {
     setState(() {
       _failed = false;
       _attempt++;
-      _bytes = _fetchBytes(context, url);
+      _bytes = _fetchPdfRenderBytes(context, url);
     });
   }
 

@@ -25,17 +25,19 @@ class AppDelegate: FlutterAppDelegate {
   /// Stream-Event; beim Kaltstart (noch kein EventSink) merkt es sich den Link als
   /// `initialLink`, den Dart dann über `getInitialLink()` abholt.
   ///
-  /// `FlutterAppDelegate` implementiert diese Methode nicht (es leitet nur die
-  /// Callbacks aus `FlutterAppLifecycleDelegate` weiter, und `continueUserActivity`
-  /// gehört nicht dazu) — deshalb steht hier kein `override`.
-  func application(
+  /// Seit Flutter 3.47 deklariert `FlutterAppDelegate` diese Methode selbst,
+  /// also `override` — und alles, was kein Web-Link ist, geht an `super`, damit
+  /// die Weiterleitung der Basisklasse erhalten bleibt (ohne `override` bricht
+  /// der Build: "overriding declaration requires an 'override' keyword").
+  override func application(
     _ application: NSApplication,
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void
   ) -> Bool {
     guard userActivity.activityType == NSUserActivityTypeBrowsingWeb,
           let url = userActivity.webpageURL else {
-      return false
+      return super.application(
+        application, continue: userActivity, restorationHandler: restorationHandler)
     }
     AppLinks.shared.handleLink(link: url.absoluteString)
     return true

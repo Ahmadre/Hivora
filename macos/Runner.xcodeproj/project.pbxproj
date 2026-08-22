@@ -30,6 +30,7 @@
 		60A79B98E1084855CC6DE17B /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E3CE7683ACC521C14FD46A5E /* Pods_RunnerTests.framework */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		AB12CD34EF5600000000B002 /* HinataSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5600000000B001 /* HinataSplashView.swift */; };
+		AB12CD34EF5600000000B006 /* HinataPdfChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5600000000B005 /* HinataPdfChannel.swift */; };
 		AB12CD34EF5600000000B004 /* Sora-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5600000000B003 /* Sora-Variable.ttf */; };
 		DB3075A729FB81F02F668442 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00096205D18DC6F6031913D7 /* Pods_Runner.framework */; };
 		F200B7AA3BF9CD32593E3640 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 75FF1A32FCFEE6CD3C987BB0 /* GoogleService-Info.plist */; };
@@ -91,6 +92,7 @@
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		AB12CD34EF5600000000B001 /* HinataSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HinataSplashView.swift; sourceTree = "<group>"; };
+		AB12CD34EF5600000000B005 /* HinataPdfChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HinataPdfChannel.swift; sourceTree = "<group>"; };
 		AB12CD34EF5600000000B003 /* Sora-Variable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fonts/Sora-Variable.ttf"; sourceTree = "<group>"; };
 		AE3F33F13A2912E3DAEE3D3C /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		D045CC399F1558C28F416920 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				AB12CD34EF5600000000B001 /* HinataSplashView.swift */,
+				AB12CD34EF5600000000B005 /* HinataPdfChannel.swift */,
 				AB12CD34EF5600000000B003 /* Sora-Variable.ttf */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
@@ -477,6 +480,7 @@
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				AB12CD34EF5600000000B002 /* HinataSplashView.swift in Sources */,
+				AB12CD34EF5600000000B006 /* HinataPdfChannel.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
