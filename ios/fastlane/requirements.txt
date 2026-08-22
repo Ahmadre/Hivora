@@ -1,0 +1,34 @@
+# Dependencies for the App Store Connect helper scripts next to this file
+# (auto_release.py, review_status.py).
+#
+# Pinned rather than floating because the job that installs them also holds the
+# App Store Connect API key, and — since the auto-release watcher — runs
+# unattended every fifteen minutes. An install hook executes with that key in
+# the environment, so "whatever PyPI serves at 02:07" is not a good enough
+# answer for a credential that can publish the app.
+#
+# `==` is the protection that matters here: PyPI does not allow a version to be
+# re-uploaded, so a pinned version cannot turn malicious after the fact — only a
+# *new* release could, and a pin does not take new releases. Hashes would add
+# cover against a compromised index itself; they are left out deliberately,
+# because a hash list for three platforms' wheels goes stale silently and a
+# stale one fails the release at the worst possible moment.
+#
+# To update: bump a version here, and let the watcher's next scheduled run prove
+# it still works — that is what it is for.
+
+# ES256 signing of the App Store Connect JWT. cryptography is PyJWT's backend
+# for it, so both are direct dependencies whatever pip's resolver thinks.
+PyJWT==2.13.0
+cryptography==50.0.0
+
+# HTTP.
+requests==2.34.2
+
+# Transitive, pinned so the set is actually closed.
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.1
+idna==3.19
+pycparser==3.0
+urllib3==2.7.0

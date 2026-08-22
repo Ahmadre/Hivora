@@ -29,8 +29,8 @@ from __future__ import annotations
 import argparse
 import base64
 import datetime as dt
-import json
 import os
+import re
 import sys
 import time
 
@@ -108,19 +108,36 @@ def token() -> str:
 
 
 class ASC:
+    # Reads are retried, writes are not. A GET that fails on Apple's side costs
+    # nothing to repeat, and at 96 runs a day an occasional 502 would otherwise
+    # be an occasional red build and an email about nothing. The POST is a
+    # different animal: it publishes an app, and a retry after an ambiguous
+    # failure could press the button twice.
+    RETRY_ON = frozenset({429, 500, 502, 503, 504})
+    ATTEMPTS = 3
+
     def __init__(self) -> None:
         self.s = requests.Session()
         self.s.headers["Authorization"] = f"Bearer {token()}"
 
     def get(self, path: str, **params):
-        r = self.s.get(f"{API}/{path}", params=params, timeout=60)
-        if r.status_code >= 400:
-            die(f"GET {path} -> {r.status_code}: {r.text[:600]}")
-        return r.json()
+        for attempt in range(1, self.ATTEMPTS + 1):
+            try:
+                r = self.s.get(f"{API}/{path}", params=params, timeout=60)
+            except requests.RequestException as e:
+                if attempt == self.ATTEMPTS:
+                    die(f"GET {path} failed after {attempt} tries: {e}")
+                r = None
+            if r is not None:
+                if r.status_code < 400:
+                    return r.json()
+                if r.status_code not in self.RETRY_ON or attempt == self.ATTEMPTS:
+                    die(f"GET {path} -> {r.status_code}: {r.text[:600]}")
+            time.sleep(2 ** attempt)
+        return {}  # unreachable; die() raises
 
     def post(self, path: str, body: dict):
-        r = self.s.post(f"{API}/{path}", json=body, timeout=60)
-        return r
+        return self.s.post(f"{API}/{path}", json=body, timeout=60)
 
 
 def emit(**kv) -> None:
@@ -137,6 +154,13 @@ def emit(**kv) -> None:
         return
     with open(out, "a", encoding="utf-8") as f:
         for k, v in kv.items():
+            # `state` and `version` come out of Apple's JSON, and the file format
+            # is one `key=value` per line — so a newline in a value writes extra
+            # outputs, and every branch in the workflow is decided by these.
+            # Refusing beats sanitising: a version string that is not a version
+            # string means something is wrong that nobody should paper over.
+            if not re.fullmatch(r"[A-Za-z0-9._+-]*", str(v)):
+                die(f"refusing to emit {k}={v!r}: not a plain token")
             f.write(f"{k}={v}\n")
 
 
@@ -168,8 +192,11 @@ def newest_version(asc: ASC, app_id: str, platform: str) -> dict | None:
     return max(data, key=key)
 
 
-def release(asc: ASC, version_id: str) -> None:
+def release(asc: ASC, version_id: str) -> bool:
     """POST the release request — the API form of the button.
+
+    Returns True when this run is the one that released it, False when someone
+    or something else got there first.
 
     Creating an appStoreVersionReleaseRequest is the whole operation; there is
     no field to flip on the version itself. Apple answers 201 with an (otherwise
@@ -189,8 +216,16 @@ def release(asc: ASC, version_id: str) -> None:
         },
     })
     if r.status_code in (200, 201):
-        return
+        return True
+    if r.status_code == 409:
+        # The race this function's own docstring names: Apple, or a person in
+        # App Store Connect, moved the version out of PENDING_DEVELOPER_RELEASE
+        # between our GET and our POST. The version is released either way, so
+        # failing the run here would be a red build for the thing going right.
+        print(f"already out of our hands (409) — {r.text[:200]}")
+        return False
     die(f"POST appStoreVersionReleaseRequests -> {r.status_code}: {r.text[:600]}")
+    return False  # unreachable; die() raises
 
 
 def report_idle(platform: str, number: str, state: str) -> None:
@@ -206,6 +241,9 @@ def report_idle(platform: str, number: str, state: str) -> None:
             "App Store Connect is waiting on us, not on Apple. Nothing moves "
             "here until somebody resolves it.")
         summary(f"### ⚠️ {platform} {number} — `{state}`\n\n{note}\n")
+    elif state in IN_FLIGHT:
+        summary(f"### ⏳ {platform} {number} — `{state}`\n\nApple has it. "
+                f"Nothing to do but wait.\n")
     emit(state=state, released="false", live="false", version=number,
          blocked="true" if waiting_on_us else "false")
 
@@ -246,7 +284,13 @@ def main(argv=None) -> int:
         return 0
 
     attrs = version["attributes"]
-    state = attrs.get("appVersionState") or attrs.get("appStoreState") or "UNKNOWN"
+    # appVersionState only. The record also carries the deprecated appStoreState,
+    # which describes the same situations in a different vocabulary —
+    # READY_FOR_SALE where this one says READY_FOR_DISTRIBUTION. Falling back to
+    # it would mean keeping two vocabularies in the tables above in step forever,
+    # and a value missing from one of them reads as "not live", which on the
+    # publish path is the wrong way to be wrong.
+    state = attrs.get("appVersionState") or "UNKNOWN"
     number = attrs.get("versionString", "")
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     print(f"{args.platform} {number}: {state}  ({stamp})")
@@ -278,7 +322,11 @@ def main(argv=None) -> int:
         emit(state=state, released="false", live="false", version=number)
         return 0
 
-    release(asc, version["id"])
+    if not release(asc, version["id"]):
+        # Someone got there first. Nothing to announce — whoever did it knows.
+        emit(state=state, released="false", live="false", version=number)
+        return 0
+
     print(f"released {args.platform} {number}")
     summary(f"### 🚀 Released {args.platform} **{number}** to the App Store\n\n"
             f"`{state}` → release requested at {stamp}. Apple now processes it "

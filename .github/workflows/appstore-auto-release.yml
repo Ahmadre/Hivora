@@ -28,6 +28,10 @@ name: App Store auto-release
 # needs no personal access token — and the repo has none — and it is how
 # release-button.yml and release-publish.yml already reach release.yml.
 #
+# Step 2 has a switch in front of it — the `gate` job below. Left alone it passes
+# through and the release is unattended; give the `production-release`
+# environment a required reviewer and the same run waits for one click instead.
+#
 # Scope, honestly: this automates the APPLE side. Step 2 starts every store, but a
 # green run is not five shipped stores — iOS can quietly fall back to TestFlight,
 # a snap can sit in store review, Windows certification can reject. Check with
@@ -78,6 +82,10 @@ jobs:
   watch:
     name: Check App Store Connect
     runs-on: ubuntu-latest
+    # Four requests to Apple and a git tag lookup. If it is still going after
+    # ten minutes something is wedged, and the default six hours would hold the
+    # concurrency group — and with it every later run — for a quarter of a day.
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
@@ -100,10 +108,17 @@ jobs:
           # Tags say whether the follow-up release has already gone out, and a
           # shallow checkout has none.
           fetch-depth: 0
+          # This job reads local tags and never pushes, so it has no use for git
+          # credentials — and leaving them in .git/config puts GITHUB_TOKEN in
+          # reach of every dependency's install hook, in the one job that also
+          # holds the App Store Connect key.
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install requests pyjwt cryptography
+          cache: pip
+          cache-dependency-path: ios/fastlane/requirements.txt
+      - run: pip install -r ios/fastlane/requirements.txt
 
       - name: Release the approved version, if there is one
         id: asc
@@ -132,15 +147,30 @@ jobs:
           LIVE: ${{ steps.asc.outputs.live }}
           VERSION: ${{ steps.asc.outputs.version }}
           DRY_RUN: ${{ inputs.dry_run }}
+          # Which platform the step above actually looked at. Without it this
+          # step would happily conclude "live, ship everything" from a macOS
+          # observation — and macOS clears review days before iOS does, so that
+          # is not a hypothetical ordering.
+          PLATFORM: ${{ inputs.platform || 'IOS' }}
         run: |
           set -euo pipefail
           needs=false
           finished=false
 
-          if [ "$LIVE" = "true" ] && [ "$VERSION" = "$FOLLOW_UP_VERSION" ]; then
-            # The follow-up is on the store. Nothing this workflow does can add
-            # anything from here.
-            echo "iOS $FOLLOW_UP_VERSION is live — this watcher has finished its job."
+          # Highest of the two version numbers. `finished` must not require an
+          # exact match: once a 10.3.0 record exists the watched version is no
+          # longer the follow-up, and an equality test would leave the schedule
+          # running four times an hour for nothing, forever.
+          newest=$(printf '%s\n%s\n' "$VERSION" "$FOLLOW_UP_VERSION" | sort -V | tail -1)
+
+          if [ "$PLATFORM" != "IOS" ]; then
+            # Both decisions below are about the iOS release train. A run pointed
+            # at another platform is a look, not a step in it.
+            echo "Watching $PLATFORM — reporting only; the release train is iOS."
+          elif [ "$LIVE" = "true" ] && [ "$newest" = "$VERSION" ] && [ "$DRY_RUN" != "true" ]; then
+            # The follow-up is on the store, or something newer is. Nothing this
+            # workflow does can add anything from here.
+            echo "iOS $VERSION is live — this watcher has finished its job."
             finished=true
           elif [ "$LIVE" != "true" ]; then
             echo "iOS is not on the store yet — nothing to publish on top of it."
@@ -153,7 +183,7 @@ jobs:
             # first would fail, four times an hour.
             echo "v$FOLLOW_UP_VERSION is already tagged — the follow-up release has gone out."
           elif [ "$DRY_RUN" = "true" ]; then
-            echo "Dry run: would publish $FOLLOW_UP_VERSION now."
+            echo "Dry run: would publish $FOLLOW_UP_VERSION now (and then stand down)."
           else
             echo "iOS is live and v$FOLLOW_UP_VERSION is untagged — publishing $FOLLOW_UP_VERSION."
             needs=true
@@ -186,6 +216,7 @@ jobs:
     needs: watch
     if: ${{ needs.watch.outputs.released == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       issues: write
     steps:
@@ -212,9 +243,38 @@ jobs:
             --title "iOS $VERSION is on its way to the App Store" \
             --body "$body"
 
+  # A switch, not a speed bump. The decision to ship the follow-up automatically
+  # was made in the pull request that set FOLLOW_UP_VERSION — but what gets built
+  # is whatever is on main at the moment Apple happens to approve, chosen by
+  # Apple's clock rather than by a person. With no protection rules on the
+  # `production-release` environment this job passes straight through and the
+  # release stays unattended, which is the point. Add required reviewers to that
+  # environment in Settings and the same run waits for one approval instead —
+  # no code change, and it can be switched either way between releases.
+  #
+  # It exists as its own job because `environment:` is not one of the keys a
+  # reusable-workflow call accepts; the gate has to sit in front of it.
+  gate:
+    name: Approve shipping to five stores
+    needs: watch
+    if: ${{ needs.watch.outputs.needs_publish == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production-release
+    permissions: {}
+    steps:
+      - env:
+          VERSION: ${{ needs.watch.outputs.follow_up }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "Shipping $VERSION to Android, iOS, macOS, Windows and Linux." \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "Watcher ran at \`$SHA\`; release-publish builds the tip of main." \
+            >> "$GITHUB_STEP_SUMMARY"
+
   publish:
     name: Publish the follow-up release
-    needs: watch
+    needs: [watch, gate]
     if: ${{ needs.watch.outputs.needs_publish == 'true' }}
     # The very workflow the Actions tab's "Publish (button)" runs: bump,
     # changelog, tag, then build and submit every store.
@@ -233,12 +293,19 @@ jobs:
     needs: watch
     if: ${{ needs.watch.outputs.finished == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       actions: write
     steps:
+      # Through `env:` like every other value in this file. Neither of these is
+      # attacker-controllable — `github.workflow` is this file's own `name:` —
+      # but this is the one job holding `actions: write`, and it is the shape
+      # the next person copies.
       - env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ github.workflow }}
         run: |
           set -euo pipefail
-          gh workflow disable "${{ github.workflow }}" --repo "${{ github.repository }}"
+          gh workflow disable "$WORKFLOW"
           echo "Disabled — iOS is live on the target version." >> "$GITHUB_STEP_SUMMARY"

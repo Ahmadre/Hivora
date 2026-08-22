@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 import urllib.error
 import urllib.request
 
@@ -39,11 +38,36 @@ MS_PRODUCT_ID = "9N5NVNPKBBLR"
 TIMEOUT = 30
 UA = "hinata-store-status/1.0 (+https://github.com/hinata-platform/hinata-app)"
 
+# A hostile or merely broken endpoint should not be able to make this allocate
+# without limit. The largest legitimate body here is the Play listing at ~1.1 MB.
+MAX_BODY = 8 * 1024 * 1024
+
+# Named once so a branch cannot disagree with its own heading — every probe has
+# a success path and at least one failure path, and they must report the same
+# platform under the same name or the table quietly grows a sixth row.
+IOS, MACOS, PLAY, WINDOWS, SNAP = (
+    "iOS", "macOS", "Android (Play)", "Windows", "Linux (Snap)")
+SRC_ITUNES = "iTunes lookup"
+SRC_SNAP = "snapcraft.io API"
+SRC_MS = "MS display catalog"
+SRC_PLAY = "Play listing (scraped)"
+
+
+# Everything a remote endpoint can throw at us. urllib.error.URLError covers a
+# refused connection or DNS failure, but a stalled *read* raises TimeoutError,
+# which is not one of its subclasses — catching only URLError means one slow
+# store takes the other four answers down with it. Both derive from OSError, so
+# that is the honest net; ValueError catches malformed JSON.
+REMOTE_TROUBLE = (OSError, ValueError)
+
 
 def fetch(url: str, headers: dict | None = None) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-        return r.read()
+        body = r.read(MAX_BODY + 1)
+    if len(body) > MAX_BODY:
+        raise ValueError(f"response from {url} exceeds {MAX_BODY} bytes")
+    return body
 
 
 def fetch_json(url: str, headers: dict | None = None):
@@ -72,14 +96,14 @@ def apple(kind: str, label: str, entity: str) -> Result:
            f"&entity={entity}")
     try:
         data = fetch_json(url)
-    except (urllib.error.URLError, ValueError) as e:
-        return Result(label, None, "iTunes lookup", note=f"lookup failed: {e}")
+    except REMOTE_TROUBLE as e:
+        return Result(label, None, SRC_ITUNES, note=f"lookup failed: {e}")
 
     for r in data.get("results", []):
         if r.get("kind") == kind:
-            return Result(label, r.get("version"), "iTunes lookup",
+            return Result(label, r.get("version"), SRC_ITUNES,
                           detail=f"released {r.get('currentVersionReleaseDate', '?')}")
-    return Result(label, "—", "iTunes lookup",
+    return Result(label, "—", SRC_ITUNES,
                   note="not in the public catalog — nothing has ever shipped here")
 
 
@@ -92,9 +116,8 @@ def snap() -> Result:
     try:
         data = fetch_json(f"https://api.snapcraft.io/v2/snaps/info/{SNAP_NAME}",
                           {"Snap-Device-Series": "16"})
-    except (urllib.error.URLError, ValueError) as e:
-        return Result("Linux (Snap)", None, "snapcraft.io API",
-                      note=f"lookup failed: {e}")
+    except REMOTE_TROUBLE as e:
+        return Result(SNAP, None, SRC_SNAP, note=f"lookup failed: {e}")
 
     stable = {}
     for c in data.get("channel-map", []):
@@ -102,15 +125,14 @@ def snap() -> Result:
         if ch.get("risk") == "stable":
             stable[ch.get("architecture")] = (c.get("version"), c.get("revision"))
     if not stable:
-        return Result("Linux (Snap)", "—", "snapcraft.io API",
+        return Result(SNAP, "—", SRC_SNAP,
                       note="no stable channel — nothing released to stable")
 
     versions = {v for v, _ in stable.values()}
     detail = ", ".join(f"{a} rev{rev}" for a, (_, rev) in sorted(stable.items()))
     if len(versions) == 1:
-        return Result("Linux (Snap)", versions.pop(), "snapcraft.io API", detail=detail)
-    return Result("Linux (Snap)", "/".join(sorted(versions)), "snapcraft.io API",
-                  detail=detail,
+        return Result(SNAP, versions.pop(), SRC_SNAP, detail=detail)
+    return Result(SNAP, "/".join(sorted(versions)), SRC_SNAP, detail=detail,
                   note="architectures disagree — one of them was not published")
 
 
@@ -124,23 +146,29 @@ def windows() -> Result:
            f"?languages=en-us&market=US")
     try:
         data = fetch_json(url)
-    except (urllib.error.URLError, ValueError) as e:
-        return Result("Windows", None, "MS display catalog", note=f"lookup failed: {e}")
+    except REMOTE_TROUBLE as e:
+        return Result(WINDOWS, None, SRC_MS, note=f"lookup failed: {e}")
 
-    found = {}
+    found: dict[str, tuple[int, ...]] = {}
     for sku in data.get("Product", {}).get("DisplaySkuAvailabilities", []):
         for pkg in sku.get("Sku", {}).get("Properties", {}).get("Packages", []):
-            name = pkg.get("PackageFullName", "")
-            m = re.search(r"_(\d+\.\d+\.\d+)\.\d+_(\w+)__", name)
-            if m:
-                found[m.group(2)] = m.group(1)
+            m = re.search(r"_(\d+\.\d+\.\d+)\.\d+_(\w+)__",
+                          pkg.get("PackageFullName", ""))
+            if not m:
+                continue
+            arch, parts = m.group(2), tuple(int(p) for p in m.group(1).split("."))
+            # Highest wins, not last-seen. The catalog can list more than one
+            # package for an architecture, and JSON order is not a version order
+            # — taking whichever came last makes the answer depend on how
+            # Microsoft happened to serialise the response that morning.
+            if parts > found.get(arch, ()):
+                found[arch] = parts
     if not found:
-        return Result("Windows", None, "MS display catalog",
+        return Result(WINDOWS, None, SRC_MS,
                       note="no package in the catalog — is the listing live?")
-    versions = set(found.values())
-    detail = ", ".join(f"{a}" for a in sorted(found))
-    return Result("Windows", "/".join(sorted(versions)), "MS display catalog",
-                  detail=detail)
+    versions = {".".join(str(p) for p in v) for v in found.values()}
+    return Result(WINDOWS, "/".join(sorted(versions)), SRC_MS,
+                  detail=", ".join(sorted(found)))
 
 
 def play() -> Result:
@@ -154,17 +182,32 @@ def play() -> Result:
     try:
         html = fetch(f"https://play.google.com/store/apps/details?id={PLAY_PACKAGE}",
                      {"Accept-Language": "en-US"}).decode("utf-8", "replace")
-    except urllib.error.URLError as e:
-        return Result("Android (Play)", None, "Play listing", note=f"fetch failed: {e}")
+    except REMOTE_TROUBLE as e:
+        return Result(PLAY, None, SRC_PLAY, note=f"fetch failed: {e}")
 
     # The About-this-app block: [[["10.1.0"]],[[[36]],...  — the version string
     # immediately followed by the minimum-SDK structure.
     m = re.search(r'\[\[\["(\d+\.\d+\.\d+)"\]\],\[\[\[\d+\]\]', html)
     if not m:
-        return Result("Android (Play)", None, "Play listing",
+        return Result(PLAY, None, SRC_PLAY,
                       note="version not found on the page — the layout changed")
-    return Result("Android (Play)", m.group(1), "Play listing (scraped)",
+    return Result(PLAY, m.group(1), SRC_PLAY,
                   note="best effort; the page cannot show a staged rollout")
+
+
+def render(results: list[Result]) -> None:
+    """One row per store, with the note underneath where there is one."""
+    width = max(len(r.platform) for r in results)
+    print(f"{'platform'.ljust(width)}  version    source")
+    print(f"{'-' * width}  ---------  ------")
+    for r in results:
+        shown = r.version if r.version is not None else "unknown"
+        line = f"{r.platform.ljust(width)}  {shown:9}  {r.source}"
+        if r.detail:
+            line += f" ({r.detail})"
+        print(line)
+        if r.note:
+            print(f"{' ' * width}  ↳ {r.note}")
 
 
 def main(argv=None) -> int:
@@ -175,8 +218,8 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     results = [
-        apple("software", "iOS", "software"),
-        apple("mac-software", "macOS", "macSoftware"),
+        apple("software", IOS, "software"),
+        apple("mac-software", MACOS, "macSoftware"),
         play(),
         windows(),
         snap(),
@@ -187,17 +230,7 @@ def main(argv=None) -> int:
                            "source": r.source, "detail": r.detail, "note": r.note}
                           for r in results], indent=2))
     else:
-        width = max(len(r.platform) for r in results)
-        print(f"{'platform'.ljust(width)}  version    source")
-        print(f"{'-' * width}  ---------  ------")
-        for r in results:
-            shown = r.version if r.version is not None else "unknown"
-            line = f"{r.platform.ljust(width)}  {shown:9}  {r.source}"
-            if r.detail:
-                line += f" ({r.detail})"
-            print(line)
-            if r.note:
-                print(f"{' ' * width}  ↳ {r.note}")
+        render(results)
 
     if not args.expect:
         return 0
