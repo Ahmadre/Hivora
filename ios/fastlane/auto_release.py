@@ -65,6 +65,27 @@ NEEDS_A_HUMAN = {
     "READY_FOR_REVIEW",        # items attached, Submit never pressed
 }
 
+# REJECTED covers two situations the API cannot tell apart, and acting on the
+# wrong one is expensive. Apple uses it both for "we rejected your app, change
+# something and resubmit" and for Guideline 2.1(b) Information Needed, where the
+# reviewer paused to ask a question and the message says, in as many words,
+# "Reply to this message in App Store Connect". Only the Resolution Center thread
+# distinguishes them, and that thread is not on the public API.
+#
+# The distinction matters because the recovery paths are opposites. Answering a
+# 2.1(b) question keeps the submission's place in the queue. Cancelling and
+# resubmitting sends it to the back — which is how this app spent five weeks
+# waiting, four separate times, with its review item ending up REMOVED each time.
+AMBIGUOUS_REJECTION_HINT = (
+    "`REJECTED` means one of two things and App Store Connect will not say "
+    "which: Apple wants a change, or Apple asked a question under Guideline "
+    "2.1(b) and is waiting for an answer. Open the Resolution Center thread.\n\n"
+    "If you have already replied there, this is normal — the reviewer picks it "
+    "back up, usually within a day or two, and the version keeps its place in "
+    "the queue. Do **not** cancel the submission to restart it: a new "
+    "submission goes to the back of the queue."
+)
+
 
 def die(msg: str) -> None:
     print(f"error: {msg}", file=sys.stderr)
@@ -144,7 +165,7 @@ def newest_version(asc: ASC, app_id: str, platform: str) -> dict | None:
         raw = v["attributes"].get("versionString", "0")
         return tuple(int(p) if p.isdigit() else 0 for p in raw.split("."))
 
-    return sorted(data, key=key, reverse=True)[0]
+    return max(data, key=key)
 
 
 def release(asc: ASC, version_id: str) -> None:
@@ -170,6 +191,23 @@ def release(asc: ASC, version_id: str) -> None:
     if r.status_code in (200, 201):
         return
     die(f"POST appStoreVersionReleaseRequests -> {r.status_code}: {r.text[:600]}")
+
+
+def report_idle(platform: str, number: str, state: str) -> None:
+    """Record a state there is nothing to press in.
+
+    Worth more than a shrug, because the two kinds of waiting look identical
+    from a green check mark: Apple has the submission, or Apple handed it back
+    and is waiting on us. Only the second one costs days of nobody noticing.
+    """
+    waiting_on_us = state in NEEDS_A_HUMAN
+    if waiting_on_us:
+        note = AMBIGUOUS_REJECTION_HINT if state == "REJECTED" else (
+            "App Store Connect is waiting on us, not on Apple. Nothing moves "
+            "here until somebody resolves it.")
+        summary(f"### ⚠️ {platform} {number} — `{state}`\n\n{note}\n")
+    emit(state=state, released="false", live="false", version=number,
+         blocked="true" if waiting_on_us else "false")
 
 
 def main(argv=None) -> int:
@@ -218,15 +256,7 @@ def main(argv=None) -> int:
         return 0
 
     if state != ACTIONABLE:
-        # Nothing to press. Say which kind of waiting this is, because "Apple has
-        # it" and "Apple bounced it back and is waiting on us" look identical
-        # from a green check mark.
-        if state in NEEDS_A_HUMAN:
-            summary(f"### ⚠️ {args.platform} {number} — `{state}`\n\n"
-                    f"App Store Connect is waiting on us, not on Apple. "
-                    f"Nothing will happen here until somebody resolves it.\n")
-        emit(state=state, released="false", live="false", version=number,
-             blocked="true" if state in NEEDS_A_HUMAN else "false")
+        report_idle(args.platform, number, state)
         return 0
 
     # Approved and held. The one case with something to do.

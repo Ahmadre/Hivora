@@ -165,24 +165,17 @@ jobs:
             echo "follow_up=$FOLLOW_UP_VERSION"
           } >> "$GITHUB_OUTPUT"
 
+      # Only the headline. auto_release.py already writes the explanation for
+      # any state worth explaining, and it knows which state it saw — saying it
+      # twice here is how the two copies drift until one of them is wrong.
       - name: Say what happened
+        if: ${{ steps.asc.outputs.blocked != 'true' }}
         env:
           STATE: ${{ steps.asc.outputs.state }}
           VERSION: ${{ steps.asc.outputs.version }}
-          BLOCKED: ${{ steps.asc.outputs.blocked }}
           PLATFORM: ${{ inputs.platform || 'IOS' }}
         run: |
-          {
-            echo "### $PLATFORM \`$VERSION\` → \`$STATE\`"
-            if [ "${BLOCKED:-}" = "true" ]; then
-              echo
-              echo "App Store Connect is waiting on **us**, not on Apple."
-              echo "A rejected submission does not restart when you reply in"
-              echo "Resolution Center — somebody has to press **Resubmit to App"
-              echo "Review** in App Store Connect. Until then this watcher has"
-              echo "nothing to wait for."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "### $PLATFORM \`$VERSION\` → \`$STATE\`" >> "$GITHUB_STEP_SUMMARY"
 
   # A version going live is the one moment somebody wants to hear about, and a
   # workflow that merely succeeds notifies nobody. An issue does — and since the
@@ -203,15 +196,21 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          # One quoted argument per line rather than a multi-line string: inside a
+          # YAML block scalar every continuation line carries this block's
+          # indentation, and ten leading spaces turn each paragraph into a
+          # Markdown code block.
+          body=$(printf '%s\n' \
+            "Apple approved iOS \`$VERSION\` and this workflow pressed the release button." \
+            "" \
+            "Apple processes it for distribution now; it appears on the store within a few hours." \
+            "" \
+            "Next, once it reports as live: \`$FOLLOW_UP_VERSION\` goes to all five platforms. Check what actually shipped with \`python tool/store_status.py\` — a green release run is not the same as five stores serving the new version." \
+            "" \
+            "[Workflow run]($RUN)")
           gh issue create \
             --title "iOS $VERSION is on its way to the App Store" \
-            --body "Apple approved iOS \`$VERSION\` and this workflow pressed the release button.
-
-          Apple processes it for distribution now; it shows up on the store within a few hours.
-
-          Next, once it reports as live: \`$FOLLOW_UP_VERSION\` is published to all five platforms. Verify what actually shipped with \`python tool/store_status.py\` — a green release run is not the same as five stores serving the new version.
-
-          [Workflow run]($RUN)"
+            --body "$body"
 
   publish:
     name: Publish the follow-up release
