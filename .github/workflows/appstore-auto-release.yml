@@ -106,8 +106,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # Tags say whether the follow-up release has already gone out, and a
-          # shallow checkout has none.
-          fetch-depth: 0
+          # shallow checkout has none — but the history behind them is dead
+          # weight here. `fetch-tags` gets the refs without it; `fetch-depth: 0`
+          # would pull every commit of this repository, four times an hour, to
+          # answer one `git rev-parse`.
+          fetch-depth: 1
+          fetch-tags: true
           # This job reads local tags and never pushes, so it has no use for git
           # credentials — and leaving them in .git/config puts GITHUB_TOKEN in
           # reach of every dependency's install hook, in the one job that also
@@ -177,11 +181,16 @@ jobs:
           elif [ -z "$FOLLOW_UP_VERSION" ]; then
             echo "No follow-up version configured — this watcher only presses the button."
           elif git rev-parse "v$FOLLOW_UP_VERSION" >/dev/null 2>&1; then
-            # The tag is the record that the publish already ran. Checking it
-            # rather than remembered state keeps this idempotent: release-publish
-            # refuses a duplicate tag, so without the gate every run after the
-            # first would fail, four times an hour.
-            echo "v$FOLLOW_UP_VERSION is already tagged — the follow-up release has gone out."
+            # The tag is the record that the publish RAN, not that it worked:
+            # release-publish tags before it builds anything. Checking it rather
+            # than remembered state is still what keeps this idempotent — the
+            # publish refuses a duplicate tag, so without the gate every run
+            # after the first would fail, four times an hour. But it means the
+            # watcher goes quiet after a publish whose build failed, so say so
+            # rather than reporting a release nobody verified.
+            echo "v$FOLLOW_UP_VERSION is tagged — a publish has run."
+            echo "Whether all five stores took it is a separate question:"
+            echo "  python tool/store_status.py --expect $FOLLOW_UP_VERSION"
           elif [ "$DRY_RUN" = "true" ]; then
             echo "Dry run: would publish $FOLLOW_UP_VERSION now (and then stand down)."
           else
@@ -224,23 +233,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.watch.outputs.version }}
+          # A hand-started run can watch macOS, and then this is a Mac App Store
+          # release. Saying "iOS" either way would be a wrong title on the one
+          # notification anybody actually reads.
+          PLATFORM: ${{ inputs.platform || 'IOS' }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
+          case "$PLATFORM" in
+            MAC_OS) store="Mac App Store" ;;
+            *)      store="App Store" ;;
+          esac
           # One quoted argument per line rather than a multi-line string: inside a
           # YAML block scalar every continuation line carries this block's
           # indentation, and ten leading spaces turn each paragraph into a
           # Markdown code block.
           body=$(printf '%s\n' \
-            "Apple approved iOS \`$VERSION\` and this workflow pressed the release button." \
+            "Apple approved \`$VERSION\` and this workflow pressed the release button." \
             "" \
             "Apple processes it for distribution now; it appears on the store within a few hours." \
             "" \
-            "Next, once it reports as live: \`$FOLLOW_UP_VERSION\` goes to all five platforms. Check what actually shipped with \`python tool/store_status.py\` — a green release run is not the same as five stores serving the new version." \
+            "Next, once it reports as live: \`$FOLLOW_UP_VERSION\` goes to all five platforms. Check what actually shipped with \`python tool/store_status.py --expect $FOLLOW_UP_VERSION\` — a green release run is not the same as five stores serving the new version." \
             "" \
             "[Workflow run]($RUN)")
           gh issue create \
-            --title "iOS $VERSION is on its way to the App Store" \
+            --title "$VERSION is on its way to the $store" \
             --body "$body"
 
   # A switch, not a speed bump. The decision to ship the follow-up automatically
