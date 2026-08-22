@@ -45,14 +45,13 @@ Future<Uint8List> _fetchBytes(BuildContext context, String path) async {
 /// look at the same attachment is served from, and what it holds must stay the
 /// file the server sent. Only this stage wants a redrawn copy of it, and only
 /// for as long as it is on screen — which is also why the copy is not cached
-/// itself. Re-flattening on a swipe back costs a redraw; keeping it would cost
-/// a second full document in memory for every PDF the viewer has passed.
-Future<Uint8List> _fetchPdfRenderBytes(
-  BuildContext context,
-  String path,
-) async {
-  return PdfAnnotations.flatten(await _fetchBytes(context, path));
-}
+/// itself. Keeping it would mean a second document in memory for every PDF the
+/// viewer has passed, and the redrawn one is the bigger of the two: a form
+/// comes back around three times its size. What a swipe back costs instead is
+/// one redraw of a document that carries visible annotations at all — a
+/// millisecond or so for the forms this is for.
+Future<Uint8List> _fetchPdfBytes(BuildContext context, String path) =>
+    _fetchBytes(context, path).then(PdfAnnotations.flatten);
 
 /// Forgets a memoized download, so the next [_fetchBytes] really goes back to
 /// the server. What "retry" has to mean: re-awaiting the same future — or
@@ -637,14 +636,14 @@ class _PdfPageState extends State<_PdfPage> {
     if (old.item.id != widget.item.id) {
       _failed = false;
       _attempt++;
-      _bytes = _fetchPdfRenderBytes(context, widget.item.url!);
+      _bytes = _fetchPdfBytes(context, widget.item.url!);
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _bytes ??= _fetchPdfRenderBytes(context, widget.item.url!);
+    _bytes ??= _fetchPdfBytes(context, widget.item.url!);
   }
 
   @override
@@ -706,7 +705,7 @@ class _PdfPageState extends State<_PdfPage> {
     setState(() {
       _failed = false;
       _attempt++;
-      _bytes = _fetchPdfRenderBytes(context, url);
+      _bytes = _fetchPdfBytes(context, url);
     });
   }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -106,6 +108,38 @@ void main() {
       expect(calls, isEmpty);
     },
   );
+
+  test('the two runners carry the same implementation', () {
+    // The channel's Swift side exists twice — `ios/Runner` and `macos/Runner`
+    // are separate Xcode projects and cannot share a source file — and nothing
+    // in it is platform-specific. A fix applied to one copy and not the other
+    // fails silently and asymmetrically: forms render on the Mac and not on the
+    // phone, or the other way round, and nobody notices until someone opens a
+    // form on the platform that was missed.
+    final ios = File('ios/Runner/HinataPdfChannel.swift');
+    final macos = File('macos/Runner/HinataPdfChannel.swift');
+    expect(ios.existsSync(), isTrue, reason: '${ios.path} is missing');
+    expect(macos.existsSync(), isTrue, reason: '${macos.path} is missing');
+    expect(
+      ios.readAsBytesSync(),
+      macos.readAsBytesSync(),
+      reason:
+          'the two copies of HinataPdfChannel.swift have drifted apart — '
+          'copy the changed one over the other',
+    );
+  });
+
+  test('leaves a document too large to copy over the channel alone', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    answerWith((_) => Uint8List.fromList(const [9, 9, 9]));
+
+    // The runner refuses these too, and refusing them here as well is what
+    // keeps the app from copying tens of megabytes across the channel to be
+    // told so.
+    final huge = Uint8List(33 * 1024 * 1024);
+    expect(await PdfAnnotations.flatten(huge), same(huge));
+    expect(calls, isEmpty);
+  });
 
   test('does not send an empty download to the runner', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
