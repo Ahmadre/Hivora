@@ -1,0 +1,245 @@
+name: App Store auto-release
+
+# Watches App Store Connect and finishes an Apple release without a human in the
+# loop. Three decisions, re-derived from Apple on every run, each a no-op unless
+# its precondition holds:
+#
+#   1. iOS is PENDING_DEVELOPER_RELEASE  → press "Release this version".
+#      Versions are created with automatic_release: false (ios/fastlane/Fastfile),
+#      which keeps approval and going-live as two separate decisions. The cost is
+#      that an approved version does nothing at all until somebody opens App Store
+#      Connect. Apple approves when Apple approves, regularly overnight.
+#
+#   2. iOS is live and the follow-up version has no tag yet → run the same
+#      "Publish (button)" workflow a person would, shipping all five platforms.
+#      The order is forced, not a preference: while a version sits in
+#      PENDING_DEVELOPER_RELEASE, App Store Connect refuses to create a new
+#      version and serves the App Info read-only (LOCKED_APP_HINT in
+#      ios/fastlane/Fastfile), so publishing before releasing cannot work.
+#
+#   3. The follow-up version is itself live → the job is done; switch the
+#      schedule off. Note this is deliberately NOT "the tag exists": step 2
+#      submits the follow-up for review, and that submission needs its own press
+#      of the button in step 1. Disabling at the tag would strand it.
+#
+# Why it calls release-publish.yml with `uses:` rather than dispatching it:
+# events raised with GITHUB_TOKEN deliberately do not start new workflow runs, so
+# `gh workflow run` from inside Actions would silently do nothing. Calling it
+# needs no personal access token — and the repo has none — and it is how
+# release-button.yml and release-publish.yml already reach release.yml.
+#
+# Scope, honestly: this automates the APPLE side. Step 2 starts every store, but a
+# green run is not five shipped stores — iOS can quietly fall back to TestFlight,
+# a snap can sit in store review, Windows certification can reject. Check with
+# `python tool/store_status.py` afterwards rather than trusting the check mark.
+on:
+  schedule:
+    # Every quarter hour. GitHub delays scheduled runs under load, so read this
+    # as "within the hour" rather than a promise — still far better than a button
+    # that waits until somebody wakes up.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report what would happen and change nothing.
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+      platform:
+        description: Which Apple platform to watch.
+        type: choice
+        options: [IOS, MAC_OS]
+        default: IOS
+
+# The two facts this watcher is set up for. They live here rather than in
+# repository variables because the repo has none, and an unset variable would
+# silently widen `--expect-version` from "these two releases" to "anything Apple
+# happens to approve" — a safety rail that disappears when you forget to set it
+# is worse than no safety rail at all.
+env:
+  # Every version this watcher may push to the public store. iOS 10.1.0 is the
+  # one currently waiting; 10.2.0 is the follow-up, and it needs the button
+  # pressed for it too once Apple approves it.
+  RELEASABLE_VERSIONS: '10.1.0,10.2.0'
+  # The release to publish once iOS is live. Empty = only press the button.
+  FOLLOW_UP_VERSION: '10.2.0'
+
+permissions:
+  contents: read
+
+# Never two runs pressing at once. Not cancelling in-progress: a run that is
+# midway through publishing five stores must finish, and a skipped watch costs
+# only fifteen minutes.
+concurrency:
+  group: appstore-auto-release
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Check App Store Connect
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      state: ${{ steps.asc.outputs.state }}
+      version: ${{ steps.asc.outputs.version }}
+      released: ${{ steps.asc.outputs.released }}
+      live: ${{ steps.asc.outputs.live }}
+      blocked: ${{ steps.asc.outputs.blocked }}
+      needs_publish: ${{ steps.gate.outputs.needs_publish }}
+      finished: ${{ steps.gate.outputs.finished }}
+      # `with:` on a reusable-workflow call cannot read the `env` context —
+      # only github/inputs/needs/vars/matrix/strategy. So the version travels
+      # as an output. Get this wrong and the call silently passes an empty
+      # string, release-publish falls back to a patch bump, and 10.1.1 ships
+      # where 10.2.0 was meant to.
+      follow_up: ${{ steps.gate.outputs.follow_up }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tags say whether the follow-up release has already gone out, and a
+          # shallow checkout has none.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests pyjwt cryptography
+
+      - name: Release the approved version, if there is one
+        id: asc
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          # Through the environment, not spliced into the command line: a `${{ }}`
+          # inside `run:` is pasted in before bash ever sees it, and this script
+          # publishes to a public app store.
+          PLATFORM: ${{ inputs.platform || 'IOS' }}
+          # The schedule is what acts. A hand-started run reports by default, so
+          # a curious click cannot ship anything.
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          args=(--platform "$PLATFORM" --expect-version "$RELEASABLE_VERSIONS")
+          if [ "${DRY_RUN:-}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python ios/fastlane/auto_release.py "${args[@]}"
+
+      - name: Decide what is left to do
+        id: gate
+        env:
+          LIVE: ${{ steps.asc.outputs.live }}
+          VERSION: ${{ steps.asc.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          needs=false
+          finished=false
+
+          if [ "$LIVE" = "true" ] && [ "$VERSION" = "$FOLLOW_UP_VERSION" ]; then
+            # The follow-up is on the store. Nothing this workflow does can add
+            # anything from here.
+            echo "iOS $FOLLOW_UP_VERSION is live — this watcher has finished its job."
+            finished=true
+          elif [ "$LIVE" != "true" ]; then
+            echo "iOS is not on the store yet — nothing to publish on top of it."
+          elif [ -z "$FOLLOW_UP_VERSION" ]; then
+            echo "No follow-up version configured — this watcher only presses the button."
+          elif git rev-parse "v$FOLLOW_UP_VERSION" >/dev/null 2>&1; then
+            # The tag is the record that the publish already ran. Checking it
+            # rather than remembered state keeps this idempotent: release-publish
+            # refuses a duplicate tag, so without the gate every run after the
+            # first would fail, four times an hour.
+            echo "v$FOLLOW_UP_VERSION is already tagged — the follow-up release has gone out."
+          elif [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: would publish $FOLLOW_UP_VERSION now."
+          else
+            echo "iOS is live and v$FOLLOW_UP_VERSION is untagged — publishing $FOLLOW_UP_VERSION."
+            needs=true
+          fi
+
+          {
+            echo "needs_publish=$needs"
+            echo "finished=$finished"
+            echo "follow_up=$FOLLOW_UP_VERSION"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Say what happened
+        env:
+          STATE: ${{ steps.asc.outputs.state }}
+          VERSION: ${{ steps.asc.outputs.version }}
+          BLOCKED: ${{ steps.asc.outputs.blocked }}
+          PLATFORM: ${{ inputs.platform || 'IOS' }}
+        run: |
+          {
+            echo "### $PLATFORM \`$VERSION\` → \`$STATE\`"
+            if [ "${BLOCKED:-}" = "true" ]; then
+              echo
+              echo "App Store Connect is waiting on **us**, not on Apple."
+              echo "A rejected submission does not restart when you reply in"
+              echo "Resolution Center — somebody has to press **Resubmit to App"
+              echo "Review** in App Store Connect. Until then this watcher has"
+              echo "nothing to wait for."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # A version going live is the one moment somebody wants to hear about, and a
+  # workflow that merely succeeds notifies nobody. An issue does — and since the
+  # version leaves PENDING_DEVELOPER_RELEASE the instant it is pressed, this
+  # fires exactly once per release.
+  announce:
+    name: Open an issue about the release
+    needs: watch
+    if: ${{ needs.watch.outputs.released == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.watch.outputs.version }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          gh issue create \
+            --title "iOS $VERSION is on its way to the App Store" \
+            --body "Apple approved iOS \`$VERSION\` and this workflow pressed the release button.
+
+          Apple processes it for distribution now; it shows up on the store within a few hours.
+
+          Next, once it reports as live: \`$FOLLOW_UP_VERSION\` is published to all five platforms. Verify what actually shipped with \`python tool/store_status.py\` — a green release run is not the same as five stores serving the new version.
+
+          [Workflow run]($RUN)"
+
+  publish:
+    name: Publish the follow-up release
+    needs: watch
+    if: ${{ needs.watch.outputs.needs_publish == 'true' }}
+    # The very workflow the Actions tab's "Publish (button)" runs: bump,
+    # changelog, tag, then build and submit every store.
+    uses: ./.github/workflows/release-publish.yml
+    permissions:
+      contents: write
+    secrets: inherit
+    with:
+      version: ${{ needs.watch.outputs.follow_up }}
+
+  # Same self-limiting pattern store-listing-windows-retry.yml uses: a scheduled
+  # workflow that knows when it is done turns itself off rather than running
+  # forever. Turn it back on in Actions → this workflow → "Enable workflow".
+  stand_down:
+    name: Switch the schedule off
+    needs: watch
+    if: ${{ needs.watch.outputs.finished == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow disable "${{ github.workflow }}" --repo "${{ github.repository }}"
+          echo "Disabled — iOS is live on the target version." >> "$GITHUB_STEP_SUMMARY"

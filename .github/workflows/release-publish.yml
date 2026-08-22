@@ -32,6 +32,22 @@ on:
         description: 'Exact version X.Y.Z (optional — overrides the bump above)'
         type: string
         default: ''
+  # Also callable, so automation can run the exact same publish a person would
+  # start from the Actions tab — see appstore-auto-release.yml, which waits for
+  # Apple to let go of the previous version and then ships the next one.
+  # workflow_call has no `choice` type; `bump` is validated in the step anyway.
+  workflow_call:
+    inputs:
+      bump:
+        description: 'Version bump (ignored if "version" is set)'
+        type: string
+        required: false
+        default: patch
+      version:
+        description: 'Exact version X.Y.Z (optional — overrides the bump above)'
+        type: string
+        required: false
+        default: ''
 
 jobs:
   prepare:
