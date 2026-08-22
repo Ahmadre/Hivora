@@ -14,6 +14,7 @@ import 'package:printing/printing.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_image.dart';
 import '../../../core/i18n/i18n.dart';
+import '../../../core/platform/pdf_annotations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/glass_panel.dart';
@@ -62,8 +63,35 @@ abstract final class _ViewerInk {
   /// Primary text: the filename, the file's own body text, the nav arrows.
   static const ink = AppColors.inkDark;
 
-  /// Secondary text and the ordinary (enabled) glyphs on the glass.
-  static const soft = AppColors.inkSoftDark;
+  /// Secondary text on the glass: the size line under the filename, the page
+  /// counter.
+  ///
+  /// Brighter than `AppColors.inkSoftDark`, which is authored to sit on an
+  /// opaque dark surface and lands at 2.6:1 on a bar floating over white paper
+  /// — nowhere near AA for text of this size. This clears it at 4.9:1 there and
+  /// still reads a step under [ink].
+  static const soft = Color(0xFFD2D0E4);
+
+  /// The tint the floating chrome carries under the glass fill.
+  ///
+  /// The chrome is authored for a dark room, but only *half* the viewer is one.
+  /// A picture sits on the near-black stage; a PDF and a text file are white
+  /// paper filling the whole viewport, and a lens is by definition the colour
+  /// of what is behind it. Measured off the screen, the same bar renders
+  /// `#141118` over a photo and `#6E6E77` over a page of A4 — and on that
+  /// second one the secondary ink the glyphs were painted in sat at 2.1:1. The
+  /// download button was not dim, it was gone.
+  ///
+  /// The lens still has to read as a lens, so this is a tint and not a scrim:
+  /// [canvas2] at 0.32 takes the paper case to `#4F4F57` (the photo case barely
+  /// moves, to `#121118`) and the ink above carries the rest. Over paper — the
+  /// worst backdrop there is — that leaves [ink] at 6.9:1, [soft] at 4.8:1,
+  /// [faint] at 3.3:1 and [accentInk] at 4.4:1; over the stage: 15.9 / 11.0 /
+  /// 7.7 / 10.2.
+  ///
+  /// An opaque ground would measure better and is the wrong answer: it turns
+  /// the bar into a black slab, and the chrome is glass on purpose.
+  static const chrome = Color(0x6B0E0D14);
 
   /// Small print on a viewer surface, the *disabled* glyphs on the glass, and
   /// the one edge in here that has to be found against the stage.
@@ -71,15 +99,15 @@ abstract final class _ViewerInk {
   /// Deliberately not `AppColors.inkFaintDark`: measured against the glass this
   /// floats on, that token sits at 3.3:1 — inside the noise of a translucent
   /// surface — and at 3.4:1 on the "no preview" card, under AA for text in both
-  /// places. This sits halfway between it and [soft]: ≥ 4.8:1 on the pill,
-  /// ≥ 5.0:1 on the card, while still reading a visible step below [soft] so a
-  /// disabled button says "not right now" rather than disappearing.
+  /// places. This sits between it and [soft]: 3.6:1 on the chrome even over
+  /// white paper — clear of the 3:1 WCAG asks of a glyph — while still reading
+  /// a visible step below the enabled glyph (1.7:1 apart), so a disabled button
+  /// says "not right now" rather than disappearing.
   ///
   /// It is also what outlines [_FileCard], the one surface in here that has no
-  /// glass rim to find it by: 4.7:1 against the lighter of the two backdrops
-  /// and 6.0:1 against the darker, where [hairline] — a seam meant to be read
-  /// *on* a surface, not against a stage — manages 1.2:1.
-  static const faint = Color(0xFF8B89A6);
+  /// glass rim to find it by, where [hairline] — a seam meant to be read *on* a
+  /// surface, not against a stage — manages 1.2:1.
+  static const faint = Color(0xFFB4B2CB);
 
   /// The text viewer's paper.
   static const canvas = AppColors.canvasDark;
@@ -104,7 +132,6 @@ abstract final class _ViewerInk {
   // Constant across both app themes already — routed through here so that the
   // viewer has exactly one place colour comes from.
   static const accentLine = AppColors.accentLine;
-  static const accentStrong = AppColors.accentStrong;
 }
 
 /// One entry shown in the viewer. [url] is the authenticated API download path
@@ -754,7 +781,7 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
   );
 
   Widget _topBar(ViewerItem cur, bool phone) {
-    return GlassFloatingSurface(
+    return _ChromeGlass(
       radius: 20,
       child: Padding(
         padding: const EdgeInsets.all(7),
@@ -816,7 +843,7 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
     final isText = renderer == AttachmentPreviewKind.text;
     if (range.max <= range.min && !isText) return const SizedBox.shrink();
 
-    return GlassFloatingSurface(
+    return _ChromeGlass(
       radius: 22,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
@@ -842,7 +869,9 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
                       fontFamily: AppTheme.fontMono,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: _ViewerInk.soft,
+                      // Reads as a value between two buttons, so it carries the
+                      // same weight as the glyphs either side of it.
+                      color: _ViewerInk.ink,
                     ),
                   ),
                 ),
@@ -889,7 +918,7 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
   }
 
   Widget _filmstrip() {
-    return GlassFloatingSurface(
+    return _ChromeGlass(
       radius: 20,
       child: SizedBox(
         height: _stripExtent + 14,
@@ -912,6 +941,40 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
 }
 
 // ════════════════════════════ Chrome pieces ═══════════════════════════════
+
+/// A floating bar of the viewer's chrome: the app's glass, tinted towards the
+/// room it was measured in ([_ViewerInk.chrome]).
+///
+/// [GlassFloatingSurface] alone is a lens — it shows what is behind it, and
+/// behind the viewer's chrome is anything from a near-black photo to a sheet of
+/// white A4. Everything painted on it is authored for the dark end of that
+/// range, so over a PDF the bars faded into the page. The tint pulls the light
+/// end back far enough for the ink to hold there, without turning the lens into
+/// a slab — most of the contrast comes from the ink itself.
+class _ChromeGlass extends StatelessWidget {
+  const _ChromeGlass({required this.radius, required this.child});
+
+  final double radius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassFloatingSurface(
+      radius: radius,
+      // The bar is the only unpositioned child, so the stack takes its size and
+      // the ground fills exactly that — and stays out of hit testing, so the
+      // chrome's own gestures are unchanged.
+      child: Stack(
+        children: [
+          const Positioned.fill(
+            child: IgnorePointer(child: ColoredBox(color: _ViewerInk.chrome)),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
 
 class _Counter extends StatelessWidget {
   const _Counter({required this.label});
@@ -958,14 +1021,16 @@ class _IconAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Disabled is dimmer than [_ViewerInk.soft] but still well clear of the
-    // 3:1 that WCAG asks of a glyph: a control the stage has run out of range
-    // for has to look unavailable, not absent.
+    // An enabled glyph is the brightest ink there is, not the secondary one:
+    // these are the viewer's only controls, and one of them (download) went
+    // unnoticed for being a step quieter than the filename beside it. Disabled
+    // stays dimmer, but still clear of the 3:1 WCAG asks of a glyph — a control
+    // the stage has run out of range for has to look unavailable, not absent.
     final color = !enabled
         ? _ViewerInk.faint
         : active
         ? _ViewerInk.accentInk
-        : _ViewerInk.soft;
+        : _ViewerInk.ink;
     return Tooltip(
       message: tooltip,
       child: Semantics(
@@ -1033,7 +1098,7 @@ class _NavButton extends StatelessWidget {
           child: Semantics(
             button: true,
             label: tooltip,
-            child: GlassFloatingSurface(
+            child: _ChromeGlass(
               radius: 24,
               child: InkWell(
                 customBorder: const CircleBorder(),
@@ -1089,7 +1154,12 @@ class _StripThumb extends StatelessWidget {
                   : km.color.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: selected ? _ViewerInk.accentStrong : Colors.transparent,
+                // The bright amber, not [_ViewerInk.accentStrong]: the deep one
+                // is authored against a dark bar and drops to 2.1:1 once the
+                // filmstrip floats over a white page — under the 3:1 a state
+                // indicator owes. This holds 4.0:1 there and 10.2:1 on the
+                // stage.
+                color: selected ? _ViewerInk.accentInk : Colors.transparent,
                 width: 2,
               ),
             ),

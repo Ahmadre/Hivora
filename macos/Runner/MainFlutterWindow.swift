@@ -10,6 +10,10 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
+    // Hinata: PDF-Anhänge zeigen ihre Formularfelder erst, wenn wir die
+    // Annotationen vorher in die Seiten zeichnen (siehe HinataPdfChannel).
+    HinataPdfChannel.register(with: flutterViewController.engine.binaryMessenger)
+
     // Hinata: native Splash-Animation über dem Flutter-View
     HinataSplashView.present(over: flutterViewController.view)
 

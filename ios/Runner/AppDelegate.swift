@@ -12,5 +12,9 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Hinata: PDF-Anhänge zeigen ihre Formularfelder erst, wenn wir die
+    // Annotationen vorher in die Seiten zeichnen (siehe HinataPdfChannel).
+    HinataPdfChannel.register(with: engineBridge.applicationRegistrar.messenger())
   }
 }

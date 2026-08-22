@@ -24,7 +24,10 @@ void main() {
       // Neither separator survives, so nothing addresses a directory — and
       // `..` is not a file name, it is an instruction.
       expect(safeDownloadName('../../etc/passwd'), isNot(contains('/')));
-      expect(safeDownloadName(r'..\..\windows\system32'), isNot(contains(r'\')));
+      expect(
+        safeDownloadName(r'..\..\windows\system32'),
+        isNot(contains(r'\')),
+      );
       expect(safeDownloadName('..'), 'download');
       expect(safeDownloadName('....'), 'download');
       // A separator becomes an underscore rather than the fallback name: it

@@ -37,6 +37,22 @@ Future<Uint8List> _fetchBytes(BuildContext context, String path) async {
   return bytes;
 }
 
+/// The bytes the PDF stage hands to the rasterizer: the downloaded file, with
+/// its annotations drawn into the pages where the platform would otherwise drop
+/// them ([PdfAnnotations] — Apple only, a pass-through everywhere else).
+///
+/// Deliberately *not* folded into [_fetchBytes]: that cache is what a second
+/// look at the same attachment is served from, and what it holds must stay the
+/// file the server sent. Only this stage wants a redrawn copy of it, and only
+/// for as long as it is on screen — which is also why the copy is not cached
+/// itself. Keeping it would mean a second document in memory for every PDF the
+/// viewer has passed, and the redrawn one is the bigger of the two: a form
+/// comes back around three times its size. What a swipe back costs instead is
+/// one redraw of a document that carries visible annotations at all — a
+/// millisecond or so for the forms this is for.
+Future<Uint8List> _fetchPdfBytes(BuildContext context, String path) =>
+    _fetchBytes(context, path).then(PdfAnnotations.flatten);
+
 /// Forgets a memoized download, so the next [_fetchBytes] really goes back to
 /// the server. What "retry" has to mean: re-awaiting the same future — or
 /// handing back the same LRU entry — would replay the exact bytes that just
@@ -620,14 +636,14 @@ class _PdfPageState extends State<_PdfPage> {
     if (old.item.id != widget.item.id) {
       _failed = false;
       _attempt++;
-      _bytes = _fetchBytes(context, widget.item.url!);
+      _bytes = _fetchPdfBytes(context, widget.item.url!);
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _bytes ??= _fetchBytes(context, widget.item.url!);
+    _bytes ??= _fetchPdfBytes(context, widget.item.url!);
   }
 
   @override
@@ -689,7 +705,7 @@ class _PdfPageState extends State<_PdfPage> {
     setState(() {
       _failed = false;
       _attempt++;
-      _bytes = _fetchBytes(context, url);
+      _bytes = _fetchPdfBytes(context, url);
     });
   }
 

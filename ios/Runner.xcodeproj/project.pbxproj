@@ -18,6 +18,7 @@
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		AB12CD34EF5600000000A002 /* HinataSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5600000000A001 /* HinataSplashView.swift */; };
+		AB12CD34EF5600000000A006 /* HinataPdfChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5600000000A005 /* HinataPdfChannel.swift */; };
 		AB12CD34EF5600000000A004 /* Sora-Variable.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AB12CD34EF5600000000A003 /* Sora-Variable.ttf */; };
 		E0A81A687E0FC2A3AD6AB93E /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 96C9D9564928377F24C16406 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
@@ -70,6 +71,7 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		99E5DF113E8B60069A79FA82 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB12CD34EF5600000000A001 /* HinataSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HinataSplashView.swift; sourceTree = "<group>"; };
+		AB12CD34EF5600000000A005 /* HinataPdfChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HinataPdfChannel.swift; sourceTree = "<group>"; };
 		AB12CD34EF5600000000A003 /* Sora-Variable.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fonts/Sora-Variable.ttf"; sourceTree = "<group>"; };
 		BB31FA6A2C58FF8D28867EC2 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		F3D103E198B0971867E6939A /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
@@ -148,6 +150,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				AB12CD34EF5600000000A001 /* HinataSplashView.swift */,
+				AB12CD34EF5600000000A005 /* HinataPdfChannel.swift */,
 				AB12CD34EF5600000000A003 /* Sora-Variable.ttf */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
@@ -412,6 +415,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				AB12CD34EF5600000000A002 /* HinataSplashView.swift in Sources */,
+				AB12CD34EF5600000000A006 /* HinataPdfChannel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

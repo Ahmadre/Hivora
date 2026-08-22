@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -800,6 +802,44 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
+      testWidgets('on Apple the rasterizer gets the redraw, not the download', (
+        tester,
+      ) async {
+        // Core Graphics paints a page's content stream and nothing else, so on
+        // iOS and macOS the runner redraws the document with its annotations
+        // baked in first (HIN-58). Widget tests run as Android by default,
+        // where [PdfAnnotations.flatten] is a pass-through — which is exactly
+        // why this stage's three call sites could otherwise be reverted to the
+        // plain download with the suite still green.
+        const runner = MethodChannel('hinata/pdf');
+        final redrawn = Uint8List.fromList(const [9, 8, 7, 6, 5]);
+        final asked = <Object?>[];
+        final messenger = tester.binding.defaultBinaryMessenger;
+        messenger.setMockMethodCallHandler(runner, (call) async {
+          asked.add(call.arguments);
+          return call.method == 'flattenAnnotations' ? redrawn : null;
+        });
+        addTearDown(() => messenger.setMockMethodCallHandler(runner, null));
+
+        // Reset inside the body: the binding checks the foundation debug
+        // variables the moment the test returns, before any tearDown runs.
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await openPdf(tester, path: '/dl/flattened');
+          await pumpUntil(tester, sheets);
+          await settle(tester);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+
+        // The runner was handed the file as downloaded…
+        expect(asked, [
+          Uint8List.fromList(const [1, 2, 3, 4]),
+        ]);
+        // …and what it sent back is what got rasterized.
+        expect(printing.lastDoc, redrawn);
+      });
+
       testWidgets(
         'zoom lays the pages out wider, and only then scrolls sideways',
         (tester) async {
@@ -1180,6 +1220,26 @@ void main() {
             .toSet();
         expect(fills, hasLength(1));
 
+        // …and one ground under that fill: the translucent full-bleed box each
+        // bar paints inside the lens (the opaque ones in there belong to the
+        // filmstrip's thumbnails). Read from the tree, not from the token — a
+        // ground quietly lightened is exactly what the paper case below is
+        // here to catch.
+        final grounds = tester
+            .widgetList<ColoredBox>(
+              find.descendant(
+                of: find.byWidgetPredicate(
+                  (w) => w.runtimeType.toString() == '_ChromeGlass',
+                ),
+                matching: find.byType(ColoredBox),
+              ),
+            )
+            .map((b) => b.color)
+            .where((c) => c.a < 1)
+            .toSet();
+        expect(grounds, hasLength(1));
+        final ground = grounds.single;
+
         // The header's two lines, in order: the filename, then the size line
         // that all but disappeared.
         final header = tester
@@ -1252,10 +1312,36 @@ void main() {
             .map((c) => (c.decoration! as BoxDecoration).border!.top.color)
             .firstWhere((c) => c != Colors.transparent);
 
-        for (final brightness in Brightness.values) {
-          final pill = _composite(fills.single, stage(brightness));
-          final why = 'app in $brightness';
+        // What a glyph really sits on — and what is behind the bar is not
+        // always the stage. A picture leaves the near-black showing; a PDF and
+        // a text file are white paper filling the whole viewport, and that is
+        // the backdrop the chrome used to vanish into (HIN-58).
+        //
+        // Over the stage the composite above is the model: fill over ground
+        // over backdrop. Over paper it stops being one. The lens is a shader —
+        // blur, refraction, thickness — and on a white backdrop it lands far
+        // darker than its fill colour alone predicts, so `fill over white`
+        // describes a pill two shades lighter than the one on screen and would
+        // fail a bar that is in fact legible. So the paper case starts from
+        // what the shader really paints: sampled off the running macOS app with
+        // the viewer open on a PDF page. Re-measure the same way if the glass
+        // settings change — screenshot the viewer over a white page and read
+        // the bar next to the filename.
+        const lensOverPaper = Color(0xFF878994);
 
+        final stagePills = <String, Color>{
+          for (final brightness in Brightness.values)
+            'app in $brightness': _composite(
+              fills.single,
+              _composite(ground, stage(brightness)),
+            ),
+        };
+        final pills = <String, Color>{
+          ...stagePills,
+          'white paper': _composite(ground, lensOverPaper),
+        };
+
+        for (final MapEntry(key: why, value: pill) in pills.entries) {
           expect(_contrast(filename, pill), greaterThan(4.5), reason: why);
           expect(_contrast(subtitle, pill), greaterThan(4.5), reason: why);
           expect(_contrast(readout, pill), greaterThan(4.5), reason: why);
@@ -1272,6 +1358,14 @@ void main() {
           );
           expect(_contrast(disabled, enabled), greaterThan(1.3), reason: why);
 
+          expect(_contrast(ring, pill), greaterThan(3), reason: why);
+        }
+
+        // The active state belongs to the text viewer's toggles, and text is
+        // read on this viewer's own dark paper ([_ViewerInk.canvas]) — those
+        // buttons are never the ones floating over a white page, so they are
+        // measured on the stage only.
+        for (final MapEntry(key: why, value: pill) in stagePills.entries) {
           // The active state reads as a state. Its glyph clears AA on its own
           // wash…
           final activeFill = _composite(activeButton.color!, pill);
@@ -1289,7 +1383,6 @@ void main() {
           expect(activeButton.color, isNot(Colors.transparent), reason: why);
           expect(activeGlyph, isNot(enabled), reason: why);
           expect(_contrast(activeEdge, pill), greaterThan(3), reason: why);
-          expect(_contrast(ring, pill), greaterThan(3), reason: why);
         }
       });
 
@@ -1747,6 +1840,10 @@ class _FakePrinting {
 
   int rasterCalls = 0;
 
+  /// The document the rasterizer was actually given — which on Apple is not
+  /// the one that came off the wire.
+  Uint8List? lastDoc;
+
   void install(WidgetTester tester) {
     final messenger = tester.binding.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(_channel, (call) async {
@@ -1757,6 +1854,7 @@ class _FakePrinting {
           rasterCalls++;
           final args = call.arguments as Map<dynamic, dynamic>;
           final doc = args['doc'] as Uint8List;
+          lastDoc = doc;
           // An empty document is what a failed download hands the rasterizer;
           // the real one errors out on it, and so does this.
           _deliver(tester, args['job'] as int, failed: doc.isEmpty);
