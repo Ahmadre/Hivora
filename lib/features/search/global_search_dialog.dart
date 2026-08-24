@@ -14,6 +14,7 @@ import '../../core/storage/app_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../core/branding/org_logo.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../../core/widgets/hive_widgets.dart';
 import 'global_search_controller.dart';

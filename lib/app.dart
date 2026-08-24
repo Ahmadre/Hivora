@@ -10,6 +10,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'core/api/account_event_stream.dart';
 import 'core/api/api_client.dart';
 import 'core/blocs/app_config_bloc.dart';
+import 'core/branding/org_logo_store.dart';
 import 'core/blocs/auth_bloc.dart';
 import 'core/blocs/locale_cubit.dart';
 import 'core/blocs/theme_cubit.dart';
@@ -78,6 +79,7 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
   late final AppConfigBloc _appConfig;
   late final AuthBloc _auth;
   late final LocaleCubit _locale;
+  late final OrgLogoStore _orgLogo;
   late final GoRouter _router;
   late final AccountEventStream _accountEvents;
   late final FcmService _fcm;
@@ -121,6 +123,10 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
       repository: domains.meta,
       storage: widget.storage,
     )..add(const AppConfigStarted());
+    // App-wide, because the organization's logo is chrome: the shell, the
+    // sign-in hero and the admin console all show it, and it must be fetched
+    // once per server rather than once per surface.
+    _orgLogo = OrgLogoStore(meta: domains.meta, api: widget.apiClient);
     _auth = AuthBloc(repository: domains.auth, storage: widget.storage)
       ..add(const AuthChecked());
     widget.apiClient.onSessionExpired = () =>
@@ -529,6 +535,7 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
     _appConfig.close();
     _auth.close();
     _locale.close();
+    _orgLogo.close();
     super.dispose();
   }
 
@@ -571,6 +578,7 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
           BlocProvider.value(value: _appConfig),
           BlocProvider.value(value: _auth),
           BlocProvider.value(value: _locale),
+          BlocProvider.value(value: _orgLogo),
           BlocProvider(create: (_) => ThemeCubit()),
         ],
         child: BlocBuilder<ThemeCubit, ThemeMode>(
@@ -580,8 +588,21 @@ class _HinataAppState extends State<HinataApp> with WidgetsBindingObserver {
                 // Keep the API client's Accept-Language in sync so the server
                 // localizes its error messages to the user's chosen language.
                 widget.apiClient.localeCode = locale.languageCode;
+                // The OS task switcher and the browser tab are chrome like any
+                // other: on a self-hosted instance they should name the
+                // organization. Resolved at runtime — never baked — because one
+                // web bundle serves every deployment. `select` so it follows the
+                // meta arriving after the first connect, rather than staying on
+                // whatever was known at boot.
+                final organization = context
+                    .select<AppConfigBloc, String?>(
+                      (bloc) => bloc.state.meta?.organizationName,
+                    )
+                    ?.trim();
                 return MaterialApp.router(
-                  title: 'Hinata',
+                  title: (organization == null || organization.isEmpty)
+                      ? 'Hinata'
+                      : organization,
                   debugShowCheckedModeBanner: false,
                   theme: AppTheme.light(),
                   darkTheme: AppTheme.dark(),

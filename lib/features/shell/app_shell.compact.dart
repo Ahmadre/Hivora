@@ -379,9 +379,22 @@ class _GlassTopBar extends StatelessWidget {
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () => context.go('/dashboard'),
+                          // Bounded to match the actions side. GlassAppBar lays
+                          // the leading slot out loose and then centres the
+                          // title in `width - 2 * max(leading, actions)`, so a
+                          // leading wider than the actions steals from the
+                          // title twice over — and a logo that grew past it
+                          // would shove the title off its own centre.
                           child: const Padding(
                             padding: EdgeInsets.symmetric(horizontal: 10),
-                            child: HexMark(size: 24, color: AppColors.accent),
+                            child: OrgLogo(
+                              height: 24,
+                              maxWidth: 72,
+                              fallback: HexMark(
+                                size: 24,
+                                color: AppColors.accent,
+                              ),
+                            ),
                           ),
                         ),
                       ),

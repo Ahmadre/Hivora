@@ -1015,7 +1015,7 @@
       "generated": "Erstellt am {{date}}",
       "openLast30Days": "Offen (letzte 30 Tage)",
       "breakdowns": "Auswertungen",
-      "pageFooter": "Hinata · Seite {page}/{pages}"
+      "pageFooter": "{{org}} · Seite {page}/{pages}"
     }
   },
   "knowledge": {
@@ -1195,7 +1195,7 @@
       "clear": "Leeren"
     },
     "empty": {
-      "title": "Durchsuche alles in Hinata",
+      "title": "Durchsuche alles in {{product}}",
       "subtitle": "Finde Vorgänge, Projekte, Personen, Boards und Dokumente — oder führe einen Befehl aus. Tippe los."
     },
     "noMatch": "Keine Treffer für „{{q}}“",
@@ -1205,7 +1205,7 @@
       "open": "öffnen",
       "scope": "Bereich"
     },
-    "brand": "Hinata Suche",
+    "brand": "Suche",
     "cmd": {
       "dashboard": "Zum Dashboard",
       "projects": "Zu Projekte",
@@ -1250,6 +1250,7 @@
     "logoUpload": "Bild hochladen",
     "logoRemove": "Entfernen",
     "logoHint": "Gib eine Bild-URL an oder lade eine Datei hoch (PNG, JPG oder GIF, max. 8 MB). Ein hochgeladenes Logo wird auf deinem Server gespeichert.",
+    "logoVectorLimitation": "Dieses Logo erscheint nur in der App. In E-Mails und exportierten Dokumenten kann es nicht verwendet werden — lade ein PNG oder JPEG hoch, damit es überall auftaucht.",
     "logoUpdated": "Logo aktualisiert",
     "logoRemoved": "Logo entfernt",
     "logoUploadFailed": "Logo konnte nicht hochgeladen werden",

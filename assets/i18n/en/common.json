@@ -1015,7 +1015,7 @@
       "generated": "Generated {{date}}",
       "openLast30Days": "Open (last 30 days)",
       "breakdowns": "Breakdowns",
-      "pageFooter": "Hinata · page {page}/{pages}"
+      "pageFooter": "{{org}} · page {page}/{pages}"
     }
   },
   "knowledge": {
@@ -1195,7 +1195,7 @@
       "clear": "Clear"
     },
     "empty": {
-      "title": "Search anything in Hinata",
+      "title": "Search anything in {{product}}",
       "subtitle": "Find issues, projects, people, boards and docs — or run a command. Start typing."
     },
     "noMatch": "No matches for “{{q}}”",
@@ -1205,7 +1205,7 @@
       "open": "open",
       "scope": "scope"
     },
-    "brand": "Hinata Search",
+    "brand": "Search",
     "cmd": {
       "dashboard": "Go to Dashboard",
       "projects": "Go to Projects",
@@ -1250,6 +1250,7 @@
     "logoUpload": "Upload image",
     "logoRemove": "Remove",
     "logoHint": "Enter an image URL, or upload a file (PNG, JPG or GIF, max 8 MB). An uploaded logo is stored on your server.",
+    "logoVectorLimitation": "This logo only shows inside the app. E-mails and exported documents cannot use it — upload a PNG or JPEG to have it appear everywhere.",
     "logoUpdated": "Logo updated",
     "logoRemoved": "Logo removed",
     "logoUploadFailed": "Couldn't upload the logo",

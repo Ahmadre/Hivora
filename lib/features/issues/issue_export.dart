@@ -185,18 +185,29 @@ const _hinataMarkSvg =
 Future<void> shareIssuesPdf(IssueExportData data) async {
   final doc = await _buildDocument(data);
   final stamp = data.generatedAt.toIso8601String().substring(0, 10);
-  final safeScope = data.scopeLabel
-      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
-      .replaceAll(RegExp(r'^-+|-+$'), '');
+  final safeScope = _slug(data.scopeLabel);
+  // Issued by the organization, like the report export beside it: the masthead
+  // already carries their logo, so the filename and metadata follow.
+  final safeOrg = _slug(data.orgName);
+  final prefix = safeOrg.isEmpty ? 'issues' : '$safeOrg-issues';
   await Printing.sharePdf(
     bytes: await doc.save(),
-    filename:
-        'hinata-issues-${safeScope.isEmpty ? 'all' : safeScope}-$stamp.pdf',
+    filename: '$prefix-${safeScope.isEmpty ? 'all' : safeScope}-$stamp.pdf',
   );
 }
 
+/// Filesystem- and PDF-metadata-safe form of an arbitrary display name.
+String _slug(String value) => value
+    .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+    .replaceAll(RegExp(r'^-+|-+$'), '');
+
 Future<pw.Document> _buildDocument(IssueExportData data) async {
-  final doc = pw.Document(title: 'Hinata · Issues', author: 'Hinata');
+  final org = data.orgName.trim().isEmpty ? 'Hinata' : data.orgName.trim();
+  final doc = pw.Document(
+    title: '$org · Issues',
+    author: org,
+    creator: 'Hinata',
+  );
   final df = _fmtDate(data.generatedAt, data.locale);
   final logo = data.logoBytes == null
       ? null

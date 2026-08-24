@@ -42,7 +42,10 @@ class _Results extends StatelessWidget {
           _EmptyDeep(
             tokens: tokens,
             icon: null,
-            title: context.t('search.empty.title'),
+            title: context.t(
+              'search.empty.title',
+              variables: {'product': orgOrProductName(context)},
+            ),
             subtitle: context.t('search.empty.subtitle'),
           ),
         );

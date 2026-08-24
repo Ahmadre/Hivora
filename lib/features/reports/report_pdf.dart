@@ -94,19 +94,29 @@ const _hairline = PdfColor.fromInt(0xFFE7E5DE);
 Future<void> shareReportPdf(ReportPdfData data) async {
   final doc = await _buildDocument(data);
   final stamp = data.generatedAt.toIso8601String().substring(0, 10);
-  final safeProject = data.projectName
-      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
-      .replaceAll(RegExp(r'^-+|-+$'), '');
+  final safeProject = _slug(data.projectName);
+  // The document is issued by the organization — its masthead already carries
+  // their logo, so the filename and the PDF metadata beneath it should not
+  // still say ours.
+  final safeOrg = _slug(data.orgName);
+  final prefix = safeOrg.isEmpty ? 'report' : '$safeOrg-report';
   await Printing.sharePdf(
     bytes: await doc.save(),
-    filename: 'hinata-report-$safeProject-$stamp.pdf',
+    filename: '$prefix-$safeProject-$stamp.pdf',
   );
 }
 
+/// Filesystem- and PDF-metadata-safe form of an arbitrary display name.
+String _slug(String value) => value
+    .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+    .replaceAll(RegExp(r'^-+|-+$'), '');
+
 Future<pw.Document> _buildDocument(ReportPdfData data) async {
+  final org = data.orgName.trim().isEmpty ? 'Hinata' : data.orgName.trim();
   final doc = pw.Document(
-    title: 'Hinata · ${data.projectName}',
-    author: 'Hinata',
+    title: '$org · ${data.projectName}',
+    author: org,
+    creator: 'Hinata',
   );
 
   final logo = data.logoBytes == null

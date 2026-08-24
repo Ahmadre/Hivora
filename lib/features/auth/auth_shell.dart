@@ -10,6 +10,7 @@ import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass_panel.dart';
+import '../../core/branding/org_logo.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../search/search_tokens.dart';
 
@@ -515,9 +516,17 @@ class _ImageHero extends StatelessWidget {
   }
 }
 
-/// The horizontal brand lockup (amber hex tile + "hinata" wordmark) used in the
-/// hero panes. [onImage] switches the wordmark to a theme-aware colour that
-/// reads over the art.
+/// The horizontal brand lockup at the top of the hero panes: the organization's
+/// mark where one is configured, otherwise the amber hex tile — and in both
+/// cases the "hinata" wordmark beside it. [onImage] switches the wordmark to a
+/// theme-aware colour that reads over the art.
+///
+/// Only the *signet* swaps. The wordmark names the product the reader is about
+/// to sign in to, which is exactly what a person arriving from a mailed link
+/// needs; the mark beside it says whose instance it is. The amber plate is
+/// dropped when a real logo exists, though — a plate is a brand element in its
+/// own right, a full-colour logo on it clashes, and one that brings its own
+/// background reads as a sticker.
 class _BrandRow extends StatelessWidget {
   const _BrandRow({required this.onImage, this.dark = false});
 
@@ -532,15 +541,19 @@ class _BrandRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 46,
+        OrgLogo(
           height: 46,
-          decoration: BoxDecoration(
-            color: AppColors.accent,
-            borderRadius: BorderRadius.circular(13),
+          maxWidth: 190,
+          fallback: Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            alignment: Alignment.center,
+            child: const HexMark(size: 27, color: AppColors.navyDeep),
           ),
-          alignment: Alignment.center,
-          child: const HexMark(size: 27, color: AppColors.navyDeep),
         ),
         const SizedBox(width: 13),
         Text(
