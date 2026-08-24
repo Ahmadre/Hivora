@@ -8,6 +8,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hinata/core/widgets/hive_loader.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/blocs/app_config_bloc.dart';
+import '../../../core/branding/org_logo_store.dart';
 import '../../../core/i18n/i18n.dart';
 import '../../../core/util/file_pick.dart';
 import '../../../core/repositories/admin_repository.dart';
@@ -37,6 +39,16 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
   /// initialValue re-reads) and force the preview past the HTTP cache.
   int _logoVersion = 0;
   bool _logoBusy = false;
+
+  /// Whether the server says the configured logo reaches mails and exported
+  /// documents too, or only the app.
+  ///
+  /// Read from the settings payload rather than guessed from the URL: the server
+  /// has actually tried to decode the bytes, so it also catches a vector served
+  /// without an `.svg` suffix and a URL that cannot be fetched at all — both of
+  /// which look identical to a working logo from here.
+  bool get _logoReachesDocuments =>
+      _general['logoUsableForDocuments'] as bool? ?? true;
 
   /// Whether [url] refers to an uploaded logo (an internal proxy path) rather
   /// than an external URL the admin typed. Mirrors the server's own check.
@@ -85,6 +97,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
         _general['logoUrl'] = url;
         _logoVersion++;
       });
+      _refreshChrome(url);
       showGlassToast(context, updated, kind: GlassToastKind.success);
     } catch (_) {
       if (mounted) showGlassErrorToast(context, failed);
@@ -106,12 +119,26 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
         _general['logoUrl'] = '';
         _logoVersion++;
       });
+      _refreshChrome(null);
       showGlassToast(context, removed, kind: GlassToastKind.success);
     } catch (_) {
       if (mounted) showGlassErrorToast(context, failed);
     } finally {
       if (mounted) setState(() => _logoBusy = false);
     }
+  }
+
+  /// Pushes a just-saved logo into the rest of the app.
+  ///
+  /// Without this the admin sees the new mark in the preview beside them while
+  /// the rail above their head keeps showing the old one until a restart — the
+  /// one place in the product where the change is guaranteed to be noticed.
+  /// The bloc is re-run as well because [AppConfigBloc] writes `meta` only from
+  /// its own events, so `logoUrl` would otherwise stay stale for every surface
+  /// that reads it.
+  void _refreshChrome(String? logoUrl) {
+    context.read<OrgLogoStore>().refresh(logoUrl);
+    context.read<AppConfigBloc>().add(const AppConfigStarted());
   }
 
   static const _timezones = [
@@ -246,6 +273,15 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           keyboardType: TextInputType.url,
         ),
         AdminNote(text: context.t('admin.logoHint'), tone: AdminNoteTone.info),
+        // A logo the server cannot draw shows in the app and nowhere else —
+        // e-mail clients strip SVG, and no decoder here may be pointed at one.
+        // Silence would look like a bug in the mails; the fix is one upload
+        // away, so say so.
+        if (logoUrl.isNotEmpty && !_logoReachesDocuments)
+          AdminNote(
+            text: context.t('admin.logoVectorLimitation'),
+            tone: AdminNoteTone.warning,
+          ),
       ],
     );
   }
@@ -398,14 +434,32 @@ class _LogoPreviewState extends State<_LogoPreview> {
 
   @override
   Widget build(BuildContext context) {
+    // Two grounds, not one. The mark ends up on the paper-white topbar and on
+    // the navy rail and the mail band, and a logo drawn in one ink only reads on
+    // one of them — a white reverse mark vanishes on paper, a navy wordmark
+    // vanishes on navy. On a single neutral swatch both look fine, and the
+    // operator finds out from their users. We deliberately do not "fix" it by
+    // plating the mark: it is their brand, and the honest move is to show them
+    // what it will look like while they can still choose a different file.
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _swatch(AppColors.surfaceMuted, AppColors.hairline),
+        const SizedBox(width: 8),
+        _swatch(AppColors.navyDeep, AppColors.navy),
+      ],
+    );
+  }
+
+  Widget _swatch(Color background, Color border) {
     return Container(
       width: 64,
       height: 64,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
+        color: background,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: border),
       ),
       alignment: Alignment.center,
       child: _loading

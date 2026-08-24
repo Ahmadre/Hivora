@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show GlassContainer, GlassQuality, LiquidRoundedSuperellipse;
 import '../../core/widgets/hive_loader.dart';
+import '../../core/branding/org_logo.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../../core/widgets/glass_panel.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -685,7 +686,15 @@ class _AdminNavRail extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(18, 18, 16, 15),
                 child: Row(
                   children: [
-                    const HexMark(size: 26),
+                    // The admin console is where the logo is configured, two
+                    // clicks away — showing it here closes that loop. The rail
+                    // is a fixed 250 px, so the mark is capped well short of
+                    // the width the title beside it needs.
+                    const OrgLogo(
+                      height: 26,
+                      maxWidth: 68,
+                      fallback: HexMark(size: 26),
+                    ),
                     const SizedBox(width: 11),
                     Expanded(
                       child: Column(

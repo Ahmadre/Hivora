@@ -24,6 +24,7 @@ import '../../core/responsive/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/ambient_background.dart';
+import '../../core/branding/org_logo.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../../core/widgets/honeycomb_background.dart';
 import '../../core/widgets/app_avatar.dart';

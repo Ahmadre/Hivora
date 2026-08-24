@@ -12,6 +12,7 @@ import '../../core/models/oauth_consent.dart';
 import '../../core/models/personal_access_token.dart' show patScopeKey;
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/branding/org_logo.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
@@ -197,7 +198,18 @@ class _ConsentCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Center(child: HexMark(size: 40)),
+          // The card's copy already names the organization; the mark above it
+          // saying "Hinata" is the contradiction this feature exists to fix —
+          // and on a consent screen, showing whose instance is being authorized
+          // is what lets someone recognize a page that is not theirs.
+          const Center(
+            child: OrgLogo(
+              height: 40,
+              maxWidth: 220,
+              alignment: Alignment.center,
+              fallback: HexMark(size: 40),
+            ),
+          ),
           const SizedBox(height: 20),
           Text(
             context.t(

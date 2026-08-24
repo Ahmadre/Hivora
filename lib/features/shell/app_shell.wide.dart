@@ -677,12 +677,22 @@ class _GlassFloatingTopBar extends StatelessWidget {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => context.go('/dashboard'),
+                // Only the signet swaps; the wordmark stays. The shell is the
+                // product you are working in, and the mark beside it says whose
+                // instance it is — dropping "hinata" here would leave the app
+                // itself unnamed on the one surface that is always on screen.
+                // Bounded hard: this Row sits beside an Expanded search field,
+                // so an unclamped logo would squeeze it on a narrow window.
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    HexMark(
-                      size: 26,
-                      color: dark ? AppColors.accent : AppColors.navy,
+                    OrgLogo(
+                      height: 28,
+                      maxWidth: 108,
+                      fallback: HexMark(
+                        size: 26,
+                        color: dark ? AppColors.accent : AppColors.navy,
+                      ),
                     ),
                     const SizedBox(width: 11),
                     Text(

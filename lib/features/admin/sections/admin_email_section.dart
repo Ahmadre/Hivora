@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/branding/org_logo.dart';
 import '../../../core/i18n/i18n.dart';
 import '../admin_form_helpers.dart';
 import 'ingest_connections_card.dart';
@@ -86,7 +87,12 @@ class _AdminEmailSectionState extends State<AdminEmailSection> {
               ),
               AdminField(
                 label: context.t('admin.smtpFromName'),
-                initialValue: (_smtp['fromName'] as String?) ?? 'Hinata',
+                // Seeded from the organization, not from the product: a fresh
+                // instance should mail as whoever runs it. Left blank on the
+                // server, this is exactly what SmtpMailSenderProvider falls
+                // back to anyway — the field just shows what will happen.
+                initialValue:
+                    (_smtp['fromName'] as String?) ?? orgOrProductName(context),
                 onChanged: (v) => _smtp['fromName'] = v,
               ),
             ],

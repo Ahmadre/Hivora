@@ -189,13 +189,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
       }
       // Fetch the org logo through the server-side proxy (same-origin → no web
       // CORS) and rasterize SVGs to PNG before embedding.
+      // Guarded: organizationLogo() returns null for "no logo", but a transport
+      // error throws — and branding must never be the reason an export the user
+      // asked for silently does not happen.
       Uint8List? logoPng;
-      final logoAsset = await metaApi.organizationLogo();
-      if (logoAsset != null) {
-        logoPng = await logoToPng(
-          bytes: logoAsset.bytes,
-          isSvg: logoAsset.isSvg,
-        );
+      try {
+        final logoAsset = await metaApi.organizationLogo();
+        if (logoAsset != null) {
+          logoPng = await logoToPng(
+            bytes: logoAsset.bytes,
+            isSvg: logoAsset.isSvg,
+          );
+        }
+      } catch (_) {
+        logoPng = null;
       }
       if (!mounted) return;
       final failMsg = context.t('reports.exportFailed');
@@ -258,10 +265,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return (title: context.t(titleKey), rows: rows);
     }
 
+    // Whoever issued this document: the organization when the instance names
+    // one, the product only as a last resort. Used by the masthead, the footer,
+    // the PDF metadata and the filename, so it is resolved once.
+    final orgName = (meta?.organizationName?.trim().isNotEmpty ?? false)
+        ? meta!.organizationName!.trim()
+        : 'Hinata';
     return ReportPdfData(
-      orgName: (meta?.organizationName?.trim().isNotEmpty ?? false)
-          ? meta!.organizationName!.trim()
-          : 'Hinata',
+      orgName: orgName,
       logoBytes: logoPng,
       projectName: _projectName(),
       generatedAt: now,
@@ -291,7 +302,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
       noDataLabel: context.t('reports.empty'),
       axis30dLabel: context.t('reports.windowStart'),
       axisTodayLabel: context.t('reports.windowEnd'),
-      pageFooterTemplate: context.t('reports.pdf.pageFooter'),
+      // The footer names whoever issued the document, matching its masthead.
+      pageFooterTemplate: context.t(
+        'reports.pdf.pageFooter',
+        variables: {'org': orgName},
+      ),
     );
   }
 
