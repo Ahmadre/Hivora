@@ -1,8 +1,7 @@
-• Add progressive image loading with BlurHash placeholders
-• Add bulk download-all and delete-all for attachments
-• Add TRIVIAL priority level support
-• Add SSO profile-mapping fields and PKCE toggle to all providers
-• Localize due labels, add key suggestion, and fix attachment grid
-• Restore glyph legibility on active toolbar buttons in dark mode
-• Resolve assignee names and fix capacity bar rendering
-• Retry SSO discovery on cold-start failure and surface errors
+• Add picture upload/remove for teams and projects
+• Show the organization's mark in the chrome, not just in one export (#36)
+• Revert "HIN-59 feat(release): press the App Store release button without a human (#35)"
+• Press the App Store release button without a human (#35)
+• Draw PDF annotations on iOS and macOS (#34)
+• The search button is the tab bar's own, not a second glass (#33)
+• Lift the floating nav out of Android's navigation bar (#32)
