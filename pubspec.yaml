@@ -42,6 +42,14 @@ dependencies:
   # Internationalization (i18next)
   i18next: ^0.9.0
   intl: any
+  # The device's IANA time zone (Europe/Berlin), for the one thing the server
+  # cannot work out for itself: a server-rendered document has to be stamped on
+  # the reader's clock, and nothing in an HTTP request says where the reader is.
+  # Dart alone cannot answer it — DateTime.timeZoneName gives an abbreviation
+  # ("CEST"), and an abbreviation is ambiguous across zones — so this is a
+  # plugin rather than a helper. Every use of it is wrapped: a platform that
+  # cannot answer leaves the export to the organization's configured zone.
+  flutter_timezone: ^5.1.0
 
   # UX
   animations: ^2.0.11

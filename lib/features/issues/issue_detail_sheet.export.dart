@@ -91,9 +91,20 @@ Future<Uint8List> fetchIssueExport(
   ApiClient api,
   String issueId,
   String extension,
-) {
+) async {
+  // The language rides along on Accept-Language, which the client already sends
+  // for whatever the user picked in Settings. The zone has to be asked for: the
+  // server renders the document with its own clock fixed to UTC and nothing in
+  // a request says where the reader is, so without this every timestamp in
+  // every export read "16:39 UTC" — a time nobody's day is measured in.
+  //
+  // Left off when the platform will not answer. The server then stamps the
+  // document in the organization's configured zone, which is still somebody's
+  // deliberate choice rather than the server's own.
+  final zone = await ReaderTimeZone.resolve();
+  final query = zone == null ? '' : '?tz=${Uri.encodeQueryComponent(zone)}';
   return api.getFileBytes(
-    '/api/v1/issues/$issueId/export.$extension',
+    '/api/v1/issues/$issueId/export.$extension$query',
     // Laying out a document takes longer than answering with a row, and the
     // default receive window is sized for the latter.
     receiveTimeout: const Duration(seconds: 60),

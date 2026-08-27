@@ -1506,13 +1506,13 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (issue == null || _busy) return;
     final choice = await showIssueExportMenu(context, anchorRect: anchor);
     if (choice == null || !mounted) return;
-    // Captured before the first await: on iPad the share sheet is a popover
-    // that needs the bounds of what opened it, and a render object is only
-    // valid on the frame it was read in.
-    final box = context.findRenderObject() as RenderBox?;
-    final origin = (box != null && box.hasSize)
-        ? box.localToGlobal(Offset.zero) & box.size
-        : null;
+    // The share sheet is anchored to the menu button that opened it, not to
+    // this widget. That is nicer on an iPad — the popover grows out of the "…"
+    // the user pressed — and on an iPhone it is the difference between an
+    // export and an error: `context` here is the sheet's scrolling body, which
+    // is routinely two or three screens tall, and UIKit refuses a popover
+    // anchor that does not fit inside the window. See [shareOriginOf].
+    final origin = shareOriginOf(context, preferred: anchor);
     final api = context.read<ApiClient>();
     setState(() => _busy = true);
     try {
