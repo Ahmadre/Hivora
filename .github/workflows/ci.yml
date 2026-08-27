@@ -40,6 +40,14 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
+      # The store notes are text files anybody can edit, and a wrong line in one
+      # of them is not caught by a compiler — it is caught by a reviewer at
+      # Apple, Google or Microsoft, weeks later, as a rejected submission. So
+      # they are checked here, on every push, the same as the code: no note may
+      # name a platform other than the store it belongs to, and none may be a
+      # revert. 10.2.0 shipped both mistakes.
+      - name: Audit the store release notes
+        run: python3 tool/gen_changelog.py --check
       # The Linux audio plugin is a package of its own, and analysis_options.yaml
       # excludes packages/ — so the two commands above never see it. Its Dart
       # half is the contract between the app and ~500 lines of C++, which is

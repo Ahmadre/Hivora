@@ -1,7 +1,27 @@
+• Show the organization's mark in the chrome, not just in one export
+• The search button is the tab bar's own, not a second glass
+• Take the secure-storage fix that stops a use-after-free
+• Make the metainfo pass Flathub's validation
+• Repair what the security round broke, and finish it
+• Answer load() from the bus instead of blocking on it
+• Close what the security review found
+• Deep-link handling, packaging, CI and the platform matrix
+• Survive a desktop with no XDG user directories
+• Name the missing program when a dialog or mic fails
+• Stop offering what the platform cannot do
+• Save to Downloads where there is no share sheet
+• Print and export a single issue from the "…" menu
+• Offer the attachments switch in the clone dialog
+• Rebuild the clone dialog only when the answer changes
+• Cap the clone summary in the units the server counts
+• Clone an issue from the detail sheet
+• Label the new MCP attachment-read audit event
+• Bound the watcher roster in the "…" menu
+• Make the viewer's controls readable in light mode
+• Let the viewer zoom out, and stop PDFs fighting the zoom
+• Let anyone follow an issue and hear about every change
 • Add picture upload/remove for teams and projects
-• Show the organization's mark in the chrome, not just in one export (#36)
-• Revert "HIN-59 feat(release): press the App Store release button without a human (#35)"
-• Press the App Store release button without a human (#35)
-• Draw PDF annotations on iOS and macOS (#34)
-• The search button is the tab bar's own, not a second glass (#33)
-• Lift the floating nav out of Android's navigation bar (#32)
+• Take every foreign-platform trace out of the store images
+• Reliably deliver email links on cold start and boot
+• Retry the listing update until the Store accepts it
+• Spell the search shortcut the way the platform does
