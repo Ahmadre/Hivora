@@ -1,27 +1,5 @@
-• Show the organization's mark in the chrome, not just in one export
-• The search button is the tab bar's own, not a second glass
-• Take the secure-storage fix that stops a use-after-free
-• Make the metainfo pass Flathub's validation
-• Repair what the security round broke, and finish it
-• Answer load() from the bus instead of blocking on it
-• Close what the security review found
-• Deep-link handling, packaging, CI and the platform matrix
-• Survive a desktop with no XDG user directories
-• Name the missing program when a dialog or mic fails
-• Stop offering what the platform cannot do
-• Save to Downloads where there is no share sheet
-• Print and export a single issue from the "…" menu
-• Offer the attachments switch in the clone dialog
-• Rebuild the clone dialog only when the answer changes
-• Cap the clone summary in the units the server counts
-• Clone an issue from the detail sheet
-• Label the new MCP attachment-read audit event
-• Bound the watcher roster in the "…" menu
-• Make the viewer's controls readable in light mode
-• Let the viewer zoom out, and stop PDFs fighting the zoom
-• Let anyone follow an issue and hear about every change
-• Add picture upload/remove for teams and projects
-• Take every foreign-platform trace out of the store images
-• Reliably deliver email links on cold start and boot
-• Retry the listing update until the Store accepts it
-• Spell the search shortcut the way the platform does
+• Exports now read in your own language, not always in English
+• Dates and times in an export are shown in your time zone, in your language's format
+• Mentions and links to issues, people and wiki pages now appear by name in an export instead of as internal ids
+• Saving or sharing an export no longer fails
+• Several smaller fixes and refinements

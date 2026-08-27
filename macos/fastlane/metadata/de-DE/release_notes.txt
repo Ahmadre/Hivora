@@ -1,1 +1,5 @@
-• Verbesserungen und Fehlerbehebungen.
+• Exporte sind jetzt in deiner Sprache verfasst und nicht mehr immer auf Englisch
+• Datum und Uhrzeit erscheinen im Export in deiner Zeitzone und im Format deiner Sprache
+• Erwähnungen und Verweise auf Vorgänge, Personen und Wiki-Seiten stehen im Export jetzt mit Namen statt als interne IDs
+• Exporte lassen sich wieder zuverlässig speichern und teilen
+• Mehrere kleinere Korrekturen und Verbesserungen
