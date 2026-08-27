@@ -76,6 +76,9 @@ permissions:
 # flutter-action use below.
 env:
   FLUTTER_VERSION: 3.47.0
+  # Microsoft Store Developer CLI. Pinned rather than `latest` — see the
+  # "Set up Microsoft Store CLI" step for what floating on latest cost.
+  MSSTORE_CLI_VERSION: v0.4.1
 
 jobs:
   android:
@@ -307,9 +310,21 @@ jobs:
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       # Installs the Microsoft Store Developer CLI (msstore) onto the runner.
+      #
+      # The version is pinned, for the same reason the runner image is. The
+      # action's default is `latest`, so the CLI this job runs used to change
+      # under it without a commit here — and it did: v0.4.0 added
+      # `--uploadTimeout` with a broken default (microsoft/msstore-cli#162),
+      # which cancels every Azure blob request the instant it starts and turned
+      # every publish into "Error while uploading the application package" at
+      # 1 %. `windows release` works around that bug by passing the option
+      # explicitly, and passing it is only safe while the pinned CLI is one
+      # that HAS the option — v0.4.0 or newer. Move the two together.
       - name: Set up Microsoft Store CLI
         if: ${{ inputs.submit == 'true' }}
-        uses: microsoft/microsoft-store-apppublisher@v1.1
+        uses: microsoft/microsoft-store-apppublisher@v1.4
+        with:
+          version: ${{ env.MSSTORE_CLI_VERSION }}
       # Values go through the environment, never spliced into the command line:
       # an interpolated secret that is empty (or carries a space) rewrites the
       # argument list itself. PowerShell here on purpose — msstore resolves on
@@ -346,7 +361,7 @@ jobs:
         run: |
           msstore apps list
           if ($LASTEXITCODE -ne 0) {
-            Write-Output "::warning title=Store account exposes no apps::The credentials authenticate, but Partner Center returns no managed applications for them. Check that the Entra app regist[...]
+            Write-Output "::warning title=Store account exposes no apps::The credentials authenticate but Partner Center lists no applications for them - check that the Entra app registration is the one added to the Partner Center account, and that SELLER_ID belongs to that same account. See release/MANUAL_STEPS_WINDOWS.md section 3."
           }
       - name: Build & package (and upload on publish)
         shell: bash
@@ -637,7 +652,27 @@ jobs:
             # reviewed, and an arm64 user would briefly see no candidate at all.
             out=$(snapcraft upload "$f" 2>&1) || { echo "$out"; exit 1; }
             echo "$out"
-            rev=$(echo "$out" | sed -n 's/.*revision \([0-9][0-9]*\).*/\1/p' | tail -1)
+            # snapcraft draws a progress spinner, so its whole output can arrive
+            # as one line separated by carriage returns; and it announces the
+            # result as "Revision 3 created for 'hinata'" — capital R. The old
+            # pattern matched neither, so an upload that had plainly succeeded
+            # ("Status: ready to release!", "Revision 3 created") was reported as
+            # "could not read a revision number" and painted the run red with
+            # both architectures sitting in the store. Split on CR, match either
+            # spelling, and take the last one the upload printed.
+            rev=$(printf '%s' "$out" | tr '\r' '\n' \
+              | sed -n 's/.*[Rr]evision[ :]*\([0-9][0-9]*\).*/\1/p' | tail -1)
+            # Second answer, in case a future snapcraft words it differently
+            # again: ask the store which revision this architecture is on. The
+            # upload has already happened at this point, so the newest revision
+            # for that architecture is the one it just created — and reading it
+            # back is a far more stable contract than the wording of a log line.
+            if [ -z "$rev" ]; then
+              arch=${f##*_}; arch=${arch%.snap}
+              echo "Upload output did not name a revision; asking the store for the newest $arch one."
+              rev=$(snapcraft list-revisions hinata --arch "$arch" 2>/dev/null \
+                | awk '$1 ~ /^[0-9]+$/ { if ($1+0 > max) max = $1+0 } END { if (max) print max }')
+            fi
             [ -n "$rev" ] || { echo "::error::could not read a revision number for $f"; exit 1; }
             revisions="$revisions $rev"
             echo "::endgroup::"

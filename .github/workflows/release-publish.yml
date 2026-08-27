@@ -7,13 +7,16 @@ name: Publish (button)
 #
 # What it does, in order:
 #   1. Bumps pubspec.yaml on main (Android versionCode always +1).
-#   2. Auto-generates SEMANTIC "What's New" release notes from the commits since
-#      the last release and writes them into every platform's Fastlane changelog:
+#   2. Writes the "What's New" notes into every store's metadata:
 #        android/fastlane/metadata/android/<loc>/changelogs/<versionCode>.txt
 #        ios/fastlane/metadata/<loc>/release_notes.txt
 #        macos/fastlane/metadata/<loc>/release_notes.txt
-#      (Claude writes clean EN+DE copy when ANTHROPIC_API_KEY is set; otherwise a
-#       deterministic Conventional-Commit fallback runs.)
+#        windows/store/listing.json  →  releaseNotes per listing language
+#      The copy comes from release/notes/<version>.json when that file exists
+#      (write it — it is the only source that produces real German), otherwise
+#      from Claude if ANTHROPIC_API_KEY is set, otherwise from the commits.
+#      Whichever source answers, each store's note is then filtered so it can
+#      never name another platform, and the run is gated on that check.
 #   3. Commits + tags vX.Y.Z.
 #   4. Builds & SUBMITS to the stores for review — App Store + Mac App Store
 #      (submit_for_review), Google Play (production track) and the Microsoft
@@ -83,15 +86,26 @@ jobs:
           tag="v$new_name"
           git rev-parse "$tag" >/dev/null 2>&1 && { echo "✗ Tag $tag exists"; exit 1; }
 
-          # 1) generate localized changelogs from the commits since the last tag
+          # 1) generate the localized store notes. Source order is
+          #    release/notes/<version>.json → Claude → the commits themselves;
+          #    whichever answers, the result is filtered per store so no
+          #    listing can name another platform.
           python3 tool/gen_changelog.py "$new_code" --version "$new_name" --write
+
+          # 1b) and prove it, on the files as they now sit on disk. This gate is
+          #    why the run exists in this order: 10.2.0 shipped notes naming iOS,
+          #    macOS and Android to all three stores plus a "Revert "…"" line,
+          #    and the macOS submission was rejected for it. Nothing gets tagged
+          #    until every note is clean.
+          python3 tool/gen_changelog.py --check
 
           # 2) bump the version
           sed -i "s/^version: .*/version: $new_version/" pubspec.yaml
 
-          # 3) commit everything (pubspec + generated changelog files) + tag
-          git add pubspec.yaml \
-            android/fastlane/metadata/android ios/fastlane/metadata macos/fastlane/metadata
+          # 3) commit everything (pubspec + generated store notes) + tag
+          git add pubspec.yaml release/notes \
+            android/fastlane/metadata/android ios/fastlane/metadata macos/fastlane/metadata \
+            windows/store/listing.json
           git commit -m "release: $new_version"
           git tag "$tag"
           git push origin HEAD:main

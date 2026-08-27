@@ -12,6 +12,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_image.dart';
 import '../../../core/util/file_download.dart';
+import '../../../core/util/share_origin.dart';
 import '../../../core/util/file_pick.dart';
 import '../../../core/widgets/glass_popup_menu.dart';
 import '../../../core/widgets/hive_loader.dart';
@@ -439,12 +440,12 @@ class AttachmentsSectionState extends State<AttachmentsSection> {
     String fileName, {
     String? fallbackMime,
   }) async {
-    // Capture the iPad share-popover anchor before any async gap (the render
-    // object is only valid on the current frame's context).
-    final box = context.findRenderObject() as RenderBox?;
-    final origin = (box != null && box.hasSize)
-        ? box.localToGlobal(Offset.zero) & box.size
-        : null;
+    // Capture the share-popover anchor before any async gap (the render object
+    // is only valid on the current frame's context). Clipped to the window on
+    // the way out: this section grows with the number of attachments and is
+    // taller than the screen well before it looks unusual, and UIKit rejects
+    // an anchor that does not fit inside the window rather than clamping it.
+    final origin = shareOriginOf(context);
     try {
       final res = await context.read<ApiClient>().getBytes(path);
       if (res == null) {

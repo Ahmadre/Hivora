@@ -1,0 +1,5 @@
+{
+  "_comment": "Hand-written store release notes for 10.2.1, in both listing languages. tool/gen_changelog.py prefers this file over anything it can derive from the commits, then runs it through the same per-store platform gate as every other source — so keep every line free of operating-system, device and store names. One line per bullet; the leading bullet character is added when the note is written.",
+  "en": "Exports now read in your own language, not always in English\nDates and times in an export are shown in your time zone, in your language's format\nMentions and links to issues, people and wiki pages now appear by name in an export instead of as internal ids\nSaving or sharing an export no longer fails\nSeveral smaller fixes and refinements",
+  "de": "Exporte sind jetzt in deiner Sprache verfasst und nicht mehr immer auf Englisch\nDatum und Uhrzeit erscheinen im Export in deiner Zeitzone und im Format deiner Sprache\nErwähnungen und Verweise auf Vorgänge, Personen und Wiki-Seiten stehen im Export jetzt mit Namen statt als interne IDs\nExporte lassen sich wieder zuverlässig speichern und teilen\nMehrere kleinere Korrekturen und Verbesserungen"
+}
