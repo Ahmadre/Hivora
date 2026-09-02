@@ -78,7 +78,7 @@ env:
   FLUTTER_VERSION: 3.47.0
   # Microsoft Store Developer CLI. Pinned rather than `latest` — see the
   # "Set up Microsoft Store CLI" step for what floating on latest cost.
-  MSSTORE_CLI_VERSION: v0.4.1
+  MSSTORE_CLI_VERSION: v0.4.2
 
 jobs:
   android:
@@ -317,9 +317,11 @@ jobs:
       # `--uploadTimeout` with a broken default (microsoft/msstore-cli#162),
       # which cancels every Azure blob request the instant it starts and turned
       # every publish into "Error while uploading the application package" at
-      # 1 %. `windows release` works around that bug by passing the option
-      # explicitly, and passing it is only safe while the pinned CLI is one
-      # that HAS the option — v0.4.0 or newer. Move the two together.
+      # 1 %. That bug is fixed by #163 and released in v0.4.2, the version
+      # pinned above, so `windows release` no longer has to pass the option to
+      # dodge it. It still passes one, but now only as a deliberate timeout for
+      # this package's size — see the Fastfile. Keep the pin at v0.4.0 or newer
+      # so the option it passes continues to exist.
       - name: Set up Microsoft Store CLI
         if: ${{ inputs.submit == 'true' }}
         uses: microsoft/microsoft-store-apppublisher@v1.4
