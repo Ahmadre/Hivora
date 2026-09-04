@@ -534,6 +534,11 @@ class HinataEditorState extends State<HinataEditor> {
             // quick actions on the same gesture, and two menus stacked on one
             // another is what the writer got before.
             contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+            // Suppressing the platform menu hides it; this is what says one
+            // was asked for. Without it a long press on an empty field had
+            // nowhere to offer paste from.
+            onContextMenu: () =>
+                _quickKey.currentState?.showContextActions(),
           ),
           Positioned(
             left: 0,

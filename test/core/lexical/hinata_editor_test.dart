@@ -563,6 +563,31 @@ void main() {
       expect(stripAfter.bottom, lessThanOrEqualTo(400));
     });
 
+    testWidgets('a long press on an empty field still offers somewhere to '
+        'paste', (tester) async {
+      // Nothing at all used to happen here. A long press selects the word
+      // under the finger, an empty document has none, and both the platform
+      // menu and these actions were gated on there being a selection — so
+      // pasting into an empty description was impossible.
+      await pump(tester, size: const Size(600, 700));
+
+      final field = tester.getRect(find.byType(LexicalEditorField));
+      await tester.longPressAt(Offset(field.left + 40, field.top + 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('common.paste'), findsOneWidget);
+      // Formatting nothing is not an action, so the quick actions offer none —
+      // scoped to the overlay, since the editor's own toolbar has a bold
+      // button either way.
+      expect(
+        find.descendant(
+          of: find.byType(GlassFloatingSurface),
+          matching: find.byTooltip('md.bold'),
+        ),
+        findsNothing,
+      );
+    });
+
     testWidgets('the quick actions never cover the toolbar they sit above', (
       tester,
     ) async {

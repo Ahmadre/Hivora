@@ -1129,7 +1129,8 @@
     "kindIssue": "Issue",
     "kindDoc": "Article",
     "kindUser": "Person",
-    "imageFailed": "This image could not be loaded."
+    "imageFailed": "This image could not be loaded.",
+    "selectAll": "Select all"
   },
   "weeklySummary": {
     "title": "Weekly Summary",

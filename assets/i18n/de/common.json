@@ -1129,7 +1129,8 @@
     "kindIssue": "Issue",
     "kindDoc": "Artikel",
     "kindUser": "Person",
-    "imageFailed": "Dieses Bild konnte nicht geladen werden."
+    "imageFailed": "Dieses Bild konnte nicht geladen werden.",
+    "selectAll": "Alles auswählen"
   },
   "weeklySummary": {
     "title": "Wochenübersicht",

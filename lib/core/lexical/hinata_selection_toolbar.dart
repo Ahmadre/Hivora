@@ -58,6 +58,13 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   bool _editingLink = false;
   bool _suppressed = false;
 
+  /// Whether the actions are showing for a bare caret rather than a selection.
+  ///
+  /// Only ever true because the writer asked — a long press or a right-click.
+  /// Quick actions that followed the caret around unasked would sit over the
+  /// words on every keystroke.
+  bool _atCaret = false;
+
   @override
   void initState() {
     super.initState();
@@ -106,9 +113,11 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     if (rects.isNotEmpty) {
       return rects.reduce((a, b) => a.expandToInclude(b));
     }
-    // A caret with no range: only the link editor wants the toolbar then —
-    // quick actions over nothing are noise the writer has to dismiss.
-    if (!_editingLink) return null;
+    // A caret with no range: the link editor wants the toolbar then, and so
+    // does a writer who long-pressed and is waiting for somewhere to paste.
+    // Nothing else — quick actions that followed the caret unasked would be
+    // noise over the words on every keystroke.
+    if (!_editingLink && !_atCaret) return null;
     final caret = editable.caretRect;
     if (caret != null) return caret;
     // Pressed with the editor never focused, so there is no caret to point at.
@@ -116,6 +125,22 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     // a button that silently does nothing is the worse of the two.
     final bounds = editable.editableBounds;
     return bounds == null ? null : Rect.fromLTWH(bounds.left, bounds.top, 0, 0);
+  }
+
+  /// Shows the actions over the caret, for a writer who asked for a menu
+  /// where there is nothing selected.
+  ///
+  /// The case that had nothing at all: a long press on an *empty* field. There
+  /// is no word there to select, so there was no range, so neither the
+  /// platform's menu nor these actions ever appeared — and pasting into an
+  /// empty description was impossible.
+  void showContextActions() {
+    if (!mounted) return;
+    final hasRange =
+        widget.editableKey.currentState?.selectionRects.isNotEmpty ?? false;
+    if (hasRange) return _sync();
+    if (!_atCaret) setState(() => _atCaret = true);
+    _sync();
   }
 
   /// The lowest edge of anything the toolbar must stay under.
@@ -172,7 +197,13 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   void _hide() {
     if (_entry == null) return;
     _detach();
-    if (_editingLink && mounted) setState(() => _editingLink = false);
+    if (!mounted) return;
+    if (_editingLink || _atCaret) {
+      setState(() {
+        _editingLink = false;
+        _atCaret = false;
+      });
+    }
   }
 
   /// Removes the overlay without deciding anything about the link editor.
@@ -302,7 +333,39 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     TextFormat.code: (LucideIcons.code, 'md.inlineCode'),
   };
 
+  /// The actions offered over a bare caret.
+  ///
+  /// Formatting nothing is not an action, and neither is copying it: what is
+  /// left is putting something there, and selecting what is already there.
+  Widget _caretActions(BuildContext context) => ExcludeFocus(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _OverlayButton(
+            icon: LucideIcons.clipboardPaste,
+            tooltipKey: 'common.paste',
+            onTap: _paste,
+          ),
+          _OverlayButton(
+            icon: LucideIcons.textSelect,
+            tooltipKey: 'md.selectAll',
+            onTap: _selectAll,
+          ),
+        ],
+      ),
+    ),
+  );
+
+  void _selectAll() {
+    widget.editableKey.currentState?.selectAll();
+    if (mounted) setState(() => _atCaret = false);
+    _sync();
+  }
+
   Widget _actions(BuildContext context) {
+    if (_atCaret) return _caretActions(context);
     final linked = _currentLink != null;
     // The buttons must not take focus: the editor would lose the selection they
     // are about to act on, and on a phone the keyboard would drop.
