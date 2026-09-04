@@ -2240,6 +2240,8 @@
       "username": "Benutzername",
       "jobTitle": "Position",
       "jobTitleHint": "z. B. Maintainer",
+      "pronouns": "Pronomen",
+      "pronounsHint": "z. B. sie/ihr",
       "save": "Änderungen speichern"
     },
     "emailModal": {

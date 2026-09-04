@@ -759,16 +759,35 @@ class _AccountScreenState extends State<AccountScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                me.displayName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontBrand,
-                  fontSize: compact ? 18 : 20,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Flexible(
+                    child: Text(
+                      me.displayName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontBrand,
+                        fontSize: compact ? 18 : 20,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  if ((me.pronouns ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      me.pronouns!.trim(),
+                      style: TextStyle(
+                        fontSize: compact ? 12 : 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               Text(
