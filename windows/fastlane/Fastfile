@@ -127,19 +127,19 @@ platform :windows do
     # `submission publish` that used to follow it was not a second stage — it
     # tried to commit an already-committed submission and died on "This
     # submission is in certification", painting a successful release red.
-    # `--uploadTimeout` is passed even though its documented default is exactly
-    # this value, because the default is not applied. The option's parser only
-    # runs when the option is present on the command line, so omitting it leaves
-    # the value at `default(long)` — zero — and that zero becomes the Azure blob
-    # client's NetworkTimeout (microsoft/msstore-cli#162). Every request is then
-    # cancelled the instant it starts, the retry policy burns six attempts, and
-    # the publish dies at "Error while uploading the application package" having
-    # transferred almost nothing. Naming the value is what makes the parser run.
+    # `--uploadTimeout` is passed as a deliberate timeout for this package, not
+    # as a bug workaround. It used to be both: microsoft/msstore-cli#162 meant
+    # an omitted option left the value at `default(long)` — zero — which became
+    # the Azure blob client's NetworkTimeout, cancelling every request the
+    # instant it started. That is fixed by #163 and released in v0.4.2, which
+    # MSSTORE_CLI_VERSION now pins, so omitting the option would correctly give
+    # the documented 100 s default.
     #
-    # It is also a genuinely better value than 100 s for this package: the MSIX
-    # is ~26 MB and a hosted runner's uplink is not always fast. Drop this only
-    # once the pinned MSSTORE_CLI_VERSION includes the fix for #162 — and even
-    # then, passing it explicitly costs nothing.
+    # It is kept because 600 s is still a genuinely better value than 100 s for
+    # this package. The CLI sets no StorageTransferOptions, so a ~26 MB MSIX is
+    # uploaded as a single PUT and NetworkTimeout has to cover the whole
+    # transfer rather than one chunk — 100 s would demand a sustained ~260 kB/s
+    # from a hosted runner's uplink for the entire upload.
     args = ["publish", msix_path, "-id", product_id, "--uploadTimeout", "600"]
     args << "--noCommit" unless ENV["SUBMIT"] == "true"
     sh("msstore", *args)
