@@ -18,6 +18,7 @@ class AccountRepository {
   Future<Me> updateMyProfile({
     String? displayName,
     String? title,
+    String? pronouns,
     String? locale,
   }) async => Me.fromJson(
     await _api.patch(
@@ -25,6 +26,7 @@ class AccountRepository {
           body: {
             'displayName': ?displayName,
             'title': ?title,
+            'pronouns': ?pronouns,
             'locale': ?locale,
           },
         )

@@ -37,6 +37,7 @@ class _EditProfileModal extends StatefulWidget {
 class _EditProfileModalState extends State<_EditProfileModal> {
   late final _name = TextEditingController(text: widget.me.displayName);
   late final _title = TextEditingController(text: widget.me.title ?? '');
+  late final _pronouns = TextEditingController(text: widget.me.pronouns ?? '');
   // Read-only username field — a single State-owned controller, not one
   // reconstructed every build (which leaked an undisposed controller per rebuild).
   late final _username = TextEditingController(text: widget.me.username);
@@ -47,6 +48,7 @@ class _EditProfileModalState extends State<_EditProfileModal> {
   void dispose() {
     _name.dispose();
     _title.dispose();
+    _pronouns.dispose();
     _username.dispose();
     super.dispose();
   }
@@ -63,6 +65,7 @@ class _EditProfileModalState extends State<_EditProfileModal> {
       final saved = await widget.repo.updateMyProfile(
         displayName: _name.text.trim(),
         title: _title.text.trim(),
+        pronouns: _pronouns.text.trim(),
       );
       if (mounted) Navigator.of(context).maybePop(saved);
     } on ApiFailure catch (f) {
@@ -120,9 +123,20 @@ class _EditProfileModalState extends State<_EditProfileModal> {
                   label: context.t('account.editModal.jobTitle'),
                   child: TextField(
                     controller: _title,
-                    textInputAction: TextInputAction.done,
+                    textInputAction: TextInputAction.next,
                     decoration: glassInputDecoration(
                       hint: context.t('account.editModal.jobTitleHint'),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                GlassField(
+                  label: context.t('account.editModal.pronouns'),
+                  child: TextField(
+                    controller: _pronouns,
+                    textInputAction: TextInputAction.done,
+                    decoration: glassInputDecoration(
+                      hint: context.t('account.editModal.pronounsHint'),
                     ),
                   ),
                 ),

@@ -41,6 +41,7 @@ class Me extends Equatable {
     required this.notificationPreferences,
     this.pendingEmail,
     this.title,
+    this.pronouns,
     this.locale = 'en',
     this.avatarUrl,
     this.createdAt,
@@ -54,6 +55,7 @@ class Me extends Equatable {
   final bool emailVerified;
   final String? pendingEmail;
   final String? title;
+  final String? pronouns;
   final String locale;
   final String? avatarUrl;
   final AuthOrigin origin;
@@ -67,6 +69,7 @@ class Me extends Equatable {
   Me copyWith({
     String? displayName,
     String? title,
+    String? pronouns,
     String? avatarUrl,
     bool clearAvatar = false,
   }) => Me(
@@ -77,6 +80,7 @@ class Me extends Equatable {
     emailVerified: emailVerified,
     pendingEmail: pendingEmail,
     title: title ?? this.title,
+    pronouns: pronouns ?? this.pronouns,
     locale: locale,
     avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
     origin: origin,
@@ -107,6 +111,7 @@ class Me extends Equatable {
     emailVerified: json['emailVerified'] as bool? ?? true,
     pendingEmail: json['pendingEmail'] as String?,
     title: json['title'] as String?,
+    pronouns: json['pronouns'] as String?,
     locale: json['locale'] as String? ?? 'en',
     avatarUrl: json['avatarUrl'] as String?,
     origin: AuthOrigin.fromWire(json['origin'] as String?),
@@ -130,6 +135,7 @@ class Me extends Equatable {
     emailVerified,
     pendingEmail,
     title,
+    pronouns,
     locale,
     twoFactor,
   ];
