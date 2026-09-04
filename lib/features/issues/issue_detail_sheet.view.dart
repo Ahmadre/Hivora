@@ -817,10 +817,18 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     );
   }
 
-  Future<void> _submitComment() async {
+  Future<void> _submitComment([String? doc]) async {
     final text = _comment.text.trim();
-    if (text.isEmpty || _sendingComment) return;
+    // A document can carry something worth posting and still read as empty
+    // text — an image, a rule, a table of nothing but headers. The composer
+    // enables its send button on the document, so gating the send on the
+    // mirrored plain text alone silently threw those away: the sheet closed
+    // and nothing was posted.
+    if ((text.isEmpty && doc == null) || _sendingComment) return;
     // Editing an existing comment inline → save instead of posting a new one.
+    // Text only: format mode is not reachable while editing (the composer
+    // swaps the "+" menu for a cancel button), so there is no document here to
+    // lose. If that gate ever opens, this branch has to carry `doc` too.
     final editing = _editingComment;
     if (editing != null) {
       final ok = await _editComment(editing, text);
@@ -840,6 +848,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         widget.issueId,
         text,
         replyToId: replyTarget?.id,
+        doc: doc,
       );
       _comment.clear();
       if (!mounted) return;
@@ -1461,6 +1470,17 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     await _syncReferencedIssues();
   }
 
+  /// Saves a checklist item ticked in the rendered description.
+  ///
+  /// The one edit a reader can make without opening the editor. It goes through
+  /// the same patch as a real edit, so the server decides whether they are
+  /// allowed to make it — a box that ticks locally and never saves is worse
+  /// than one that does nothing.
+  Future<void> _saveCheckedDescription(String doc) async {
+    if (_editingDesc) return;
+    await _patch({'descriptionDoc': doc});
+  }
+
   /// The route back button (compact full-screen has no shell nav to fall back
   /// on): pop if there's a page underneath, otherwise — e.g. a cold-start deep
   /// link straight into the issue — go home so the user is never stranded.
@@ -2022,7 +2042,11 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               // markdown; "no description" would be a lie about a row that has
               // one.
               child: _describedDoc(issue) != null
-                  ? HinataDocument(doc: _describedDoc(issue), fontSize: 14)
+                  ? HinataDocument(
+                      doc: _describedDoc(issue),
+                      fontSize: 14,
+                      onChecked: _saveCheckedDescription,
+                    )
                   : Text(
                       context.t('issues.noDescription'),
                       style: TextStyle(
@@ -3038,7 +3062,6 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     return GlassCommentComposer(
       controller: _comment,
       focusNode: _commentFocus,
-      actions: _commentActions,
       editing: _editingComment != null,
       onCancelEdit: _cancelEditComment,
       replyingToName: replying == null

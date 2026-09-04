@@ -17,8 +17,13 @@ import '../../../core/i18n/i18n.dart';
 import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/markdown_toolbar.dart';
-import '../../../core/lexical/hinata_markdown_preview.dart';
+import 'package:lexical_editor_flutter/lexical_editor_flutter.dart'
+    show TextFormat;
+
+import '../../../core/lexical/hinata_editor.dart';
+import '../../../core/lexical/hinata_editor_controller.dart';
+import '../../../core/lexical/hinata_editing.dart';
+import '../../../core/lexical/hinata_markdown_preview.dart' show markdownToDocument;
 import '../../knowledge/markdown/mention_field.dart';
 import '../../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'voice/voice_recorder.dart';
@@ -103,15 +108,18 @@ enum ComposerAttach { camera, gallery, file }
 ///   • idle     → [+] · field · mic
 ///   • typing   → mic becomes the honey-amber send button
 ///   • popup    → glass "+" menu (camera / gallery / attachment / format)
-///   • format   → grows *in place* into a Markdown editor (Edit/Preview switch,
-///                drag-to-resize, toolbar pinned) — no modal. Because the
-///                composer is always bottom-anchored in its region (the phone
-///                sticky bar or the desktop comment panel's footer), the editor
-///                expands *upward* with the toolbar staying put.
+///   • format   → grows *in place* into the same rich editor the description
+///                uses (drag-to-resize, buttons pinned along the bottom) — no
+///                modal. Because the composer is always bottom-anchored in its
+///                region (the phone sticky bar or the desktop comment panel's
+///                footer), the editor expands *upward* with the buttons
+///                staying put.
 ///   • recording → live-waveform voice recorder with cancel / send
 ///
-/// It wraps a [MentionField] so `@`-mentions and smart-links keep working, and
-/// drives formatting through the shared [MarkdownEditingActions]. The parent
+/// The single-line row wraps a [MentionField], so `@`-mentions and smart-links
+/// keep working in a one-line remark. Format mode is a [HinataEditor] with its
+/// own toolbar turned off: the buttons stay in this composer's bottom row, and
+/// drive the document through editor commands. The parent
 /// owns the [controller] (so it can read/clear the text on submit) and handles
 /// attachment picking + voice/text sending via the callbacks. When [editing] is
 /// set, the composer is editing an existing comment inline — it shows a banner
@@ -121,7 +129,6 @@ class GlassCommentComposer extends StatefulWidget {
     super.key,
     required this.controller,
     required this.focusNode,
-    required this.actions,
     required this.onSubmitText,
     required this.onSendVoice,
     required this.onAttach,
@@ -135,8 +142,10 @@ class GlassCommentComposer extends StatefulWidget {
 
   final TextEditingController controller;
   final FocusNode focusNode;
-  final MarkdownEditingActions actions;
-  final VoidCallback onSubmitText;
+
+  /// Posts the draft. Carries the Lexical document when format mode wrote one,
+  /// and null from the single-line field, which has none.
+  final void Function(String? doc) onSubmitText;
   final void Function(VoiceRecording recording) onSendVoice;
   final void Function(ComposerAttach kind) onAttach;
 
@@ -161,9 +170,37 @@ enum _Mode { idle, recording, format }
 class _GlassCommentComposerState extends State<GlassCommentComposer> {
   _Mode _mode = _Mode.idle;
 
-  // Format mode: the drag-resizable field height + the Edit/Preview toggle.
+  // Format mode: the drag-resizable field height.
   double _formatHeight = 200;
-  bool _preview = false;
+
+  /// The document behind format mode.
+  ///
+  /// Created on entry from whatever is in the single-line field, and read back
+  /// out as markdown on the way out — the wire format for a comment is still a
+  /// markdown string, and this is a change of editor, not of API.
+  HinataEditorController? _doc;
+
+
+  /// Reaches the editor so this composer's own button row can drive it.
+  final GlobalKey<HinataEditorState> _docKey = GlobalKey<HinataEditorState>();
+
+  /// The buttons along the bottom, in the order they have always been in.
+  ///
+  /// Same icons, same row, same design — they dispatch document commands now
+  /// instead of splicing markdown characters into a string.
+  List<(IconData, VoidCallback)> get _docTools {
+    void format(TextFormat f) => _docKey.currentState?.format(f);
+    void block(BlockKind kind) => _docKey.currentState?.block(kind);
+    return [
+      (LucideIcons.bold, () => format(TextFormat.bold)),
+      (LucideIcons.italic, () => format(TextFormat.italic)),
+      (LucideIcons.strikethrough, () => format(TextFormat.strikethrough)),
+      (LucideIcons.link, () => _docKey.currentState?.editLink()),
+      (LucideIcons.code, () => format(TextFormat.code)),
+      (LucideIcons.list, () => block(BlockKind.bulletList)),
+      (LucideIcons.listOrdered, () => block(BlockKind.numberList)),
+    ];
+  }
 
   VoiceRecorder? _recorder;
   Timer? _recTimer;
@@ -190,6 +227,7 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     widget.controller.removeListener(_onTextChanged);
     _recTimer?.cancel();
     _recorder?.dispose();
+    _doc?.dispose();
     super.dispose();
   }
 
@@ -423,25 +461,48 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
 
   void _submitText() {
     if (!_canSend) return;
-    widget.onSubmitText();
+    widget.onSubmitText(null);
   }
 
   /// Enters the inline Markdown editor. It replaces the single-line row and,
   /// because the composer is bottom-anchored in its region, grows *upward* when
   /// the drag handle is pulled — the toolbar stays pinned at the bottom.
   void _openFormat() {
+    final draft = widget.controller.text;
     setState(() {
+      _doc?.dispose();
+      _doc = HinataEditorController(doc: markdownToDocument(draft));
       _mode = _Mode.format;
-      _preview = false;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.focusNode.requestFocus();
+      if (mounted) _docKey.currentState?.focus();
     });
   }
 
   /// Collapses the editor back to the single-line pill.
+  ///
+  /// The draft goes back into the plain field on the way out, so closing the
+  /// editor never loses what was written in it.
   void _closeFormat() {
-    if (mounted) setState(() => _mode = _Mode.idle);
+    if (!mounted) return;
+    _syncDraft();
+    setState(() {
+      _mode = _Mode.idle;
+      _doc?.dispose();
+      _doc = null;
+    });
+  }
+
+  /// Mirrors the rich draft's plain reading into the single-line field.
+  ///
+  /// The document itself is what gets posted — this is only so the collapsed
+  /// pill shows what was written, and so the send button's "is there anything
+  /// here" check has something to read. Nothing is converted: the plain text
+  /// is the document's own, exactly as the server derives it.
+  void _syncDraft() {
+    final doc = _doc;
+    if (doc == null) return;
+    widget.controller.text = doc.hasContent ? doc.plainText.trim() : '';
   }
 
   /// The inline Markdown editor shown in format mode. Layout (top→bottom):
@@ -459,7 +520,7 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
       360.0,
     );
     final fieldHeight = _formatHeight.clamp(140.0, maxField);
-    final canSend = widget.controller.text.trim().isNotEmpty;
+    final canSend = _doc?.hasContent ?? false;
 
     return _composerSurface(
       dark: dark,
@@ -468,46 +529,45 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: _DragHandle(
-                  onDrag: (dy) => setState(() {
-                    // Drag up (dy<0) grows the field; clamp to the viewport cap.
-                    _formatHeight = (fieldHeight - dy).clamp(140.0, maxField);
-                  }),
-                ),
-              ),
-              _EditPreviewSwitch(
-                preview: _preview,
-                onChanged: (v) {
-                  setState(() => _preview = v);
-                  if (!v) widget.focusNode.requestFocus();
-                },
-              ),
-            ],
+          // No Edit/Preview switch any more: the editor renders what it will
+          // post, so there is nothing left for a preview to reveal. It also
+          // takes the reported bug with it — on a phone, switching to the
+          // preview dropped the field's focus and dismissed the whole sheet,
+          // so the draft could not be previewed at all.
+          _DragHandle(
+            onDrag: (dy) => setState(() {
+              // Drag up (dy<0) grows the field; clamp to the viewport cap.
+              _formatHeight = (fieldHeight - dy).clamp(140.0, maxField);
+            }),
           ),
           const SizedBox(height: 6),
           SizedBox(
             height: fieldHeight,
-            child: _preview
-                ? _previewBody(context)
-                : MentionField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    commentMode: true,
-                    expands: true,
-                    hintText: context.t('comments.placeholder'),
-                  ),
+            child: HinataEditor(
+              key: _docKey,
+              controller: _doc!,
+              autofocus: true,
+              // The controls live along the bottom of the sheet, in the row
+              // this composer has always drawn. A second strip above the text
+              // is the one thing this rebuild must not introduce.
+              showToolbar: false,
+              framed: false,
+              placeholderKey: 'comments.placeholder',
+              fontSize: 14,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            ),
           ),
           const SizedBox(height: 8),
           _FormatToolbar(
-            actions: widget.actions,
+            tools: _docTools,
             canSend: canSend,
             onClose: _closeFormat,
             onSend: () {
               if (!canSend) return;
-              widget.onSubmitText();
+              _syncDraft();
+              // The document, not a rendering of it: callouts, smart links,
+              // images and tables have no markdown to survive as.
+              widget.onSubmitText(_doc?.doc);
               _closeFormat();
             },
           ),
@@ -516,29 +576,5 @@ class _GlassCommentComposerState extends State<GlassCommentComposer> {
     );
   }
 
-  /// Live preview of the current draft, converted exactly as the server will
-  /// convert it — mentions, smart-links and images render as they will in the
-  /// posted comment because it is the same conversion.
-  Widget _previewBody(BuildContext context) {
-    final text = widget.controller.text.trim();
-    if (text.isEmpty) {
-      return Align(
-        alignment: Alignment.topLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Text(
-            context.t('issues.previewEmpty'),
-            style: TextStyle(fontSize: 14, color: AppColors.inkFaint),
-          ),
-        ),
-      );
-    }
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: HinataMarkdownPreview(markdown: text),
-      ),
-    );
-  }
+
 }

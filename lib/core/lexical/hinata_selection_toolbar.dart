@@ -7,6 +7,10 @@
 /// the words it acts on.
 library;
 
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart' show ValueListenable;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -27,6 +31,7 @@ class HinataSelectionToolbar extends StatefulWidget {
     required this.editableKey,
     required this.child,
     super.key,
+    this.chromeRect,
   });
 
   final LexicalEditor editor;
@@ -35,6 +40,13 @@ class HinataSelectionToolbar extends StatefulWidget {
   final GlobalKey<LexicalEditableState> editableKey;
 
   final Widget child;
+
+  /// Chrome the toolbar must not be drawn under, in global coordinates.
+  ///
+  /// The formatting strip pins itself to the top of whatever part of the card
+  /// is on screen, so "above the writing area" stops being a fixed line the
+  /// moment the reader scrolls. Null while nothing is pinned.
+  final ValueListenable<Rect?>? chromeRect;
 
   @override
   State<HinataSelectionToolbar> createState() => HinataSelectionToolbarState();
@@ -46,14 +58,23 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   bool _editingLink = false;
   bool _suppressed = false;
 
+  /// Whether the actions are showing for a bare caret rather than a selection.
+  ///
+  /// Only ever true because the writer asked — a long press or a right-click.
+  /// Quick actions that followed the caret around unasked would sit over the
+  /// words on every keystroke.
+  bool _atCaret = false;
+
   @override
   void initState() {
     super.initState();
     _unsubscribe = widget.editor.registerUpdateListener((_) => _schedule());
+    widget.chromeRect?.addListener(_followChrome);
   }
 
   @override
   void dispose() {
+    widget.chromeRect?.removeListener(_followChrome);
     _unsubscribe?.call();
     _entry?.remove();
     _entry = null;
@@ -72,10 +93,25 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
 
   // --- geometry ---------------------------------------------------------
 
+  /// Whether a sync is already queued for the end of this frame.
+  ///
+  /// Do not remove this in the name of fewer fields. The toolbar is woken by
+  /// the editor's commits *and* by the pinned strip moving, and during a scroll
+  /// with a selection showing those arrive together — each one used to queue
+  /// its own post-frame callback, and each callback rebuilt the whole floating
+  /// surface. One sync per frame is all that can ever be observed.
+  bool _syncQueued = false;
+
   /// Geometry only exists after layout, and a commit can land *during* a build,
   /// so the overlay is always updated at the end of the frame.
-  void _schedule() =>
-      WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+  void _schedule() {
+    if (_syncQueued) return;
+    _syncQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncQueued = false;
+      _sync();
+    });
+  }
 
   /// The rectangle the toolbar points at, or null when it should not be shown.
   ///
@@ -90,9 +126,11 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     if (rects.isNotEmpty) {
       return rects.reduce((a, b) => a.expandToInclude(b));
     }
-    // A caret with no range: only the link editor wants the toolbar then —
-    // quick actions over nothing are noise the writer has to dismiss.
-    if (!_editingLink) return null;
+    // A caret with no range: the link editor wants the toolbar then, and so
+    // does a writer who long-pressed and is waiting for somewhere to paste.
+    // Nothing else — quick actions that followed the caret unasked would be
+    // noise over the words on every keystroke.
+    if (!_editingLink && !_atCaret) return null;
     final caret = editable.caretRect;
     if (caret != null) return caret;
     // Pressed with the editor never focused, so there is no caret to point at.
@@ -100,6 +138,52 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     // a button that silently does nothing is the worse of the two.
     final bounds = editable.editableBounds;
     return bounds == null ? null : Rect.fromLTWH(bounds.left, bounds.top, 0, 0);
+  }
+
+  /// Shows the actions over the caret, for a writer who asked for a menu
+  /// where there is nothing selected.
+  ///
+  /// The case that had nothing at all: a long press on an *empty* field. There
+  /// is no word there to select, so there was no range, so neither the
+  /// platform's menu nor these actions ever appeared — and pasting into an
+  /// empty description was impossible.
+  void showContextActions() {
+    if (!mounted) return;
+    final hasRange =
+        widget.editableKey.currentState?.selectionRects.isNotEmpty ?? false;
+    if (hasRange) return _sync();
+    if (!_atCaret) setState(() => _atCaret = true);
+    _sync();
+  }
+
+  /// Where this overlay's own coordinate space starts, in global terms.
+  Offset _overlayOrigin(BuildContext context) {
+    final box = Overlay.of(context).context.findRenderObject();
+    return box is RenderBox && box.hasSize
+        ? box.localToGlobal(Offset.zero)
+        : Offset.zero;
+  }
+
+  /// The lowest edge of anything the toolbar must stay under.
+  ///
+  /// Two things can be in the way and the lower one wins: the writing area's
+  /// own top, above which the formatting strip and the code bar are laid out,
+  /// and the strip itself once it has unpinned and slid down over the text.
+  double? get _ceiling {
+    final editable = widget.editableKey.currentState?.editableBounds?.top;
+    final chrome = widget.chromeRect?.value?.bottom;
+    if (editable == null) return chrome;
+    if (chrome == null) return editable;
+    return math.max(editable, chrome);
+  }
+
+  /// Follows the pinned strip while it slides, but only while something is on
+  /// screen: reading the selection's geometry costs a transform walk per
+  /// selected block, and during a scroll that would be a walk per frame to
+  /// conclude there is still nothing to show.
+  void _followChrome() {
+    if (_entry == null) return;
+    _schedule();
   }
 
   /// Takes the quick actions off the screen while something else is over the
@@ -143,7 +227,13 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   void _hide() {
     if (_entry == null) return;
     _detach();
-    if (_editingLink && mounted) setState(() => _editingLink = false);
+    if (!mounted) return;
+    if (_editingLink || _atCaret) {
+      setState(() {
+        _editingLink = false;
+        _atCaret = false;
+      });
+    }
   }
 
   /// Removes the overlay without deciding anything about the link editor.
@@ -238,13 +328,28 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   Widget _buildOverlay(BuildContext context) {
     final anchor = _anchor;
     if (anchor == null) return const SizedBox.shrink();
+
+    // Everything the editable reports is in global coordinates; this entry
+    // lays out inside the overlay, whose origin is not the screen's whenever
+    // the editor sits in a sheet or a route with chrome above it. Without the
+    // shift the toolbar is drawn exactly that origin lower than the words it
+    // points at — which is how it came to sit on the formatting strip in the
+    // first place: it went *above* the selection, correctly, and was then
+    // painted a chrome's height further down.
+    final origin = _overlayOrigin(context);
+    final placed = anchor.shift(-origin);
+    final ceiling = _ceiling;
+
     return Positioned.fill(
       // Centring on the selection with a fixed offset is not enough: a word
       // near the left edge puts half the toolbar off-screen, where it is
       // clipped and unreachable. The position is computed from the toolbar's
       // measured size, which is what this delegate is for.
       child: CustomSingleChildLayout(
-        delegate: _ToolbarLayout(anchor),
+        delegate: _ToolbarLayout(
+          placed,
+          ceiling: ceiling == null ? null : ceiling - origin.dy,
+        ),
         child: GlassFloatingSurface(
           radius: 16,
           child: _editingLink
@@ -273,7 +378,39 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     TextFormat.code: (LucideIcons.code, 'md.inlineCode'),
   };
 
+  /// The actions offered over a bare caret.
+  ///
+  /// Formatting nothing is not an action, and neither is copying it: what is
+  /// left is putting something there, and selecting what is already there.
+  Widget _caretActions(BuildContext context) => ExcludeFocus(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _OverlayButton(
+            icon: LucideIcons.clipboardPaste,
+            tooltipKey: 'common.paste',
+            onTap: _paste,
+          ),
+          _OverlayButton(
+            icon: LucideIcons.textSelect,
+            tooltipKey: 'md.selectAll',
+            onTap: _selectAll,
+          ),
+        ],
+      ),
+    ),
+  );
+
+  void _selectAll() {
+    widget.editableKey.currentState?.selectAll();
+    if (mounted) setState(() => _atCaret = false);
+    _sync();
+  }
+
   Widget _actions(BuildContext context) {
+    if (_atCaret) return _caretActions(context);
     final linked = _currentLink != null;
     // The buttons must not take focus: the editor would lose the selection they
     // are about to act on, and on a phone the keyboard would drop.
@@ -558,15 +695,32 @@ class _LinkFieldState extends State<_LinkField> {
   );
 }
 
-/// Places the toolbar over [anchor] without letting it leave the screen.
+/// Places the toolbar over [anchor] without letting it leave the screen, and
+/// without letting it cover the editor's own chrome.
 class _ToolbarLayout extends SingleChildLayoutDelegate {
-  const _ToolbarLayout(this.anchor);
+  const _ToolbarLayout(this.anchor, {this.ceiling});
 
   /// The selection, in the overlay's coordinates.
   final Rect anchor;
 
+  /// The top of the writing area, above which the toolbar must not be drawn.
+  ///
+  /// The screen edge is not the only thing in the way. The editor's formatting
+  /// strip — and the code block's language bar under it — sit immediately above
+  /// the writing area, so for a selection in the first line there is plenty of
+  /// room "above" by the screen's reckoning and none at all by the writer's:
+  /// the quick actions landed squarely on the toolbar they duplicate, hiding
+  /// the controls and leaving two stacked glass panels to tell apart.
+  ///
+  /// Null when the editable has not been laid out yet, which falls back to the
+  /// screen margin alone.
+  final double? ceiling;
+
   static const double _margin = 8;
   static const double _gap = 10;
+
+  /// The highest the toolbar may be placed.
+  double get _top => math.max(_margin, ceiling ?? _margin);
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -587,7 +741,7 @@ class _ToolbarLayout extends SingleChildLayoutDelegate {
     );
     // Above the selection when there is room, below it otherwise — a toolbar
     // covering the text it acts on is worse than one on the wrong side.
-    final above = anchor.top - childSize.height - _gap >= _margin;
+    final above = anchor.top - childSize.height - _gap >= _top;
     final y = above
         ? anchor.top - childSize.height - _gap
         : (anchor.bottom + _gap).clamp(
@@ -602,5 +756,5 @@ class _ToolbarLayout extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_ToolbarLayout oldDelegate) =>
-      oldDelegate.anchor != anchor;
+      oldDelegate.anchor != anchor || oldDelegate.ceiling != ceiling;
 }

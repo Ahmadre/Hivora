@@ -437,6 +437,7 @@ class HinataDocument extends StatefulWidget {
     this.blockSpacing,
     this.registry,
     this.onDocument,
+    this.onChecked,
     this.padding = EdgeInsets.zero,
     this.scrollable = false,
     this.onTapSmartLink,
@@ -447,6 +448,16 @@ class HinataDocument extends StatefulWidget {
 
   /// The stored Lexical JSON. Null or unreadable renders nothing.
   final String? doc;
+
+  /// Called with the whole document after a tick box in it is toggled.
+  ///
+  /// A rendered document is read-only, with one exception: a checklist. Ticking
+  /// one off is reading it, not editing it, and a list that cannot be ticked is
+  /// a picture of a list. But a box that ticks and never saves is worse than
+  /// one that does nothing, so the boxes are live only where a host takes this
+  /// callback and persists what it is handed. Whether the reader is allowed to
+  /// is the server's answer, not this widget's.
+  final void Function(String doc)? onChecked;
 
   /// Body size everything else scales from.
   final double fontSize;
@@ -558,6 +569,15 @@ class _HinataDocumentState extends State<HinataDocument> {
     if (widget.doc != _loaded) _load();
   }
 
+  @override
+  void dispose() {
+    _checkSub?.call();
+    super.dispose();
+  }
+
+  /// Cancels the tick listener on the editor currently loaded.
+  Unsubscribe? _checkSub;
+
   void _load() {
     _loaded = widget.doc;
     final source = widget.doc;
@@ -566,6 +586,10 @@ class _HinataDocumentState extends State<HinataDocument> {
       final editor = createHinataEditor();
       try {
         editor.setEditorState(editor.parseEditorStateFromString(source));
+        // Read-only unless the host can save what a tick changes. The tick box
+        // reads this flag, so leaving it set on a document nobody persists is
+        // exactly the silent-revert this guards against.
+        editor.isEditable = widget.onChecked != null;
         opened = editor;
       } on Object {
         // Unreadable: show nothing rather than an exception box in the middle
@@ -573,7 +597,17 @@ class _HinataDocumentState extends State<HinataDocument> {
         opened = null;
       }
     }
+    _checkSub?.call();
+    _checkSub = null;
     _editor = opened;
+    final live = opened;
+    if (live != null && widget.onChecked != null) {
+      // The tick box commits straight to the editor, so the document changing
+      // is the only signal there is that one was pressed.
+      _checkSub = live.registerUpdateListener((_) {
+        if (mounted) widget.onChecked?.call(live.toJsonString());
+      });
+    }
 
     final notify = widget.onDocument;
     if (notify != null) {

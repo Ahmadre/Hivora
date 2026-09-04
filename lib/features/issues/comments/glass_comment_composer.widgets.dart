@@ -341,29 +341,24 @@ class _ActionPopup extends StatelessWidget {
 // ── Markdown format toolbar ─────────────────────────────────────────────────
 class _FormatToolbar extends StatelessWidget {
   const _FormatToolbar({
-    required this.actions,
+    required this.tools,
     required this.canSend,
     required this.onClose,
     required this.onSend,
   });
 
-  final MarkdownEditingActions actions;
+  /// The formatting buttons, left to right.
+  ///
+  /// Supplied by the composer rather than built here, which is what freed this
+  /// row from the markdown editing actions it used to be wired to. Underline is
+  /// deliberately absent: it is not one of the shapes a comment can carry.
+  final List<(IconData, VoidCallback)> tools;
   final bool canSend;
   final VoidCallback onClose;
   final VoidCallback onSend;
 
   @override
   Widget build(BuildContext context) {
-    // Only the tools the Markdown renderer actually supports (no underline).
-    final tools = <(IconData, VoidCallback)>[
-      (LucideIcons.bold, actions.bold),
-      (LucideIcons.italic, actions.italic),
-      (LucideIcons.strikethrough, actions.strikethrough),
-      (LucideIcons.link, actions.link),
-      (LucideIcons.code, actions.inlineCode),
-      (LucideIcons.list, actions.bulletList),
-      (LucideIcons.listOrdered, actions.numberedList),
-    ];
     return Row(
       children: [
         _CircleButton(icon: LucideIcons.x, size: 46, onTap: onClose),
@@ -402,73 +397,9 @@ class _FormatToolbar extends StatelessWidget {
   }
 }
 
-/// Segmented Editor / Preview switcher shown top-right in the format editor.
-class _EditPreviewSwitch extends StatelessWidget {
-  const _EditPreviewSwitch({required this.preview, required this.onChanged});
-
-  final bool preview;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _seg(
-            context,
-            context.t('issues.tabEditor'),
-            !preview,
-            () => onChanged(false),
-          ),
-          _seg(
-            context,
-            context.t('issues.tabPreview'),
-            preview,
-            () => onChanged(true),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _seg(
-    BuildContext context,
-    String label,
-    bool active,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? AppColors.accent : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: active ? _onAccent : AppColors.inkSoft,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ── recording bar ───────────────────────────────────────────────────────────
+
+/// The live-waveform strip shown while a voice message is being recorded.
 class _RecordingBar extends StatelessWidget {
   const _RecordingBar({
     required this.elapsed,

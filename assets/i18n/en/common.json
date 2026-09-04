@@ -469,9 +469,6 @@
     "addComment": "Write a comment… type @ to link",
     "comment": "Comment",
     "commentHint": "⌘↵ to send",
-    "tabEditor": "Editor",
-    "tabPreview": "Preview",
-    "previewEmpty": "Nothing to preview yet.",
     "descriptionHint": "Write in markdown… type @ to link an issue, article or teammate.",
     "discardDraftTitle": "Discard this draft?",
     "discardDraftMessage": "Your unsaved title and description will be lost. This can't be undone.",
@@ -1129,7 +1126,8 @@
     "kindIssue": "Issue",
     "kindDoc": "Article",
     "kindUser": "Person",
-    "imageFailed": "This image could not be loaded."
+    "imageFailed": "This image could not be loaded.",
+    "selectAll": "Select all"
   },
   "weeklySummary": {
     "title": "Weekly Summary",
@@ -2136,7 +2134,10 @@
       "revokeOthersTitle": "Sign out all other devices",
       "revokeOthersMessage": "Every device except this one will be signed out immediately.",
       "revokeOthersConfirm": "Sign out all others",
-      "revokeOthersToast": "Signed out of all other devices"
+      "revokeOthersToast": "Signed out of all other devices",
+      "showAll": "Show {{count}} more device",
+      "showAll_plural": "Show {{count}} more devices",
+      "showFewer": "Show fewer"
     },
     "time": {
       "now": "now",

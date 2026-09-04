@@ -168,6 +168,10 @@ class HinataEditorState extends State<HinataEditor> {
   final GlobalKey<HinataSelectionToolbarState> _quickKey =
       GlobalKey<HinataSelectionToolbarState>();
 
+  /// Where the pinned formatting strip is, so the quick actions can stay clear
+  /// of it once it slides down over the writing area.
+  final ValueNotifier<Rect?> _stickyRect = ValueNotifier<Rect?>(null);
+
   LexicalEditor get _editor => widget.controller.editor;
 
   @override
@@ -203,6 +207,7 @@ class HinataEditorState extends State<HinataEditor> {
     _focus
       ..removeListener(_onFocus)
       ..dispose();
+    _stickyRect.dispose();
     super.dispose();
   }
 
@@ -231,8 +236,13 @@ class HinataEditorState extends State<HinataEditor> {
 
   // --- actions --------------------------------------------------------------
 
-  void _format(TextFormat format) {
-    _editor.dispatchCommand(formatTextCommand, format);
+  /// Toggles an inline format over the selection.
+  ///
+  /// Public because a host can own the controls instead of this widget: the
+  /// comment composer keeps its own row of buttons along the bottom of the
+  /// sheet and turns this editor's own strip off.
+  void format(TextFormat textFormat) {
+    _editor.dispatchCommand(formatTextCommand, textFormat);
     _focus.requestFocus();
   }
 
@@ -265,7 +275,10 @@ class HinataEditorState extends State<HinataEditor> {
     );
   });
 
-  void _block(
+  /// Turns the selected blocks into [kind], or back out of it when [toggle].
+  ///
+  /// Public for the same reason as [format]: a host with its own controls.
+  void block(
     BlockKind kind, {
     CalloutKind callout = CalloutKind.info,
     bool toggle = true,
@@ -302,7 +315,7 @@ class HinataEditorState extends State<HinataEditor> {
   /// address belongs over the words being linked, where the writer can still
   /// see them, and there must be exactly one place it is typed no matter which
   /// button was pressed.
-  void _editLink() => _quickKey.currentState?.editLink();
+  void editLink() => _quickKey.currentState?.editLink();
 
   /// The inline formats the toolbar offers, and the only ones it has to read.
   static const List<TextFormat> _formatButtons = [
@@ -373,17 +386,17 @@ class HinataEditorState extends State<HinataEditor> {
       _Action(LucideIcons.redo2, 'md.redo', _redo, enabled: _history.canRedo),
     ],
     [
-      for (final format in _formatButtons)
+      for (final inline in _formatButtons)
         _Action(
-          _formatButtonLook[format]!.$1,
-          _formatButtonLook[format]!.$2,
-          () => _format(format),
-          active: state.has(format),
+          _formatButtonLook[inline]!.$1,
+          _formatButtonLook[inline]!.$2,
+          () => format(inline),
+          active: state.has(inline),
         ),
       _Action(
         LucideIcons.link,
         state.linked ? 'md.linkRemove' : 'md.link',
-        _editLink,
+        editLink,
         active: state.linked,
       ),
     ],
@@ -405,7 +418,7 @@ class HinataEditorState extends State<HinataEditor> {
         _Action(
           entry.value.$1,
           entry.value.$2,
-          () => _block(BlockKind.callout, callout: entry.key),
+          () => block(BlockKind.callout, callout: entry.key),
           // Pressed only for the flavour that is actually there: four buttons
           // for one block kind, and a writer needs to see which one they are in.
           active:
@@ -529,6 +542,10 @@ class HinataEditorState extends State<HinataEditor> {
             // quick actions on the same gesture, and two menus stacked on one
             // another is what the writer got before.
             contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+            // Suppressing the platform menu hides it; this is what says one
+            // was asked for. Without it a long press on an empty field had
+            // nowhere to offer paste from.
+            onContextMenu: () => _quickKey.currentState?.showContextActions(),
           ),
           Positioned(
             left: 0,
@@ -550,6 +567,7 @@ class HinataEditorState extends State<HinataEditor> {
             focused: _focus.hasFocus,
             toolbar: widget.showToolbar ? _toolbar(context) : null,
             contextBar: _codeBar(),
+            stickyRect: _stickyRect,
             child: field,
           )
         : Column(
@@ -566,6 +584,7 @@ class HinataEditorState extends State<HinataEditor> {
       key: _quickKey,
       editor: _editor,
       editableKey: _editableKey,
+      chromeRect: _stickyRect,
       child: body,
     );
   }
@@ -623,7 +642,7 @@ class HinataEditorState extends State<HinataEditor> {
                     key: const ValueKey<String>('md.blockType'),
                     kinds: _blockKinds,
                     current: state.block,
-                    onPicked: (kind) => _block(kind, toggle: false),
+                    onPicked: (kind) => block(kind, toggle: false),
                     onMenu: _suppressQuickActions,
                   ),
                 ),

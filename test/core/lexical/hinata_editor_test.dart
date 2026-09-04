@@ -9,8 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/callout_node.dart';
 import 'package:hinata/core/lexical/hinata_editor.dart';
+import 'package:hinata/core/lexical/hinata_editor_card.dart';
 import 'package:hinata/core/lexical/hinata_editor_controller.dart';
 import 'package:hinata/core/theme/app_colors.dart';
+import 'package:hinata/core/widgets/glass_panel.dart';
 import 'package:hinata/features/knowledge/markdown/smart_link_chip.dart';
 import 'package:hinata/features/knowledge/markdown/smart_link_resolver.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -518,6 +520,228 @@ void main() {
         isTrue,
       );
       expect(controller.plainText, contains('hinata.example'));
+    });
+
+    testWidgets('the toolbar stays on screen while the page scrolls past it', (
+      tester,
+    ) async {
+      // The editor is deliberately not its own scroll view, so the strip was an
+      // ordinary row in the host's scroll: writing past the first screenful
+      // carried every formatting control away, and applying bold meant
+      // scrolling up to find the button and back down to find the caret.
+      final controller = await pump(tester, size: const Size(600, 400));
+      controller.editor.update(() {
+        final root = $getRoot()..clear();
+        for (var i = 0; i < 60; i++) {
+          root.append(
+            $createParagraphNode()..append($createTextNode('Zeile $i')),
+          );
+        }
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final strip = find.byKey(const ValueKey<String>('md.blockType'));
+      final writing = find.byType(LexicalEditorField);
+      final stripBefore = tester.getRect(strip);
+      final writingBefore = tester.getRect(writing);
+      expect(stripBefore.top, greaterThanOrEqualTo(0));
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+
+      // The page really moved — otherwise a strip that never left the screen
+      // proves nothing.
+      final writingAfter = tester.getRect(writing);
+      expect(writingAfter.top, lessThan(writingBefore.top - 100));
+
+      // And the strip did not go with it: still drawn, still inside the
+      // viewport rather than 600px above the top of it.
+      final stripAfter = tester.getRect(strip);
+      expect(stripAfter.top, greaterThanOrEqualTo(0));
+      expect(stripAfter.bottom, lessThanOrEqualTo(400));
+    });
+
+    testWidgets('a long press on an empty field still offers somewhere to '
+        'paste', (tester) async {
+      // Nothing at all used to happen here. A long press selects the word
+      // under the finger, an empty document has none, and both the platform
+      // menu and these actions were gated on there being a selection — so
+      // pasting into an empty description was impossible.
+      await pump(tester, size: const Size(600, 700));
+
+      final field = tester.getRect(find.byType(LexicalEditorField));
+      await tester.longPressAt(Offset(field.left + 40, field.top + 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('common.paste'), findsOneWidget);
+      // Formatting nothing is not an action, so the quick actions offer none —
+      // scoped to the overlay, since the editor's own toolbar has a bold
+      // button either way.
+      expect(
+        find.descendant(
+          of: find.byType(GlassFloatingSurface),
+          matching: find.byTooltip('md.bold'),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('the toolbar comes back with the page on the way up', (
+      tester,
+    ) async {
+      // The reported failure: scroll down, stop, scroll back up, and the strip
+      // did not come with it — it stayed put, detached from the card's edge,
+      // and ended up somewhere in the middle of the text.
+      final controller = await pump(tester, size: const Size(600, 400));
+      controller.editor.update(() {
+        final root = $getRoot()..clear();
+        for (var i = 0; i < 60; i++) {
+          root.append(
+            $createParagraphNode()..append($createTextNode('Zeile $i')),
+          );
+        }
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final strip = find.byKey(const ValueKey<String>('md.blockType'));
+      final card = find.byType(HinataEditorCard);
+      final atRest = tester.getRect(strip).top - tester.getRect(card).top;
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      final pinned = tester.getRect(strip).top - tester.getRect(card).top;
+      // It slid down *within* the card rather than staying at its top.
+      expect(pinned, greaterThan(atRest + 100));
+      // And it is on screen, which is the whole point.
+      expect(tester.getRect(strip).top, greaterThanOrEqualTo(0));
+      expect(tester.getRect(strip).bottom, lessThanOrEqualTo(400));
+
+      // Back up, in two goes with a stop between them — the reported gesture.
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 400),
+      );
+      await tester.pumpAndSettle();
+
+      // Home again, level with the card's top edge, not stranded mid-document.
+      expect(
+        tester.getRect(strip).top - tester.getRect(card).top,
+        closeTo(atRest, 1),
+      );
+    });
+
+    testWidgets('the quick actions land under the words, not under the card', (
+      tester,
+    ) async {
+      // The editable reports geometry in global coordinates and the overlay
+      // lays out in its own, which are the same thing only while the overlay
+      // starts at the screen's corner. In a sheet — where this editor actually
+      // lives — it does not, and the toolbar was drawn that whole offset lower
+      // than the selection: far below the words, hanging off the bottom of the
+      // card. The same offset is what used to push it *onto* the formatting
+      // strip when it went above.
+      const inset = 120.0;
+      final controller = HinataEditorController();
+      addTearDown(controller.dispose);
+      tester.view
+        ..physicalSize = const Size(900, 700)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            // An overlay that does not start at the screen's corner.
+            body: Padding(
+              padding: const EdgeInsets.only(top: inset),
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (_) => SingleChildScrollView(
+                      child: HinataEditor(controller: controller),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode();
+        paragraph.append($createTextNode('TestTestTestTestTestTest'));
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+      controller.editor.update(() {
+        final text =
+            ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode;
+        text.select(0, 24);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final quick = tester.getRect(find.byType(GlassFloatingSurface));
+      final writing = tester.getRect(find.byType(LexicalEditorField));
+
+      // Under the words it points at, not shoved past the writing area.
+      expect(quick.top, greaterThanOrEqualTo(writing.top));
+      expect(quick.top, lessThan(writing.top + 80));
+    });
+
+    testWidgets('the quick actions never cover the toolbar they sit above', (
+      tester,
+    ) async {
+      // Selecting in the FIRST line is the case that broke: there was room
+      // above by the screen's reckoning, so the quick actions went there — and
+      // landed squarely on the editor's own formatting strip, hiding the
+      // controls behind a second glass panel holding the same icons.
+      final controller = await pump(tester, size: const Size(600, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode();
+        final text = $createTextNode('TestTestTestTestTestTest');
+        paragraph.append(text);
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      // Selected in its own commit, after the blocks are laid out: the
+      // rectangles the quick actions point at are measured from the rendered
+      // text, and there is nothing to measure in the commit that creates it.
+      controller.editor.update(() {
+        final text =
+            ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode;
+        text.select(0, 24);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      // Paste belongs to the quick actions alone, so finding it proves the
+      // overlay is up and this assertion is not passing vacuously.
+      expect(find.byTooltip('common.paste'), findsOneWidget);
+
+      // The writing area's top is the ceiling: the toolbar and the code bar
+      // are laid out above it, so anything at or below it clears them both.
+      final quick = tester.getRect(find.byType(GlassFloatingSurface));
+      final writing = tester.getRect(find.byType(LexicalEditorField));
+      expect(quick.top, greaterThanOrEqualTo(writing.top));
     });
 
     testWidgets('Enter applies the address, however the key arrives', (

@@ -469,9 +469,6 @@
     "addComment": "Kommentar schreiben… tippe @ zum Verlinken",
     "comment": "Kommentieren",
     "commentHint": "⌘↵ zum Senden",
-    "tabEditor": "Editor",
-    "tabPreview": "Vorschau",
-    "previewEmpty": "Noch nichts zum Anzeigen.",
     "descriptionHint": "In Markdown schreiben… tippe @, um eine Aufgabe, einen Artikel oder ein Teammitglied zu verlinken.",
     "discardDraftTitle": "Entwurf verwerfen?",
     "discardDraftMessage": "Dein nicht gespeicherter Titel und die Beschreibung gehen verloren. Das kann nicht rückgängig gemacht werden.",
@@ -1129,7 +1126,8 @@
     "kindIssue": "Issue",
     "kindDoc": "Artikel",
     "kindUser": "Person",
-    "imageFailed": "Dieses Bild konnte nicht geladen werden."
+    "imageFailed": "Dieses Bild konnte nicht geladen werden.",
+    "selectAll": "Alles auswählen"
   },
   "weeklySummary": {
     "title": "Wochenübersicht",
@@ -2136,7 +2134,10 @@
       "revokeOthersTitle": "Alle anderen Geräte abmelden",
       "revokeOthersMessage": "Alle Geräte außer diesem werden sofort abgemeldet.",
       "revokeOthersConfirm": "Alle anderen abmelden",
-      "revokeOthersToast": "Von allen anderen Geräten abgemeldet"
+      "revokeOthersToast": "Von allen anderen Geräten abgemeldet",
+      "showAll": "{{count}} weiteres Gerät anzeigen",
+      "showAll_plural": "{{count}} weitere Geräte anzeigen",
+      "showFewer": "Weniger anzeigen"
     },
     "time": {
       "now": "gerade eben",
