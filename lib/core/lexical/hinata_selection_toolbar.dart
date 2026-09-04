@@ -170,6 +170,14 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     _sync();
   }
 
+  /// Where this overlay's own coordinate space starts, in global terms.
+  Offset _overlayOrigin(BuildContext context) {
+    final box = Overlay.of(context).context.findRenderObject();
+    return box is RenderBox && box.hasSize
+        ? box.localToGlobal(Offset.zero)
+        : Offset.zero;
+  }
+
   /// The lowest edge of anything the toolbar must stay under.
   ///
   /// Two things can be in the way and the taller one wins: the writing area's
@@ -325,13 +333,28 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   Widget _buildOverlay(BuildContext context) {
     final anchor = _anchor;
     if (anchor == null) return const SizedBox.shrink();
+
+    // Everything the editable reports is in global coordinates; this entry
+    // lays out inside the overlay, whose origin is not the screen's whenever
+    // the editor sits in a sheet or a route with chrome above it. Without the
+    // shift the toolbar is drawn exactly that origin lower than the words it
+    // points at — which is how it came to sit on the formatting strip in the
+    // first place: it went *above* the selection, correctly, and was then
+    // painted a chrome's height further down.
+    final origin = _overlayOrigin(context);
+    final placed = anchor.shift(-origin);
+    final ceiling = _ceiling;
+
     return Positioned.fill(
       // Centring on the selection with a fixed offset is not enough: a word
       // near the left edge puts half the toolbar off-screen, where it is
       // clipped and unreachable. The position is computed from the toolbar's
       // measured size, which is what this delegate is for.
       child: CustomSingleChildLayout(
-        delegate: _ToolbarLayout(anchor, ceiling: _ceiling),
+        delegate: _ToolbarLayout(
+          placed,
+          ceiling: ceiling == null ? null : ceiling - origin.dy,
+        ),
         child: GlassFloatingSurface(
           radius: 16,
           child: _editingLink

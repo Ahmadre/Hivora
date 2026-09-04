@@ -996,21 +996,19 @@ packages:
     source: hosted
     version: "1.7.4"
   lexical_core:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: lexical_core
-      sha256: de0c1e2b6a3a6d2c210a9d836d041b4fcc1080411fb942554a542eb4b0f7b835
-      url: "https://pub.dev"
-    source: hosted
+      path: "../lexical-editor/packages/lexical_core"
+      relative: true
+    source: path
     version: "1.7.4"
   lexical_editor_flutter:
     dependency: "direct main"
     description:
-      name: lexical_editor_flutter
-      sha256: "93ad336b2fc74b18c38de954f930659788501444bda5140176b8b9e9dc1f71b6"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.7.4"
+      path: "../lexical-editor/packages/lexical_editor_flutter"
+      relative: true
+    source: path
+    version: "1.9.0"
   lexical_embed:
     dependency: transitive
     description:
@@ -1020,13 +1018,12 @@ packages:
     source: hosted
     version: "1.7.4"
   lexical_flutter:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: lexical_flutter
-      sha256: "09effe02ae497af7a48cd67c0c31bb937f82ddc231f34894166eae46eb89312b"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.7.6"
+      path: "../lexical-editor/packages/lexical_flutter"
+      relative: true
+    source: path
+    version: "1.9.0"
   lexical_hashtag:
     dependency: transitive
     description:
@@ -1060,12 +1057,11 @@ packages:
     source: hosted
     version: "1.7.4"
   lexical_list:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: lexical_list
-      sha256: "29745feb5eb32aa72693cc74b9d25903995a08f27b6e8555a704fcd4aca0bddf"
-      url: "https://pub.dev"
-    source: hosted
+      path: "../lexical-editor/packages/lexical_list"
+      relative: true
+    source: path
     version: "1.7.4"
   lexical_mark:
     dependency: transitive
@@ -1078,10 +1074,9 @@ packages:
   lexical_markdown:
     dependency: "direct main"
     description:
-      name: lexical_markdown
-      sha256: "8cf1d4aaaf05a042717d4e04adb1063cf5bf319018df9e20d2af4623cf89ce45"
-      url: "https://pub.dev"
-    source: hosted
+      path: "../lexical-editor/packages/lexical_markdown"
+      relative: true
+    source: path
     version: "1.7.4"
   lexical_mention:
     dependency: transitive

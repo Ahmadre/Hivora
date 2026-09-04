@@ -588,6 +588,69 @@ void main() {
       );
     });
 
+    testWidgets('the quick actions land under the words, not under the card', (
+      tester,
+    ) async {
+      // The editable reports geometry in global coordinates and the overlay
+      // lays out in its own, which are the same thing only while the overlay
+      // starts at the screen's corner. In a sheet — where this editor actually
+      // lives — it does not, and the toolbar was drawn that whole offset lower
+      // than the selection: far below the words, hanging off the bottom of the
+      // card. The same offset is what used to push it *onto* the formatting
+      // strip when it went above.
+      const inset = 120.0;
+      final controller = HinataEditorController();
+      addTearDown(controller.dispose);
+      tester.view
+        ..physicalSize = const Size(900, 700)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            // An overlay that does not start at the screen's corner.
+            body: Padding(
+              padding: const EdgeInsets.only(top: inset),
+              child: Overlay(
+                initialEntries: [
+                  OverlayEntry(
+                    builder: (_) => SingleChildScrollView(
+                      child: HinataEditor(controller: controller),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode();
+        paragraph.append($createTextNode('TestTestTestTestTestTest'));
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+      controller.editor.update(() {
+        final text =
+            ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode;
+        text.select(0, 24);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final quick = tester.getRect(find.byType(GlassFloatingSurface));
+      final writing = tester.getRect(find.byType(LexicalEditorField));
+
+      // Under the words it points at, not shoved past the writing area.
+      expect(quick.top, greaterThanOrEqualTo(writing.top));
+      expect(quick.top, lessThan(writing.top + 80));
+    });
+
     testWidgets('the quick actions never cover the toolbar they sit above', (
       tester,
     ) async {
