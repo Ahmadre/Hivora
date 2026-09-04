@@ -65,7 +65,7 @@ dependencies:
   # Rich text. Documents are stored as Lexical JSON, so this is both the editor
   # and the renderer; there is no second markdown path any more. The bundle
   # brings every node type the server can emit.
-  lexical_editor_flutter: ^1.7.4
+  lexical_editor_flutter: ^1.9.0
   lexical_markdown: ^1.7.4
 
   # Reporting / export
