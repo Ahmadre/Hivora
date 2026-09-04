@@ -521,6 +521,48 @@ void main() {
       expect(controller.plainText, contains('hinata.example'));
     });
 
+    testWidgets('the toolbar stays on screen while the page scrolls past it', (
+      tester,
+    ) async {
+      // The editor is deliberately not its own scroll view, so the strip was an
+      // ordinary row in the host's scroll: writing past the first screenful
+      // carried every formatting control away, and applying bold meant
+      // scrolling up to find the button and back down to find the caret.
+      final controller = await pump(tester, size: const Size(600, 400));
+      controller.editor.update(() {
+        final root = $getRoot()..clear();
+        for (var i = 0; i < 60; i++) {
+          root.append(
+            $createParagraphNode()..append($createTextNode('Zeile $i')),
+          );
+        }
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final strip = find.byKey(const ValueKey<String>('md.blockType'));
+      final writing = find.byType(LexicalEditorField);
+      final stripBefore = tester.getRect(strip);
+      final writingBefore = tester.getRect(writing);
+      expect(stripBefore.top, greaterThanOrEqualTo(0));
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+
+      // The page really moved — otherwise a strip that never left the screen
+      // proves nothing.
+      final writingAfter = tester.getRect(writing);
+      expect(writingAfter.top, lessThan(writingBefore.top - 100));
+
+      // And the strip did not go with it: still drawn, still inside the
+      // viewport rather than 600px above the top of it.
+      final stripAfter = tester.getRect(strip);
+      expect(stripAfter.top, greaterThanOrEqualTo(0));
+      expect(stripAfter.bottom, lessThanOrEqualTo(400));
+    });
+
     testWidgets('the quick actions never cover the toolbar they sit above', (
       tester,
     ) async {

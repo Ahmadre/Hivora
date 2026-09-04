@@ -168,6 +168,10 @@ class HinataEditorState extends State<HinataEditor> {
   final GlobalKey<HinataSelectionToolbarState> _quickKey =
       GlobalKey<HinataSelectionToolbarState>();
 
+  /// Where the pinned formatting strip is, so the quick actions can stay clear
+  /// of it once it slides down over the writing area.
+  final ValueNotifier<Rect?> _stickyRect = ValueNotifier<Rect?>(null);
+
   LexicalEditor get _editor => widget.controller.editor;
 
   @override
@@ -203,6 +207,7 @@ class HinataEditorState extends State<HinataEditor> {
     _focus
       ..removeListener(_onFocus)
       ..dispose();
+    _stickyRect.dispose();
     super.dispose();
   }
 
@@ -550,6 +555,7 @@ class HinataEditorState extends State<HinataEditor> {
             focused: _focus.hasFocus,
             toolbar: widget.showToolbar ? _toolbar(context) : null,
             contextBar: _codeBar(),
+            stickyRect: _stickyRect,
             child: field,
           )
         : Column(
@@ -566,6 +572,7 @@ class HinataEditorState extends State<HinataEditor> {
       key: _quickKey,
       editor: _editor,
       editableKey: _editableKey,
+      chromeRect: _stickyRect,
       child: body,
     );
   }

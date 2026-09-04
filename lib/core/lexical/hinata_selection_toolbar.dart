@@ -9,6 +9,8 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -29,6 +31,7 @@ class HinataSelectionToolbar extends StatefulWidget {
     required this.editableKey,
     required this.child,
     super.key,
+    this.chromeRect,
   });
 
   final LexicalEditor editor;
@@ -37,6 +40,13 @@ class HinataSelectionToolbar extends StatefulWidget {
   final GlobalKey<LexicalEditableState> editableKey;
 
   final Widget child;
+
+  /// Chrome the toolbar must not be drawn under, in global coordinates.
+  ///
+  /// The editor's formatting strip pins itself to the top of whatever part of
+  /// the card is on screen, so "above the writing area" stops being a fixed
+  /// line the moment the reader scrolls. Null while nothing is pinned.
+  final ValueListenable<Rect?>? chromeRect;
 
   @override
   State<HinataSelectionToolbar> createState() => HinataSelectionToolbarState();
@@ -52,10 +62,14 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   void initState() {
     super.initState();
     _unsubscribe = widget.editor.registerUpdateListener((_) => _schedule());
+    // The strip slides while the reader scrolls, and the toolbar has to get
+    // out of its way as it comes rather than at the next keystroke.
+    widget.chromeRect?.addListener(_schedule);
   }
 
   @override
   void dispose() {
+    widget.chromeRect?.removeListener(_schedule);
     _unsubscribe?.call();
     _entry?.remove();
     _entry = null;
@@ -102,6 +116,19 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     // a button that silently does nothing is the worse of the two.
     final bounds = editable.editableBounds;
     return bounds == null ? null : Rect.fromLTWH(bounds.left, bounds.top, 0, 0);
+  }
+
+  /// The lowest edge of anything the toolbar must stay under.
+  ///
+  /// Two things can be in the way and the taller one wins: the writing area's
+  /// own top, above which the formatting strip and the code bar are laid out,
+  /// and the strip itself once it has unpinned and slid down over the text.
+  double? get _ceiling {
+    final editable = widget.editableKey.currentState?.editableBounds?.top;
+    final chrome = widget.chromeRect?.value?.bottom;
+    if (editable == null) return chrome;
+    if (chrome == null) return editable;
+    return math.max(editable, chrome);
   }
 
   /// Takes the quick actions off the screen while something else is over the
@@ -246,10 +273,7 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
       // clipped and unreachable. The position is computed from the toolbar's
       // measured size, which is what this delegate is for.
       child: CustomSingleChildLayout(
-        delegate: _ToolbarLayout(
-          anchor,
-          ceiling: widget.editableKey.currentState?.editableBounds?.top,
-        ),
+        delegate: _ToolbarLayout(anchor, ceiling: _ceiling),
         child: GlassFloatingSurface(
           radius: 16,
           child: _editingLink

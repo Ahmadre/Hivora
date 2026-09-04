@@ -9,6 +9,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderStack;
 
 import '../theme/app_colors.dart';
 import '../widgets/glass_panel.dart';
@@ -28,7 +29,15 @@ class HinataEditorCard extends StatelessWidget {
     this.footer,
     this.focused = false,
     this.radius = 16,
+    this.stickyRect,
   });
+
+  /// The height of the formatting strip.
+  ///
+  /// Fixed, and public, because the strip is drawn twice: once as a gap that
+  /// holds its place in the column, and once as the bar itself floating over
+  /// the writing area while the card is scrolled past.
+  static const double toolbarHeight = 42;
 
   /// The writing area.
   final Widget child;
@@ -45,6 +54,13 @@ class HinataEditorCard extends StatelessWidget {
 
   /// Whether the editor has focus, which lifts the rim to the accent.
   final bool focused;
+
+  /// Where the pinned formatting strip currently is, in global coordinates.
+  ///
+  /// Published rather than inferred: the floating quick actions have to know
+  /// what is above the words they point at, and once the strip slides it is no
+  /// longer wherever the card's top happens to be.
+  final ValueNotifier<Rect?>? stickyRect;
 
   final double radius;
 
@@ -83,13 +99,22 @@ class HinataEditorCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (toolbar != null) _bar(child: toolbar!),
+                  // The strip keeps its place in the flow even while it is
+                  // drawn somewhere else, so nothing below it moves when it
+                  // starts sticking.
+                  if (toolbar != null) const SizedBox(height: toolbarHeight),
                   if (contextBar != null) _bar(child: contextBar!),
                   child,
                   ?footer,
                 ],
               ),
             ),
+            if (toolbar != null)
+              _StickyBar(
+                radius: border,
+                rect: stickyRect,
+                child: _bar(child: toolbar!, opaque: true),
+              ),
             // The specular rim, over the content: it is the edge of the glass,
             // and an edge drawn under what it contains is not one.
             Positioned.fill(
@@ -114,13 +139,22 @@ class HinataEditorCard extends StatelessWidget {
   }
 
   /// One strip of chrome: tinted a shade off the writing area, hairline below.
-  static Widget _bar({required Widget child}) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: AppColors.surfaceMuted.withValues(alpha: 0.7),
-      border: Border(bottom: BorderSide(color: AppColors.hairline)),
-    ),
-    child: child,
-  );
+  ///
+  /// [opaque] for the strip that floats: at rest it sits on the card's own
+  /// fill and a translucent tint reads as a shade of it, but once it is over
+  /// the writing area the words underneath show straight through. This is the
+  /// one place the ink cannot solve it — the text behind is arbitrary — so the
+  /// floating copy stops being a tint and becomes a surface.
+  static Widget _bar({required Widget child, bool opaque = false}) =>
+      DecoratedBox(
+        decoration: BoxDecoration(
+          color: opaque
+              ? AppColors.surfaceMuted
+              : AppColors.surfaceMuted.withValues(alpha: 0.7),
+          border: Border(bottom: BorderSide(color: AppColors.hairline)),
+        ),
+        child: child,
+      );
 
   /// The card's shadow, kept almost entirely underneath it.
   ///
@@ -154,6 +188,119 @@ class HinataEditorCard extends StatelessWidget {
       spreadRadius: -8,
     ),
   ];
+}
+
+/// The formatting strip, kept on screen while the card is scrolled past.
+///
+/// The editor is deliberately not its own scroll view — the host is a form or
+/// a sheet that scrolls, and a second viewport here would trap the gesture and
+/// strand the save bar off-screen. The cost was that the strip is an ordinary
+/// row in that scroll: writing past the first screenful carried every
+/// formatting control away with it, and applying bold meant scrolling back up
+/// to find the button and then back down to find the caret.
+///
+/// So it stays inside the card and slides down as the card's top passes the
+/// viewport's, stopping before it reaches the bottom of the writing area — a
+/// strip pinned over the last line of a field is in the way rather than to
+/// hand.
+///
+/// Positioned rather than translated, deliberately. A translating render
+/// object (Transform, AnimatedSlide, FractionalTranslation) in a hover path
+/// asserts `!debugNeedsLayout` on the web every time the mouse tracker
+/// hit-tests it during layout churn, and this strip is both hovered and
+/// re-laid-out on every scroll frame. Moving it by parent data re-lays it out
+/// instead, which is exactly what a hit-test after layout expects.
+class _StickyBar extends StatefulWidget {
+  const _StickyBar({required this.child, required this.radius, this.rect});
+
+  final Widget child;
+
+  /// Where this strip ended up, for whoever has to keep clear of it.
+  final ValueNotifier<Rect?>? rect;
+
+  /// The card's corner radius, so the pinned strip is clipped to the same
+  /// edge it is drawn against.
+  final BorderRadius radius;
+
+  @override
+  State<_StickyBar> createState() => _StickyBarState();
+}
+
+class _StickyBarState extends State<_StickyBar> {
+  ScrollPosition? _position;
+  double _offset = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final position = Scrollable.maybeOf(context)?.position;
+    if (identical(position, _position)) return;
+    _position?.removeListener(_follow);
+    _position = position?..addListener(_follow);
+    // The card can already be scrolled past on the first frame — a deep link
+    // straight to a comment, or a rebuild while the reader is halfway down.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _follow());
+  }
+
+  @override
+  void dispose() {
+    _position?.removeListener(_follow);
+    widget.rect?.value = null;
+    super.dispose();
+  }
+
+  /// How far the strip has to slide to stay at the top of what is visible.
+  void _follow() {
+    if (!mounted) return;
+    // The card, not this widget: a Positioned reports its child's box, so
+    // measuring `context` here would measure the strip against itself and
+    // chase its own offset every frame.
+    final card = context.findAncestorRenderObjectOfType<RenderStack>();
+    final viewport = Scrollable.maybeOf(context)?.context.findRenderObject();
+    if (card == null || !card.hasSize || viewport is! RenderBox) return;
+    if (!viewport.hasSize || !card.attached) return;
+
+    // The card's top in the viewport's coordinates: negative once it has been
+    // scrolled past, which is exactly how far the strip has to come down.
+    final top = card.localToGlobal(Offset.zero, ancestor: viewport).dy;
+    // Never past the writing area: the strip stops with a line's worth of text
+    // still under it rather than sitting on the last one.
+    final room = card.size.height - HinataEditorCard.toolbarHeight * 2;
+    final next = (-top).clamp(0.0, room < 0 ? 0.0 : room);
+
+    _publish(card, next);
+    if ((next - _offset).abs() < 0.5) return;
+    setState(() => _offset = next);
+  }
+
+  /// Reports the strip's own rectangle, after the frame that placed it.
+  void _publish(RenderBox card, double offset) {
+    final notifier = widget.rect;
+    if (notifier == null) return;
+    final origin = card.localToGlobal(Offset(0, offset));
+    notifier.value = Rect.fromLTWH(
+      origin.dx,
+      origin.dy,
+      card.size.width,
+      HinataEditorCard.toolbarHeight,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    top: _offset,
+    left: 0,
+    right: 0,
+    child: ClipRRect(
+      borderRadius: _offset > 0
+          ? BorderRadius.zero
+          : BorderRadius.only(
+              topLeft: widget.radius.topLeft,
+              topRight: widget.radius.topRight,
+            ),
+      child: widget.child,
+    ),
+  );
 }
 
 /// The prompt shown over an empty document.
