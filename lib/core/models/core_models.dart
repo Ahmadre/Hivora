@@ -213,6 +213,7 @@ class AuthUser extends Equatable {
     required this.roles,
     this.avatarUrl,
     this.title,
+    this.pronouns,
     this.locale = 'en',
   });
 
@@ -223,6 +224,7 @@ class AuthUser extends Equatable {
   final Set<String> roles;
   final String? avatarUrl;
   final String? title;
+  final String? pronouns;
   final String locale;
 
   bool get isAdmin => roles.contains('ADMIN');
@@ -235,11 +237,12 @@ class AuthUser extends Equatable {
     roles: ((json['roles'] as List<dynamic>?) ?? []).cast<String>().toSet(),
     avatarUrl: json['avatarUrl'] as String?,
     title: json['title'] as String?,
+    pronouns: json['pronouns'] as String?,
     locale: json['locale'] as String? ?? 'en',
   );
 
   @override
-  List<Object?> get props => [id, email, username, displayName, roles, title];
+  List<Object?> get props => [id, email, username, displayName, roles, title, pronouns];
 }
 
 /// Outcome of a password login: either a token pair (+ user), or a 2FA
