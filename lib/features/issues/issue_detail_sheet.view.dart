@@ -817,7 +817,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     );
   }
 
-  Future<void> _submitComment() async {
+  Future<void> _submitComment([String? doc]) async {
     final text = _comment.text.trim();
     if (text.isEmpty || _sendingComment) return;
     // Editing an existing comment inline → save instead of posting a new one.
@@ -840,6 +840,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         widget.issueId,
         text,
         replyToId: replyTarget?.id,
+        doc: doc,
       );
       _comment.clear();
       if (!mounted) return;

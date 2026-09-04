@@ -56,14 +56,21 @@ class CommentRepository {
   }
 
   /// Posts a text comment, optionally as a reply to [replyToId].
+  ///
+  /// [doc] is the Lexical document, and is what the server stores when it is
+  /// given: [text] is then only the plain reading of it, which the server
+  /// derives for itself anyway. Sending text alone is the legacy path — the
+  /// server parses it as markdown — and is what the single-line field still
+  /// does, because a one-line remark has no formatting to lose.
   Future<IssueComment> addComment(
     String issueId,
     String text, {
     String? replyToId,
+    String? doc,
   }) async => IssueComment.fromJson(
     await _api.post(
           '/api/v1/issues/$issueId/comments',
-          body: {'text': text, 'replyToId': ?replyToId},
+          body: {'text': text, 'textDoc': ?doc, 'replyToId': ?replyToId},
         )
         as Map<String, dynamic>,
   );
