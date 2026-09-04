@@ -43,9 +43,9 @@ class HinataSelectionToolbar extends StatefulWidget {
 
   /// Chrome the toolbar must not be drawn under, in global coordinates.
   ///
-  /// The editor's formatting strip pins itself to the top of whatever part of
-  /// the card is on screen, so "above the writing area" stops being a fixed
-  /// line the moment the reader scrolls. Null while nothing is pinned.
+  /// The formatting strip pins itself to the top of whatever part of the card
+  /// is on screen, so "above the writing area" stops being a fixed line the
+  /// moment the reader scrolls. Null while nothing is pinned.
   final ValueListenable<Rect?>? chromeRect;
 
   @override
@@ -69,8 +69,6 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   void initState() {
     super.initState();
     _unsubscribe = widget.editor.registerUpdateListener((_) => _schedule());
-    // The strip slides while the reader scrolls, and the toolbar has to get
-    // out of its way as it comes rather than at the next keystroke.
     widget.chromeRect?.addListener(_followChrome);
   }
 
@@ -103,18 +101,6 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
   /// its own post-frame callback, and each callback rebuilt the whole floating
   /// surface. One sync per frame is all that can ever be observed.
   bool _syncQueued = false;
-
-  /// Follows the pinned strip while it slides.
-  ///
-  /// Only while something is actually on screen. A commit is a reason to work
-  /// out whether the toolbar *should* appear; the strip moving is not — and
-  /// reading the selection's geometry costs a transform walk per selected
-  /// block, which during a scroll would be a walk per frame to conclude there
-  /// is still nothing to show.
-  void _followChrome() {
-    if (_entry == null) return;
-    _schedule();
-  }
 
   /// Geometry only exists after layout, and a commit can land *during* a build,
   /// so the overlay is always updated at the end of the frame.
@@ -180,7 +166,7 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
 
   /// The lowest edge of anything the toolbar must stay under.
   ///
-  /// Two things can be in the way and the taller one wins: the writing area's
+  /// Two things can be in the way and the lower one wins: the writing area's
   /// own top, above which the formatting strip and the code bar are laid out,
   /// and the strip itself once it has unpinned and slid down over the text.
   double? get _ceiling {
@@ -189,6 +175,15 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     if (editable == null) return chrome;
     if (chrome == null) return editable;
     return math.max(editable, chrome);
+  }
+
+  /// Follows the pinned strip while it slides, but only while something is on
+  /// screen: reading the selection's geometry costs a transform walk per
+  /// selected block, and during a scroll that would be a walk per frame to
+  /// conclude there is still nothing to show.
+  void _followChrome() {
+    if (_entry == null) return;
+    _schedule();
   }
 
   /// Takes the quick actions off the screen while something else is over the

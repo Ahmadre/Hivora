@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/lexical/callout_node.dart';
 import 'package:hinata/core/lexical/hinata_editor.dart';
+import 'package:hinata/core/lexical/hinata_editor_card.dart';
 import 'package:hinata/core/lexical/hinata_editor_controller.dart';
 import 'package:hinata/core/theme/app_colors.dart';
 import 'package:hinata/core/widgets/glass_panel.dart';
@@ -585,6 +586,58 @@ void main() {
           matching: find.byTooltip('md.bold'),
         ),
         findsNothing,
+      );
+    });
+
+    testWidgets('the toolbar comes back with the page on the way up', (
+      tester,
+    ) async {
+      // The reported failure: scroll down, stop, scroll back up, and the strip
+      // did not come with it — it stayed put, detached from the card's edge,
+      // and ended up somewhere in the middle of the text.
+      final controller = await pump(tester, size: const Size(600, 400));
+      controller.editor.update(() {
+        final root = $getRoot()..clear();
+        for (var i = 0; i < 60; i++) {
+          root.append(
+            $createParagraphNode()..append($createTextNode('Zeile $i')),
+          );
+        }
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      final strip = find.byKey(const ValueKey<String>('md.blockType'));
+      final card = find.byType(HinataEditorCard);
+      final atRest = tester.getRect(strip).top - tester.getRect(card).top;
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      final pinned = tester.getRect(strip).top - tester.getRect(card).top;
+      // It slid down *within* the card rather than staying at its top.
+      expect(pinned, greaterThan(atRest + 100));
+      // And it is on screen, which is the whole point.
+      expect(tester.getRect(strip).top, greaterThanOrEqualTo(0));
+      expect(tester.getRect(strip).bottom, lessThanOrEqualTo(400));
+
+      // Back up, in two goes with a stop between them — the reported gesture.
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 400),
+      );
+      await tester.pumpAndSettle();
+
+      // Home again, level with the card's top edge, not stranded mid-document.
+      expect(
+        tester.getRect(strip).top - tester.getRect(card).top,
+        closeTo(atRest, 1),
       );
     });
 

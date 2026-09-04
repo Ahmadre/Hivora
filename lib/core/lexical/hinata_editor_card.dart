@@ -9,7 +9,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderStack;
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 
 import '../theme/app_colors.dart';
 import '../widgets/glass_panel.dart';
@@ -20,7 +20,7 @@ import '../widgets/glass_panel.dart';
 /// almost always inside a glass modal already, and a second backdrop sample
 /// inside the first one both costs a full-screen blur per frame and reads as
 /// mud. The rim, the warm fill and the focus ring are what carry the material.
-class HinataEditorCard extends StatelessWidget {
+class HinataEditorCard extends StatefulWidget {
   const HinataEditorCard({
     required this.child,
     super.key,
@@ -34,9 +34,9 @@ class HinataEditorCard extends StatelessWidget {
 
   /// The height of the formatting strip.
   ///
-  /// Fixed, and public, because the strip is drawn twice: once as a gap that
-  /// holds its place in the column, and once as the bar itself floating over
-  /// the writing area while the card is scrolled past.
+  /// Fixed, and public, because the strip is drawn twice: once as a gap holding
+  /// its place in the column, and once as the bar itself over the writing area
+  /// while the card is scrolled past.
   static const double toolbarHeight = 42;
 
   /// The writing area.
@@ -55,23 +55,29 @@ class HinataEditorCard extends StatelessWidget {
   /// Whether the editor has focus, which lifts the rim to the accent.
   final bool focused;
 
-  /// Where the pinned formatting strip currently is, in global coordinates.
-  ///
-  /// Published rather than inferred: the floating quick actions have to know
-  /// what is above the words they point at, and once the strip slides it is no
-  /// longer wherever the card's top happens to be.
+  /// Where the pinned strip currently is, in global coordinates, or null while
+  /// it is not pinned. The floating quick actions read it to stay clear.
   final ValueNotifier<Rect?>? stickyRect;
 
   final double radius;
 
   @override
+  State<HinataEditorCard> createState() => _HinataEditorCardState();
+}
+
+class _HinataEditorCardState extends State<HinataEditorCard> {
+  /// Identifies the card's own box for the pinned strip, so the measurement
+  /// cannot be re-anchored by an ancestor someone introduces later.
+  final GlobalKey _body = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
     final dark = AppColors.brightness == Brightness.dark;
-    final border = BorderRadius.circular(radius);
+    final border = BorderRadius.circular(widget.radius);
 
     return GlassPanelShadow(
       radius: border,
-      shadows: focused ? _focusShadow : _restShadow(dark),
+      shadows: widget.focused ? _focusShadow : _restShadow(dark),
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: border,
@@ -84,55 +90,76 @@ class HinataEditorCard extends StatelessWidget {
                 ? const [Color(0xFF23222F), Color(0xFF1B1A24)]
                 : const [Color(0xFFFFFFFF), Color(0xFFFBFAF6)],
           ),
-          border: Border.all(
-            color: focused
-                ? AppColors.accent.withValues(alpha: dark ? 0.55 : 0.5)
-                : AppColors.hairline,
-            width: focused ? 1.4 : 1,
-          ),
         ),
-        child: Stack(
-          children: [
-            ClipRRect(
-              borderRadius: border,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // The strip keeps its place in the flow even while it is
-                  // drawn somewhere else, so nothing below it moves when it
-                  // starts sticking.
-                  if (toolbar != null) const SizedBox(height: toolbarHeight),
-                  if (contextBar != null) _bar(child: contextBar!),
-                  child,
-                  ?footer,
-                ],
-              ),
+        // The rim is drawn *over* the card, not behind it. The pinned
+        // formatting strip is opaque and reaches both edges, so a border
+        // painted underneath was covered exactly where the strip was — the
+        // card lost its outline for the height of its own toolbar.
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            borderRadius: border,
+            border: Border.all(
+              color: widget.focused
+                  ? AppColors.accent.withValues(alpha: dark ? 0.55 : 0.5)
+                  : AppColors.hairline,
+              width: widget.focused ? 1.4 : 1,
             ),
-            if (toolbar != null)
-              _StickyBar(
-                radius: border,
-                rect: stickyRect,
-                child: _bar(child: toolbar!, opaque: true),
+          ),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: border,
+                // The strip lives *inside* the clip, so whatever it is asked to
+                // do it can never be drawn outside the card's edge.
+                child: Stack(
+                  key: _body,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // A gap holding the strip's place, so nothing below it
+                        // moves when it starts sticking.
+                        if (widget.toolbar != null)
+                          const SizedBox(
+                            height: HinataEditorCard.toolbarHeight,
+                          ),
+                        if (widget.contextBar != null)
+                          _bar(child: widget.contextBar!),
+                        widget.child,
+                        ?widget.footer,
+                      ],
+                    ),
+                    if (widget.toolbar != null)
+                      _StickyBar(
+                        card: _body,
+                        rect: widget.stickyRect,
+                        radius: border,
+                        child: _bar(child: widget.toolbar!, opaque: true),
+                      ),
+                  ],
+                ),
               ),
-            // The specular rim, over the content: it is the edge of the glass,
-            // and an edge drawn under what it contains is not one.
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(
-                  painter: GlassRimPainter(
-                    radius: radius,
-                    edge: dark
-                        ? const Color(0x24FFFFFF)
-                        : const Color(0xB3FFFFFF),
-                    edgeSoft: dark
-                        ? const Color(0x0FFFFFFF)
-                        : const Color(0x4DFFFFFF),
+              // The specular rim, over the content: it is the edge of the glass,
+              // and an edge drawn under what it contains is not one.
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: GlassRimPainter(
+                      radius: widget.radius,
+                      edge: dark
+                          ? const Color(0x24FFFFFF)
+                          : const Color(0xB3FFFFFF),
+                      edgeSoft: dark
+                          ? const Color(0x0FFFFFFF)
+                          : const Color(0x4DFFFFFF),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -140,11 +167,9 @@ class HinataEditorCard extends StatelessWidget {
 
   /// One strip of chrome: tinted a shade off the writing area, hairline below.
   ///
-  /// [opaque] for the strip that floats: at rest it sits on the card's own
-  /// fill and a translucent tint reads as a shade of it, but once it is over
-  /// the writing area the words underneath show straight through. This is the
-  /// one place the ink cannot solve it — the text behind is arbitrary — so the
-  /// floating copy stops being a tint and becomes a surface.
+  /// [opaque] for the strip that floats: at rest a translucent tint reads as a
+  /// shade of the card's own fill, but once it is over the writing area the
+  /// words underneath show straight through it.
   static Widget _bar({required Widget child, bool opaque = false}) =>
       DecoratedBox(
         decoration: BoxDecoration(
@@ -194,33 +219,60 @@ class HinataEditorCard extends StatelessWidget {
 ///
 /// The editor is deliberately not its own scroll view — the host is a form or
 /// a sheet that scrolls, and a second viewport here would trap the gesture and
-/// strand the save bar off-screen. The cost was that the strip is an ordinary
-/// row in that scroll: writing past the first screenful carried every
-/// formatting control away with it, and applying bold meant scrolling back up
-/// to find the button and then back down to find the caret.
+/// strand the save bar off-screen. The cost is that the strip is an ordinary
+/// row in the host's scroll: writing past the first screenful carried every
+/// control away with it, so applying bold meant scrolling up to find the
+/// button and back down to find the caret.
 ///
-/// So it stays inside the card and slides down as the card's top passes the
-/// viewport's, stopping before it reaches the bottom of the writing area — a
-/// strip pinned over the last line of a field is in the way rather than to
-/// hand.
+/// So it slides down as the card's top passes the viewport's, and stops before
+/// it reaches the bottom of the writing area — a strip pinned over the last
+/// line of a field is in the way rather than to hand.
 ///
-/// Positioned rather than translated, deliberately. A translating render
-/// object (Transform, AnimatedSlide, FractionalTranslation) in a hover path
-/// asserts `!debugNeedsLayout` on the web every time the mouse tracker
+/// Three things this has to get right, each of which it got wrong before:
+///
+///  * **It measures itself against the real viewport.** `Scrollable.of` gives
+///    the scrollable's own element, whose box is not the scrolling one when
+///    the host wraps it — in a sheet that was a whole chrome's worth of error,
+///    and the strip ended up hovering in the middle of the text.
+///  * **It reads the scroll offset, not the card's paint transform.** The
+///    position notifies its listeners while the new offset is being applied,
+///    a frame before anything is laid out at it, so a transform read here
+///    still describes the previous scroll. On the page the error was invisible
+///    because the two agreed often enough; in a sheet the strip trailed a
+///    whole gesture behind and travelled *downwards* while the reader scrolled
+///    up, which is what made it look like it randomly detached.
+///  * **It measures the card by identity, not by type.** An ancestor lookup
+///    for `RenderStack` finds whichever stack happens to be nearest, and a
+///    glass overlay or a badge wrapper introduced later would silently
+///    re-anchor the maths with no error anywhere.
+///  * **It cannot leave the card.** It is inside the card's clip, and its
+///    travel is bounded by the card's own height, so there is no scroll
+///    position that detaches it from the edge it belongs to.
+///
+/// Positioned rather than translated: a translating render object in a hover
+/// path asserts `!debugNeedsLayout` on the web whenever the mouse tracker
 /// hit-tests it during layout churn, and this strip is both hovered and
-/// re-laid-out on every scroll frame. Moving it by parent data re-lays it out
-/// instead, which is exactly what a hit-test after layout expects.
+/// re-laid-out on every scroll frame.
 class _StickyBar extends StatefulWidget {
-  const _StickyBar({required this.child, required this.radius, this.rect});
+  const _StickyBar({
+    required this.card,
+    required this.child,
+    required this.radius,
+    this.rect,
+  });
+
+  /// The card's own box, keyed by the card itself.
+  final GlobalKey card;
+
+  /// The card's corner radius. Once the strip has slid off the card's top it
+  /// *is* the top edge as far as a reader can see, so it carries the same
+  /// rounded corners rather than reading as a bar laid across the page.
+  final BorderRadius radius;
 
   final Widget child;
 
   /// Where this strip ended up, for whoever has to keep clear of it.
   final ValueNotifier<Rect?>? rect;
-
-  /// The card's corner radius, so the pinned strip is clipped to the same
-  /// edge it is drawn against.
-  final BorderRadius radius;
 
   @override
   State<_StickyBar> createState() => _StickyBarState();
@@ -230,26 +282,15 @@ class _StickyBarState extends State<_StickyBar> {
   ScrollPosition? _position;
   double _offset = 0;
 
-  /// The card and the viewport, resolved once.
-  ///
-  /// [_follow] is a scroll listener: it runs on every frame of every scroll,
-  /// for as long as the editor is mounted. Walking the element tree for an
-  /// ancestor that cannot change, and re-registering an inherited dependency,
-  /// are not things to do from there.
-  RenderStack? _card;
-  RenderBox? _viewport;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _card = null;
-    _viewport = null;
     final position = Scrollable.maybeOf(context)?.position;
     if (identical(position, _position)) return;
     _position?.removeListener(_follow);
     _position = position?..addListener(_follow);
     // The card can already be scrolled past on the first frame — a deep link
-    // straight to a comment, or a rebuild while the reader is halfway down.
+    // straight to a comment, or a rebuild halfway down the page.
     WidgetsBinding.instance.addPostFrameCallback((_) => _follow());
   }
 
@@ -260,57 +301,50 @@ class _StickyBarState extends State<_StickyBar> {
     super.dispose();
   }
 
-  /// How far the strip has to slide to stay at the top of what is visible.
   void _follow() {
-    // The card, not this widget: a Positioned reports its child's box, so
-    // measuring this element would measure the strip against itself and chase
-    // its own offset every frame.
     if (!mounted) return;
-    // Resolved on first use, not in didChangeDependencies: that runs before
-    // the first layout, when the ancestor's render object does not exist yet
-    // and a null would be cached for the lifetime of the widget. Neither
-    // answer can change afterwards, so one successful lookup is enough.
-    final card = _card ??= context.findAncestorRenderObjectOfType<RenderStack>();
-    final viewport = _viewport ??= switch (_position?.context
-        .storageContext
-        .findRenderObject()) {
-      final RenderBox box => box,
-      _ => null,
-    };
-    if (card == null || viewport == null) return;
-    if (!card.hasSize || !card.attached || !viewport.hasSize) return;
+    final position = _position;
+    if (position == null || !position.hasPixels) return;
+    final box = widget.card.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || !box.attached) return;
+    // The scrolling box itself, whatever the host wrapped it in.
+    final viewport = RenderAbstractViewport.maybeOf(box);
+    if (viewport == null) return;
 
-    // The card's top in the viewport's coordinates: negative once it has been
-    // scrolled past, which is exactly how far the strip has to come down.
-    final top = card.localToGlobal(Offset.zero, ancestor: viewport).dy;
+    // How far the card's top has gone past the viewport's, which is exactly
+    // how far the strip has to come down to stay level with it.
+    //
+    // Read from the scroll offset against the card's place in the scroll, and
+    // deliberately *not* from the card's paint transform: this runs from the
+    // position's own notification, which is sent while the new offset is being
+    // applied and before the frame it produces has been laid out. The paint
+    // transform therefore still describes the *previous* scroll — so the strip
+    // trailed a whole gesture behind, and scrolling back up moved it further
+    // down. `getOffsetToReveal` is layout data about where the card sits in
+    // the scrollable's content, which the current offset does not change.
+    final past = position.pixels - viewport.getOffsetToReveal(box, 0).offset;
 
-    // Scrolled out of sight: there is nothing to pin, and nothing above the
-    // words for the quick actions to keep clear of either.
-    if (top > viewport.size.height || top + card.size.height < 0) {
-      widget.rect?.value = null;
-      return;
-    }
+    // Bounded by the card: it stops with a line's worth of writing still
+    // under it rather than sitting on the last one, and it can never travel
+    // far enough to part company with the card's edge.
+    final room = box.size.height - HinataEditorCard.toolbarHeight * 2;
+    final next = past.clamp(0.0, room < 0 ? 0.0 : room);
 
-    // Never past the writing area: the strip stops with a line's worth of text
-    // still under it rather than sitting on the last one.
-    final room = card.size.height - HinataEditorCard.toolbarHeight * 2;
-    final next = (-top).clamp(0.0, room < 0 ? 0.0 : room);
-
-    // One gate for both effects. The rect is in global coordinates, so its
-    // origin moves on every scroll frame even while the strip is not pinned at
-    // all — publishing it ungated woke the quick actions once a frame for a
-    // position that had not changed relative to anything they care about.
     if ((next - _offset).abs() < 0.5) return;
-    _publish(card, next);
     setState(() => _offset = next);
+    // After the frame, for the same reason the offset above is not read from
+    // the card's transform: here there is no layout-space equivalent to fall
+    // back on, since what the quick actions need is a screen rectangle.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _publish());
   }
 
-  /// Reports the strip's own rectangle, after the frame that placed it.
-  void _publish(RenderBox card, double offset) {
-    final notifier = widget.rect;
-    if (notifier == null) return;
-    final origin = card.localToGlobal(Offset(0, offset));
-    notifier.value = Rect.fromLTWH(
+  /// Reports the strip's own rectangle, so the quick actions can avoid it.
+  void _publish() {
+    if (!mounted || widget.rect == null) return;
+    final card = widget.card.currentContext?.findRenderObject();
+    if (card is! RenderBox || !card.hasSize || !card.attached) return;
+    final origin = card.localToGlobal(Offset(0, _offset));
+    widget.rect!.value = Rect.fromLTWH(
       origin.dx,
       origin.dy,
       card.size.width,
@@ -323,13 +357,14 @@ class _StickyBarState extends State<_StickyBar> {
     top: _offset,
     left: 0,
     right: 0,
+    // Once the strip has slid off the card's own top it *is* the top edge
+    // as far as a reader can see, so it carries the card's corners rather
+    // than reading as a bar laid across the page.
     child: ClipRRect(
-      borderRadius: _offset > 0
-          ? BorderRadius.zero
-          : BorderRadius.only(
-              topLeft: widget.radius.topLeft,
-              topRight: widget.radius.topRight,
-            ),
+      borderRadius: BorderRadius.only(
+        topLeft: widget.radius.topLeft,
+        topRight: widget.radius.topRight,
+      ),
       child: widget.child,
     ),
   );

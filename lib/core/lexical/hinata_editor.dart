@@ -545,8 +545,7 @@ class HinataEditorState extends State<HinataEditor> {
             // Suppressing the platform menu hides it; this is what says one
             // was asked for. Without it a long press on an empty field had
             // nowhere to offer paste from.
-            onContextMenu: () =>
-                _quickKey.currentState?.showContextActions(),
+            onContextMenu: () => _quickKey.currentState?.showContextActions(),
           ),
           Positioned(
             left: 0,
