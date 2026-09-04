@@ -2136,7 +2136,10 @@
       "revokeOthersTitle": "Sign out all other devices",
       "revokeOthersMessage": "Every device except this one will be signed out immediately.",
       "revokeOthersConfirm": "Sign out all others",
-      "revokeOthersToast": "Signed out of all other devices"
+      "revokeOthersToast": "Signed out of all other devices",
+      "showAll": "Show {{count}} more device",
+      "showAll_plural": "Show {{count}} more devices",
+      "showFewer": "Show fewer"
     },
     "time": {
       "now": "now",

@@ -2136,7 +2136,10 @@
       "revokeOthersTitle": "Alle anderen Geräte abmelden",
       "revokeOthersMessage": "Alle Geräte außer diesem werden sofort abgemeldet.",
       "revokeOthersConfirm": "Alle anderen abmelden",
-      "revokeOthersToast": "Von allen anderen Geräten abgemeldet"
+      "revokeOthersToast": "Von allen anderen Geräten abgemeldet",
+      "showAll": "{{count}} weiteres Gerät anzeigen",
+      "showAll_plural": "{{count}} weitere Geräte anzeigen",
+      "showFewer": "Weniger anzeigen"
     },
     "time": {
       "now": "gerade eben",

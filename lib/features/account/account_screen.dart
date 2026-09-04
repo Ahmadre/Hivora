@@ -109,6 +109,16 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Me? _me;
   List<DeviceSession> _sessions = const [];
+
+  /// How many sessions the account has in total, which is more than the page
+  /// held whenever the reader has not expanded the list.
+  int _sessionsTotal = 0;
+
+  /// Whether the full list is showing rather than the first few rows.
+  bool _sessionsExpanded = false;
+
+  /// Set while the rest of the list is being fetched after an expand.
+  bool _sessionsLoadingMore = false;
   List<AccessTeam> _teams = const [];
   List<AccessProject> _projects = const [];
   NotifPrefs? _prefs;
@@ -142,14 +152,19 @@ class _AccountScreenState extends State<AccountScreen> {
     try {
       final results = await Future.wait([
         _repo.meAccount(),
-        _repo.sessions(),
+        _repo.sessionsPage(
+          size: _sessionsExpanded ? _sessionsPageSize : _sessionsPreview,
+        ),
         _repo.myTeams(),
         _repo.myProjects(),
       ]);
       if (!mounted) return;
+      final page =
+          results[1] as ({List<DeviceSession> items, int total});
       setState(() {
         _me = results[0] as Me;
-        _sessions = results[1] as List<DeviceSession>;
+        _sessions = page.items;
+        _sessionsTotal = page.total;
         _teams = results[2] as List<AccessTeam>;
         _projects = results[3] as List<AccessProject>;
         _prefs = (results[0] as Me).notificationPreferences;
@@ -967,12 +982,67 @@ class _AccountScreenState extends State<AccountScreen> {
 
   // --- sessions -------------------------------------------------------------
 
+  /// How many device rows the settings screen shows before the expander.
+  ///
+  /// Enough to answer "is anything signed in that should not be" at a glance —
+  /// this device plus the three most recent — without the section becoming the
+  /// longest thing on the page. Fifteen devices is an ordinary number for an
+  /// account a couple of years old, and fifteen rows buried every setting
+  /// underneath them.
+  static const int _sessionsPreview = 4;
+
+  /// The rows on screen: the whole list once expanded, the newest few until
+  /// then. The current device is always among them — the server orders by last
+  /// activity, and nothing is more recently active than the device asking.
+  List<DeviceSession> get _visibleSessions => _sessionsExpanded
+      ? _sessions
+      : _sessions.take(_sessionsPreview).toList();
+
+  /// The largest page the server will serve; it clamps anything above this.
+  ///
+  /// An account with more devices than one page holds keeps the expander
+  /// around, so the next press fetches the next page rather than silently
+  /// stopping at a hundred.
+  static const int _sessionsPageSize = 100;
+
+  /// Shows the rest of the list, fetching the next page when one is missing.
+  Future<void> _expandSessions() async {
+    setState(() => _sessionsExpanded = true);
+    if (_sessions.length >= _sessionsTotal || _sessionsLoadingMore) return;
+    setState(() => _sessionsLoadingMore = true);
+    try {
+      // Re-fetched from the first page rather than appended: revoking a device
+      // elsewhere shifts every later row, and an offset page would then repeat
+      // one session and skip another. One page is also all of them in practice
+      // — the server caps a page at this size, and an account with more live
+      // sessions than that has a problem no expander is going to solve.
+      final page = await _repo.sessionsPage(size: _sessionsPageSize);
+      if (!mounted) return;
+      setState(() {
+        _sessions = page.items;
+        _sessionsTotal = page.total;
+        _sessionsLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sessionsLoadingMore = false;
+        // Back to the preview: an expander that opened onto the same four rows
+        // it already showed looks like the button is broken.
+        _sessionsExpanded = false;
+      });
+      _toast('errors.unexpected', kind: GlassToastKind.error);
+    }
+  }
+
   Widget _sessionsSection() {
     final others = _sessions.where((s) => !s.current).toList();
+    final visible = _visibleSessions;
+    final hidden = _sessionsTotal - visible.length;
     return AccountSection(
       icon: LucideIcons.monitorSmartphone,
       title: context.t('account.sessions.title'),
-      subtitle: context.t('account.sessions.devices', count: _sessions.length),
+      subtitle: context.t('account.sessions.devices', count: _sessionsTotal),
       trailing: others.isEmpty
           ? null
           : AccountActionButton(
@@ -982,10 +1052,26 @@ class _AccountScreenState extends State<AccountScreen> {
               onPressed: _revokeOthers,
             ),
       children: [
-        for (var i = 0; i < _sessions.length; i++) ...[
+        for (var i = 0; i < visible.length; i++) ...[
           if (i > 0) Divider(height: 1, color: AppColors.hairline2),
-          _sessionRow(_sessions[i]),
+          _sessionRow(visible[i]),
         ],
+        if (hidden > 0 || _sessionsExpanded && _sessionsTotal > _sessionsPreview)
+          Divider(height: 1, color: AppColors.hairline2),
+        if (hidden > 0)
+          _SessionsExpander(
+            label: context.t('account.sessions.showAll', count: hidden),
+            busy: _sessionsLoadingMore,
+            expanded: false,
+            onPressed: _expandSessions,
+          )
+        else if (_sessionsExpanded && _sessionsTotal > _sessionsPreview)
+          _SessionsExpander(
+            label: context.t('account.sessions.showFewer'),
+            busy: false,
+            expanded: true,
+            onPressed: () => setState(() => _sessionsExpanded = false),
+          ),
       ],
     );
   }
@@ -1707,4 +1793,59 @@ class _AccountScreenState extends State<AccountScreen> {
     );
     return value == null ? AppColors.stTodo : Color(value);
   }
+}
+
+/// The row that opens the rest of the device list, and closes it again.
+///
+/// A row rather than a button floating beside the section header: it is the
+/// continuation of the list it belongs to, and reads as the next item — which
+/// is exactly what pressing it produces.
+class _SessionsExpander extends StatelessWidget {
+  const _SessionsExpander({
+    required this.label,
+    required this.busy,
+    required this.expanded,
+    required this.onPressed,
+  });
+
+  final String label;
+
+  /// Whether the rest of the list is still on its way.
+  final bool busy;
+
+  /// Which way the chevron points: down to reveal, up to collapse.
+  final bool expanded;
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: busy ? null : onPressed,
+    borderRadius: BorderRadius.circular(8),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (busy)
+            const HiveLoader(size: 16, strokeWidth: 2)
+          else
+            Icon(
+              expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+              size: 16,
+              color: AppColors.accentStrong,
+            ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.accentStrong,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

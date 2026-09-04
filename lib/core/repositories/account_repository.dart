@@ -57,10 +57,28 @@ class AccountRepository {
   /// Emails a one-time password-reset link (LOCAL accounts only).
   Future<void> sendPasswordReset() => _api.post('/api/v1/me/password-reset');
 
-  Future<List<DeviceSession>> sessions() async =>
-      ((await _api.get('/api/v1/me/sessions')) as List<dynamic>)
+  /// One page of device sessions, most recently active first.
+  ///
+  /// Paginated end to end: the list grows with every browser and every
+  /// reinstall, and the settings screen shows only the first few until the
+  /// reader asks for the rest.
+  Future<({List<DeviceSession> items, int total})> sessionsPage({
+    int page = 0,
+    int size = 25,
+  }) async {
+    final data =
+        await _api.get(
+              '/api/v1/me/sessions',
+              query: {'page': page, 'size': size},
+            )
+            as Map<String, dynamic>;
+    return (
+      items: ((data['content'] as List<dynamic>?) ?? [])
           .map((s) => DeviceSession.fromJson(s as Map<String, dynamic>))
-          .toList();
+          .toList(),
+      total: data['totalElements'] as int? ?? 0,
+    );
+  }
 
   Future<void> revokeSession(String id) =>
       _api.delete('/api/v1/me/sessions/$id');
