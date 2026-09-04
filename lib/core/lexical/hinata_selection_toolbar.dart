@@ -7,6 +7,8 @@
 /// the words it acts on.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -244,7 +246,10 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
       // clipped and unreachable. The position is computed from the toolbar's
       // measured size, which is what this delegate is for.
       child: CustomSingleChildLayout(
-        delegate: _ToolbarLayout(anchor),
+        delegate: _ToolbarLayout(
+          anchor,
+          ceiling: widget.editableKey.currentState?.editableBounds?.top,
+        ),
         child: GlassFloatingSurface(
           radius: 16,
           child: _editingLink
@@ -558,15 +563,32 @@ class _LinkFieldState extends State<_LinkField> {
   );
 }
 
-/// Places the toolbar over [anchor] without letting it leave the screen.
+/// Places the toolbar over [anchor] without letting it leave the screen, and
+/// without letting it cover the editor's own chrome.
 class _ToolbarLayout extends SingleChildLayoutDelegate {
-  const _ToolbarLayout(this.anchor);
+  const _ToolbarLayout(this.anchor, {this.ceiling});
 
   /// The selection, in the overlay's coordinates.
   final Rect anchor;
 
+  /// The top of the writing area, above which the toolbar must not be drawn.
+  ///
+  /// The screen edge is not the only thing in the way. The editor's formatting
+  /// strip — and the code block's language bar under it — sit immediately above
+  /// the writing area, so for a selection in the first line there is plenty of
+  /// room "above" by the screen's reckoning and none at all by the writer's:
+  /// the quick actions landed squarely on the toolbar they duplicate, hiding
+  /// the controls and leaving two stacked glass panels to tell apart.
+  ///
+  /// Null when the editable has not been laid out yet, which falls back to the
+  /// screen margin alone.
+  final double? ceiling;
+
   static const double _margin = 8;
   static const double _gap = 10;
+
+  /// The highest the toolbar may be placed.
+  double get _top => math.max(_margin, ceiling ?? _margin);
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
@@ -587,7 +609,7 @@ class _ToolbarLayout extends SingleChildLayoutDelegate {
     );
     // Above the selection when there is room, below it otherwise — a toolbar
     // covering the text it acts on is worse than one on the wrong side.
-    final above = anchor.top - childSize.height - _gap >= _margin;
+    final above = anchor.top - childSize.height - _gap >= _top;
     final y = above
         ? anchor.top - childSize.height - _gap
         : (anchor.bottom + _gap).clamp(
@@ -602,5 +624,5 @@ class _ToolbarLayout extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_ToolbarLayout oldDelegate) =>
-      oldDelegate.anchor != anchor;
+      oldDelegate.anchor != anchor || oldDelegate.ceiling != ceiling;
 }

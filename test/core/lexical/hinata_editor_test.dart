@@ -11,6 +11,7 @@ import 'package:hinata/core/lexical/callout_node.dart';
 import 'package:hinata/core/lexical/hinata_editor.dart';
 import 'package:hinata/core/lexical/hinata_editor_controller.dart';
 import 'package:hinata/core/theme/app_colors.dart';
+import 'package:hinata/core/widgets/glass_panel.dart';
 import 'package:hinata/features/knowledge/markdown/smart_link_chip.dart';
 import 'package:hinata/features/knowledge/markdown/smart_link_resolver.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart';
@@ -518,6 +519,46 @@ void main() {
         isTrue,
       );
       expect(controller.plainText, contains('hinata.example'));
+    });
+
+    testWidgets('the quick actions never cover the toolbar they sit above', (
+      tester,
+    ) async {
+      // Selecting in the FIRST line is the case that broke: there was room
+      // above by the screen's reckoning, so the quick actions went there — and
+      // landed squarely on the editor's own formatting strip, hiding the
+      // controls behind a second glass panel holding the same icons.
+      final controller = await pump(tester, size: const Size(600, 700));
+      controller.editor.update(() {
+        final paragraph = $createParagraphNode();
+        final text = $createTextNode('TestTestTestTestTestTest');
+        paragraph.append(text);
+        $getRoot()
+          ..clear()
+          ..append(paragraph);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      // Selected in its own commit, after the blocks are laid out: the
+      // rectangles the quick actions point at are measured from the rendered
+      // text, and there is nothing to measure in the commit that creates it.
+      controller.editor.update(() {
+        final text =
+            ($getRoot().getFirstChild()! as ElementNode).getFirstChild()!
+                as TextNode;
+        text.select(0, 24);
+      }, discrete: true);
+      await tester.pumpAndSettle();
+
+      // Paste belongs to the quick actions alone, so finding it proves the
+      // overlay is up and this assertion is not passing vacuously.
+      expect(find.byTooltip('common.paste'), findsOneWidget);
+
+      // The writing area's top is the ceiling: the toolbar and the code bar
+      // are laid out above it, so anything at or below it clears them both.
+      final quick = tester.getRect(find.byType(GlassFloatingSurface));
+      final writing = tester.getRect(find.byType(LexicalEditorField));
+      expect(quick.top, greaterThanOrEqualTo(writing.top));
     });
 
     testWidgets('Enter applies the address, however the key arrives', (
