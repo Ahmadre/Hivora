@@ -999,17 +999,18 @@ class _AccountScreenState extends State<AccountScreen> {
       : _sessions.take(_sessionsPreview).toList();
 
   /// The largest page the server will serve; it clamps anything above this.
-  ///
-  /// An account with more devices than one page holds keeps the expander
-  /// around, so the next press fetches the next page rather than silently
-  /// stopping at a hundred.
   static const int _sessionsPageSize = 100;
 
   /// Shows the rest of the list, fetching the next page when one is missing.
   Future<void> _expandSessions() async {
-    setState(() => _sessionsExpanded = true);
-    if (_sessions.length >= _sessionsTotal || _sessionsLoadingMore) return;
-    setState(() => _sessionsLoadingMore = true);
+    if (_sessions.length >= _sessionsTotal || _sessionsLoadingMore) {
+      setState(() => _sessionsExpanded = true);
+      return;
+    }
+    setState(() {
+      _sessionsExpanded = true;
+      _sessionsLoadingMore = true;
+    });
     try {
       // Re-fetched from the first page rather than appended: revoking a device
       // elsewhere shifts every later row, and an offset page would then repeat
@@ -1038,7 +1039,11 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _sessionsSection() {
     final others = _sessions.where((s) => !s.current).toList();
     final visible = _visibleSessions;
-    final hidden = _sessionsTotal - visible.length;
+    // What is still behind the expander, not what the account has: once the
+    // page is fetched these rows are everything that will ever be shown, and
+    // an expander offering "50 more" that re-fetches the same hundred is a
+    // button that costs a request to change nothing.
+    final hidden = _sessionsExpanded ? 0 : _sessionsTotal - visible.length;
     return AccountSection(
       icon: LucideIcons.monitorSmartphone,
       title: context.t('account.sessions.title'),

@@ -347,8 +347,11 @@ class _FormatToolbar extends StatelessWidget {
     required this.onSend,
   });
 
-  /// The formatting buttons, left to right. Supplied by the composer so this
-  /// row does not care whether it is driving markdown or a document.
+  /// The formatting buttons, left to right.
+  ///
+  /// Supplied by the composer rather than built here, which is what freed this
+  /// row from the markdown editing actions it used to be wired to. Underline is
+  /// deliberately absent: it is not one of the shapes a comment can carry.
   final List<(IconData, VoidCallback)> tools;
   final bool canSend;
   final VoidCallback onClose;
@@ -394,7 +397,9 @@ class _FormatToolbar extends StatelessWidget {
   }
 }
 
-/// Segmented Editor / Preview switcher shown top-right in the format editor.
+// ── recording bar ───────────────────────────────────────────────────────────
+
+/// The live-waveform strip shown while a voice message is being recorded.
 class _RecordingBar extends StatelessWidget {
   const _RecordingBar({
     required this.elapsed,

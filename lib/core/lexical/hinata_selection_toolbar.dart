@@ -71,12 +71,12 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
     _unsubscribe = widget.editor.registerUpdateListener((_) => _schedule());
     // The strip slides while the reader scrolls, and the toolbar has to get
     // out of its way as it comes rather than at the next keystroke.
-    widget.chromeRect?.addListener(_schedule);
+    widget.chromeRect?.addListener(_followChrome);
   }
 
   @override
   void dispose() {
-    widget.chromeRect?.removeListener(_schedule);
+    widget.chromeRect?.removeListener(_followChrome);
     _unsubscribe?.call();
     _entry?.remove();
     _entry = null;
@@ -95,10 +95,37 @@ class HinataSelectionToolbarState extends State<HinataSelectionToolbar> {
 
   // --- geometry ---------------------------------------------------------
 
+  /// Whether a sync is already queued for the end of this frame.
+  ///
+  /// Do not remove this in the name of fewer fields. The toolbar is woken by
+  /// the editor's commits *and* by the pinned strip moving, and during a scroll
+  /// with a selection showing those arrive together — each one used to queue
+  /// its own post-frame callback, and each callback rebuilt the whole floating
+  /// surface. One sync per frame is all that can ever be observed.
+  bool _syncQueued = false;
+
+  /// Follows the pinned strip while it slides.
+  ///
+  /// Only while something is actually on screen. A commit is a reason to work
+  /// out whether the toolbar *should* appear; the strip moving is not — and
+  /// reading the selection's geometry costs a transform walk per selected
+  /// block, which during a scroll would be a walk per frame to conclude there
+  /// is still nothing to show.
+  void _followChrome() {
+    if (_entry == null) return;
+    _schedule();
+  }
+
   /// Geometry only exists after layout, and a commit can land *during* a build,
   /// so the overlay is always updated at the end of the frame.
-  void _schedule() =>
-      WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+  void _schedule() {
+    if (_syncQueued) return;
+    _syncQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncQueued = false;
+      _sync();
+    });
+  }
 
   /// The rectangle the toolbar points at, or null when it should not be shown.
   ///

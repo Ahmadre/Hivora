@@ -17,14 +17,13 @@ import '../../../core/i18n/i18n.dart';
 import '../../../core/responsive/responsive.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/markdown_toolbar.dart';
 import 'package:lexical_editor_flutter/lexical_editor_flutter.dart'
     show TextFormat;
 
 import '../../../core/lexical/hinata_editor.dart';
 import '../../../core/lexical/hinata_editor_controller.dart';
 import '../../../core/lexical/hinata_editing.dart';
-import '../../../core/lexical/hinata_markdown_preview.dart';
+import '../../../core/lexical/hinata_markdown_preview.dart' show markdownToDocument;
 import '../../knowledge/markdown/mention_field.dart';
 import '../../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'voice/voice_recorder.dart';
@@ -109,15 +108,18 @@ enum ComposerAttach { camera, gallery, file }
 ///   • idle     → [+] · field · mic
 ///   • typing   → mic becomes the honey-amber send button
 ///   • popup    → glass "+" menu (camera / gallery / attachment / format)
-///   • format   → grows *in place* into a Markdown editor (Edit/Preview switch,
-///                drag-to-resize, toolbar pinned) — no modal. Because the
-///                composer is always bottom-anchored in its region (the phone
-///                sticky bar or the desktop comment panel's footer), the editor
-///                expands *upward* with the toolbar staying put.
+///   • format   → grows *in place* into the same rich editor the description
+///                uses (drag-to-resize, buttons pinned along the bottom) — no
+///                modal. Because the composer is always bottom-anchored in its
+///                region (the phone sticky bar or the desktop comment panel's
+///                footer), the editor expands *upward* with the buttons
+///                staying put.
 ///   • recording → live-waveform voice recorder with cancel / send
 ///
-/// It wraps a [MentionField] so `@`-mentions and smart-links keep working, and
-/// drives formatting through the shared [MarkdownEditingActions]. The parent
+/// The single-line row wraps a [MentionField], so `@`-mentions and smart-links
+/// keep working in a one-line remark. Format mode is a [HinataEditor] with its
+/// own toolbar turned off: the buttons stay in this composer's bottom row, and
+/// drive the document through editor commands. The parent
 /// owns the [controller] (so it can read/clear the text on submit) and handles
 /// attachment picking + voice/text sending via the callbacks. When [editing] is
 /// set, the composer is editing an existing comment inline — it shows a banner
@@ -127,7 +129,6 @@ class GlassCommentComposer extends StatefulWidget {
     super.key,
     required this.controller,
     required this.focusNode,
-    required this.actions,
     required this.onSubmitText,
     required this.onSendVoice,
     required this.onAttach,
@@ -141,7 +142,7 @@ class GlassCommentComposer extends StatefulWidget {
 
   final TextEditingController controller;
   final FocusNode focusNode;
-  final MarkdownEditingActions actions;
+
   /// Posts the draft. Carries the Lexical document when format mode wrote one,
   /// and null from the single-line field, which has none.
   final void Function(String? doc) onSubmitText;

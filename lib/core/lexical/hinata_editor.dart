@@ -315,7 +315,6 @@ class HinataEditorState extends State<HinataEditor> {
   /// address belongs over the words being linked, where the writer can still
   /// see them, and there must be exactly one place it is typed no matter which
   /// button was pressed.
-  /// Opens the address field over the selection.
   void editLink() => _quickKey.currentState?.editLink();
 
   /// The inline formats the toolbar offers, and the only ones it has to read.

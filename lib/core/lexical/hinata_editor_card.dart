@@ -230,9 +230,20 @@ class _StickyBarState extends State<_StickyBar> {
   ScrollPosition? _position;
   double _offset = 0;
 
+  /// The card and the viewport, resolved once.
+  ///
+  /// [_follow] is a scroll listener: it runs on every frame of every scroll,
+  /// for as long as the editor is mounted. Walking the element tree for an
+  /// ancestor that cannot change, and re-registering an inherited dependency,
+  /// are not things to do from there.
+  RenderStack? _card;
+  RenderBox? _viewport;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _card = null;
+    _viewport = null;
     final position = Scrollable.maybeOf(context)?.position;
     if (identical(position, _position)) return;
     _position?.removeListener(_follow);
@@ -251,25 +262,46 @@ class _StickyBarState extends State<_StickyBar> {
 
   /// How far the strip has to slide to stay at the top of what is visible.
   void _follow() {
-    if (!mounted) return;
     // The card, not this widget: a Positioned reports its child's box, so
-    // measuring `context` here would measure the strip against itself and
-    // chase its own offset every frame.
-    final card = context.findAncestorRenderObjectOfType<RenderStack>();
-    final viewport = Scrollable.maybeOf(context)?.context.findRenderObject();
-    if (card == null || !card.hasSize || viewport is! RenderBox) return;
-    if (!viewport.hasSize || !card.attached) return;
+    // measuring this element would measure the strip against itself and chase
+    // its own offset every frame.
+    if (!mounted) return;
+    // Resolved on first use, not in didChangeDependencies: that runs before
+    // the first layout, when the ancestor's render object does not exist yet
+    // and a null would be cached for the lifetime of the widget. Neither
+    // answer can change afterwards, so one successful lookup is enough.
+    final card = _card ??= context.findAncestorRenderObjectOfType<RenderStack>();
+    final viewport = _viewport ??= switch (_position?.context
+        .storageContext
+        .findRenderObject()) {
+      final RenderBox box => box,
+      _ => null,
+    };
+    if (card == null || viewport == null) return;
+    if (!card.hasSize || !card.attached || !viewport.hasSize) return;
 
     // The card's top in the viewport's coordinates: negative once it has been
     // scrolled past, which is exactly how far the strip has to come down.
     final top = card.localToGlobal(Offset.zero, ancestor: viewport).dy;
+
+    // Scrolled out of sight: there is nothing to pin, and nothing above the
+    // words for the quick actions to keep clear of either.
+    if (top > viewport.size.height || top + card.size.height < 0) {
+      widget.rect?.value = null;
+      return;
+    }
+
     // Never past the writing area: the strip stops with a line's worth of text
     // still under it rather than sitting on the last one.
     final room = card.size.height - HinataEditorCard.toolbarHeight * 2;
     final next = (-top).clamp(0.0, room < 0 ? 0.0 : room);
 
-    _publish(card, next);
+    // One gate for both effects. The rect is in global coordinates, so its
+    // origin moves on every scroll frame even while the strip is not pinned at
+    // all — publishing it ungated woke the quick actions once a frame for a
+    // position that had not changed relative to anything they care about.
     if ((next - _offset).abs() < 0.5) return;
+    _publish(card, next);
     setState(() => _offset = next);
   }
 
