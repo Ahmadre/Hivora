@@ -412,10 +412,12 @@ class _TrackerCardState extends State<_TrackerCard> {
   }
 
   String _hours(BuildContext context, int minutes) {
-    final v = (minutes / 60).toStringAsFixed(1);
-    return Localizations.localeOf(context).languageCode == 'de'
-        ? v.replaceAll('.', ',')
-        : v;
+    // Let the locale decide the decimal mark. Swapping "." for "," by hand only
+    // ever knew about German, so every other language that writes 1,5 got 1.5.
+    return NumberFormat.decimalPatternDigits(
+      locale: Localizations.localeOf(context).toString(),
+      decimalDigits: 1,
+    ).format(minutes / 60);
   }
 }
 
