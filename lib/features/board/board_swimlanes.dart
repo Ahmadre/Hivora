@@ -308,6 +308,7 @@ List<BoardLane> computeBoardLanes({
   required ProjectPalette palette,
   required void Function(Issue) onOpenIssue,
   Map<String, String> avatars = const {},
+  Map<String, String> pronouns = const {},
   Map<String, String> projectNames = const {},
 }) {
   // Drop issues that aren't board cards for this grouping (epics are always
@@ -361,6 +362,7 @@ List<BoardLane> computeBoardLanes({
               name,
               byUser[id]!.length,
               imageUrl: avatars[id],
+              pronouns: pronouns[id],
             ),
             issues: byUser[id]!,
           ),
@@ -518,11 +520,16 @@ Widget _issueLaneHeader(
   ),
 );
 
-Widget _avatarLaneHeader(String name, int count, {String? imageUrl}) => Padding(
+Widget _avatarLaneHeader(
+  String name,
+  int count, {
+  String? imageUrl,
+  String? pronouns,
+}) => Padding(
   padding: const EdgeInsets.only(bottom: 8, top: 4),
   child: Row(
     children: [
-      HiveAvatar(name: name, imageUrl: imageUrl, size: 24),
+      HiveAvatar(name: name, imageUrl: imageUrl, pronouns: pronouns, size: 24),
       const SizedBox(width: 9),
       Text(
         name,

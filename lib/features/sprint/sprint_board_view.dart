@@ -45,6 +45,7 @@ class ScrumBoardView extends StatefulWidget {
     required this.view,
     required this.names,
     this.avatars = const {},
+    this.pronouns = const {},
     required this.projectNames,
     this.projectsById = const {},
     required this.onOpenIssue,
@@ -53,6 +54,7 @@ class ScrumBoardView extends StatefulWidget {
   final BoardView view;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final Map<String, String> projectNames;
 
   /// The board's spanned projects — needed to resolve which state of a merged
@@ -219,6 +221,7 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
     ),
     names: widget.names,
     avatars: widget.avatars,
+    pronouns: widget.pronouns,
     sprintNames: _sprintNames,
     epicNames: _epicNames,
     onChanged: (f) => setState(() => _filter = f),
@@ -704,6 +707,7 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
                               userIds: _peopleIds,
                               names: widget.names,
                               avatars: widget.avatars,
+                              pronouns: widget.pronouns,
                               selected: _filter.assignees,
                               onToggle: (id) => setState(
                                 () => _filter = _filter.toggle(
@@ -752,6 +756,7 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           issuesBySprint: _bySprint,
           names: widget.names,
           avatars: widget.avatars,
+          pronouns: widget.pronouns,
           filter: _filter,
           backlog: _backlog,
           backlogTotal: _backlogTotal,
@@ -804,6 +809,7 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           epics: _epics,
           names: widget.names,
           avatars: widget.avatars,
+          pronouns: widget.pronouns,
           projectNames: widget.projectNames,
           projectsById: widget.projectsById,
           onOpenIssue: widget.onOpenIssue,

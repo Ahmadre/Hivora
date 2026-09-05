@@ -74,8 +74,10 @@ class AuditEntry {
     required this.outcome,
     this.actorId,
     this.actorLabel,
+    this.actorPronouns,
     this.targetId,
     this.targetLabel,
+    this.targetPronouns,
     this.ip,
     this.userAgent,
     this.metadata = const {},
@@ -91,8 +93,14 @@ class AuditEntry {
   final AuditOutcome outcome;
   final String? actorId;
   final String? actorLabel;
+
+  /// Resolved from the account as it stands *now*, not snapshotted with the
+  /// event — a record of what someone did should never keep addressing them
+  /// by pronouns they have since changed.
+  final String? actorPronouns;
   final String? targetId;
   final String? targetLabel;
+  final String? targetPronouns;
   final String? ip;
   final String? userAgent;
   final Map<String, String> metadata;
@@ -111,8 +119,10 @@ class AuditEntry {
     outcome: AuditOutcome.fromWire(json['outcome'] as String?),
     actorId: json['actorId'] as String?,
     actorLabel: json['actorLabel'] as String?,
+    actorPronouns: json['actorPronouns'] as String?,
     targetId: json['targetId'] as String?,
     targetLabel: json['targetLabel'] as String?,
+    targetPronouns: json['targetPronouns'] as String?,
     ip: json['ip'] as String?,
     userAgent: json['userAgent'] as String?,
     metadata:

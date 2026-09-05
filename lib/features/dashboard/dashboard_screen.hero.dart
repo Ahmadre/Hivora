@@ -536,6 +536,7 @@ class _AvatarStack extends StatelessWidget {
                 HiveAvatar(
                   name: m.displayName,
                   imageUrl: m.avatarUrl,
+                  pronouns: m.pronouns,
                   size: _size,
                 ),
               ),

@@ -15,6 +15,7 @@ import '../../../core/models/work_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_widgets.dart';
+import '../../../core/widgets/user_pronouns.dart';
 import '../../../core/lexical/hinata_document.dart';
 import '../../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'voice/voice_player.dart';
@@ -234,6 +235,7 @@ class CommentInteractions {
     required this.meId,
     required this.nameFor,
     required this.avatarFor,
+    required this.pronounsFor,
     required this.loadVoice,
     required this.canManage,
     required this.onEdit,
@@ -253,6 +255,11 @@ class CommentInteractions {
   final String? meId;
   final String Function(String authorId) nameFor;
   final String? Function(String authorId) avatarFor;
+
+  /// The author's pronouns, printed beside their name on every comment — this
+  /// is the surface where people address each other directly, so they belong
+  /// on the face of it rather than a hover away.
+  final String? Function(String authorId) pronounsFor;
   final VoiceAudioLoader Function(IssueComment comment) loadVoice;
 
   /// Whether the signed-in user owns [comment] (edit/delete/select gate).

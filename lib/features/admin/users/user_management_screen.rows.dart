@@ -61,6 +61,11 @@ class _UserTableRow extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            PronounsLabel(
+                              pronouns: u.pronouns,
+                              fontSize: 11.5,
+                              leadingGap: 6,
+                            ),
                             if (isMe) _YouChip(),
                           ],
                         ),
@@ -213,6 +218,11 @@ class _UserCard extends StatelessWidget {
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
+                                ),
+                                PronounsLabel(
+                                  pronouns: u.pronouns,
+                                  fontSize: 12,
+                                  leadingGap: 6,
                                 ),
                                 if (isMe) _YouChip(),
                               ],

@@ -18,6 +18,7 @@ import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/glass_popup_menu.dart';
 import '../../../core/widgets/hive_empty_state.dart';
 import '../../../core/widgets/hive_loader.dart';
+import '../../../core/widgets/user_pronouns.dart';
 import '../../search/search_tokens.dart';
 import '../../shell/page_chrome.dart';
 import '../../sprint/modals/glass_modal.dart'

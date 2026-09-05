@@ -6,6 +6,7 @@ import '../../../core/models/core_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_widgets.dart';
+import '../../../core/widgets/user_pronouns.dart';
 import 'settings_common.dart';
 
 /// Leads & members card: member rows with a star→lead toggle and remove.
@@ -88,14 +89,21 @@ class _MemberRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    PronounsLabel(pronouns: user?.pronouns, leadingGap: 6),
+                  ],
                 ),
                 if (title != null)
                   Text(

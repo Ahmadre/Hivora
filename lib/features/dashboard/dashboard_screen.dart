@@ -20,6 +20,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hex_mark.dart' show HexMark;
 import '../../core/widgets/hive_widgets.dart';
+import '../../core/widgets/user_pronouns.dart';
 import '../../core/widgets/status_widgets.dart';
 import '../admin/connect_hint.dart';
 import '../issues/issue_detail_sheet.dart';

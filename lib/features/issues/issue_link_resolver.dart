@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/models/core_models.dart';
+import '../../core/widgets/user_pronouns.dart';
 import '../../core/models/work_models.dart';
 import '../knowledge/data/knowledge_models.dart' show typeMeta;
 import '../knowledge/data/knowledge_repository.dart';
@@ -128,7 +129,9 @@ class IssueLinkResolver extends SmartLinkResolver {
             kind: 'user',
             id: u.id,
             title: u.displayName,
-            sub: '@${u.username}',
+            // The picker is the moment you choose who to address, so the
+            // pronouns belong on the row you are choosing from.
+            sub: ['@${u.username}', ?normalizePronouns(u.pronouns)].join(' · '),
           ),
         );
       }

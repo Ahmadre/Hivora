@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/hive_widgets.dart';
+import '../../core/widgets/user_pronouns.dart';
 
 /// Overlapping, selectable avatar stack of the people active on a board.
 ///
@@ -17,12 +18,14 @@ class BoardPeopleStrip extends StatefulWidget {
     required this.selected,
     required this.onToggle,
     this.avatars = const {},
+    this.pronouns = const {},
     this.size = 30,
   });
 
   final List<String> userIds;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final Set<String> selected;
   final ValueChanged<String> onToggle;
   final double size;
@@ -67,6 +70,7 @@ class _BoardPeopleStripState extends State<BoardPeopleStrip> {
               child: _PersonAvatar(
                 name: widget.names[ids[i]] ?? ids[i],
                 imageUrl: widget.avatars[ids[i]],
+                pronouns: widget.pronouns[ids[i]],
                 size: size,
                 selected: widget.selected.contains(ids[i]),
                 dimmed: anySelected && !widget.selected.contains(ids[i]),
@@ -95,10 +99,12 @@ class _PersonAvatar extends StatelessWidget {
     required this.onExit,
     required this.onTap,
     this.imageUrl,
+    this.pronouns,
   });
 
   final String name;
   final String? imageUrl;
+  final String? pronouns;
   final double size;
   final bool selected;
   final bool dimmed;
@@ -120,7 +126,10 @@ class _PersonAvatar extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Tooltip(
-          message: name,
+          // This row is faces only — the tooltip is the sole place the name
+          // and pronouns appear, so both ride in this one message rather than
+          // nesting a second tooltip inside the avatar.
+          message: personTooltip(name: name, pronouns: pronouns),
           waitDuration: const Duration(milliseconds: 400),
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 150),

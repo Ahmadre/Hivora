@@ -18,11 +18,13 @@ import 'team_modals.dart';
 import 'team_widgets.dart';
 import '../../core/repositories/team_repository.dart';
 import '../../core/repositories/user_repository.dart';
+import '../../core/widgets/user_pronouns.dart';
 
 typedef _TeamsData = ({
   List<Team> teams,
   Map<String, String> names,
   Map<String, String> avatars,
+  Map<String, String> pronouns,
 });
 
 class TeamsScreen extends StatefulWidget {
@@ -51,7 +53,8 @@ class _TeamsScreenState extends State<TeamsScreen> {
           if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
             u.id: u.avatarUrl!,
       };
-      return (teams: teams, names: names, avatars: avatars);
+      final pronouns = pronounsById(users);
+      return (teams: teams, names: names, avatars: avatars, pronouns: pronouns);
     })..load();
   }
 
@@ -85,6 +88,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
           final teams = state.data?.teams ?? const <Team>[];
           final names = state.data?.names ?? const <String, String>{};
           final avatars = state.data?.avatars ?? const <String, String>{};
+          final pronouns = state.data?.pronouns ?? const <String, String>{};
           return RefreshIndicator(
             onRefresh: _cubit.load,
             color: AppColors.accent,
@@ -144,6 +148,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
                           team: teams[index],
                           names: names,
                           avatars: avatars,
+                          pronouns: pronouns,
                         );
                       }, childCount: teams.length + 1),
                     ),
@@ -162,11 +167,13 @@ class _TeamCard extends StatelessWidget {
     required this.team,
     required this.names,
     required this.avatars,
+    required this.pronouns,
   });
 
   final Team team;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
 
   @override
   Widget build(BuildContext context) {
@@ -177,6 +184,7 @@ class _TeamCard extends StatelessWidget {
         .map((m) => names[m.userId] ?? m.userId)
         .toList();
     final memberAvatars = team.members.map((m) => avatars[m.userId]).toList();
+    final memberPronouns = team.members.map((m) => pronouns[m.userId]).toList();
 
     return SoftCard(
       onTap: () => context.go('/teams/${team.id}'),
@@ -242,6 +250,7 @@ class _TeamCard extends StatelessWidget {
                 HiveAvatarStack(
                   names: memberNames,
                   imageUrls: memberAvatars,
+                  pronouns: memberPronouns,
                   size: 26,
                 ),
               const SizedBox(width: 14),

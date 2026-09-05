@@ -134,7 +134,11 @@ class _Assignee extends StatelessWidget {
     final me = context.select((AuthBloc bloc) => bloc.state.user);
     final mine = me != null && me.id == issue.assigneeId;
     return Tooltip(
-      message: mine ? me.displayName : context.t('issues.assignee'),
+      // This tile only ever knows the signed-in user by name, so the pronouns
+      // join its existing tooltip rather than nesting a second one.
+      message: mine
+          ? personTooltip(name: me.displayName, pronouns: me.pronouns)
+          : context.t('issues.assignee'),
       child: HiveAvatar(
         name: mine ? me.displayName : issue.assigneeId!,
         imageUrl: mine ? me.avatarUrl : null,
@@ -749,6 +753,7 @@ class _LeaderboardCard extends StatelessWidget {
                   HiveAvatar(
                     name: entry.displayName,
                     imageUrl: entry.avatarUrl,
+                    pronouns: entry.pronouns,
                     size: 30,
                   ),
                   const SizedBox(width: 11),

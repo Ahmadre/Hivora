@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../api/api_client.dart';
 import '../theme/app_colors.dart';
 import 'preview_image.dart' show FadeInOver, blurHashProviderFor;
+import 'user_pronouns.dart';
 
 /// Process-wide cache of fetched avatar bytes, keyed by the (cache-busted)
 /// avatar URL. `null` marks a URL that failed / 404'd so we don't refetch it on
@@ -56,14 +57,29 @@ class AppAvatar extends StatelessWidget {
     required this.name,
     this.imageUrl,
     this.radius = 18,
+    this.pronouns,
   });
 
   final String name;
   final String? imageUrl;
   final double radius;
 
+  /// The person's pronouns, shown on hover as "Name · they/them". See
+  /// [HiveAvatar.pronouns] for when to pass this and when to leave it null.
+  final String? pronouns;
+
   @override
   Widget build(BuildContext context) {
+    final said = normalizePronouns(pronouns);
+    if (said == null) return _avatar(context);
+    return Tooltip(
+      message: personTooltip(name: name, pronouns: said),
+      waitDuration: const Duration(milliseconds: 400),
+      child: _avatar(context),
+    );
+  }
+
+  Widget _avatar(BuildContext context) {
     final url = imageUrl;
     if (url == null || url.isEmpty) return _circle(null);
 

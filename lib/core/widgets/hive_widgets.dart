@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../theme/hue_colors.dart';
 import 'preview_image.dart' show blurHashProviderFor;
 import 'app_avatar.dart';
+import 'user_pronouns.dart';
 
 /// App-wide toggle — Cupertino style (the product's switch convention), tinted
 /// with the honey accent when on. Use this instead of Material [Switch].
@@ -381,12 +382,22 @@ class HiveAvatar extends StatelessWidget {
     this.imageUrl,
     this.glyph,
     this.background,
+    this.pronouns,
   });
 
   final String name;
   final double size;
   final bool ring;
   final String? imageUrl;
+
+  /// The person's pronouns, shown on hover as "Name · they/them".
+  ///
+  /// This is how pronouns reach the many places that show a face but have no
+  /// room to spell them out — board cards, assignee chips, avatar stacks. Pass
+  /// null where the surface already prints them beside the name (the tooltip
+  /// would only repeat it) or where the avatar is wrapped in a tooltip of its
+  /// own, which would otherwise nest two.
+  final String? pronouns;
 
   /// When set, renders this widget instead of initials — used to mark
   /// non-human actors such as automated system actions with the brand mark.
@@ -397,6 +408,16 @@ class HiveAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final said = normalizePronouns(pronouns);
+    if (said == null) return _avatar(context);
+    return Tooltip(
+      message: personTooltip(name: name, pronouns: said),
+      waitDuration: const Duration(milliseconds: 400),
+      child: _avatar(context),
+    );
+  }
+
+  Widget _avatar(BuildContext context) {
     final url = imageUrl;
     final hasImage = url != null && url.isNotEmpty;
     if (hasImage) {
@@ -467,6 +488,7 @@ class HiveAvatarStack extends StatelessWidget {
     super.key,
     required this.names,
     this.imageUrls = const [],
+    this.pronouns = const [],
     this.size = 26,
     this.max = 4,
   });
@@ -476,6 +498,11 @@ class HiveAvatarStack extends StatelessWidget {
   /// Optional avatar image URLs, parallel to [names] (null/short entries fall
   /// back to initials).
   final List<String?> imageUrls;
+
+  /// Optional pronouns, parallel to [names]. A stack is all face and no text,
+  /// so hovering one is the only way to learn who it is — and how to refer to
+  /// them.
+  final List<String?> pronouns;
   final double size;
   final int max;
 
@@ -497,6 +524,7 @@ class HiveAvatarStack extends StatelessWidget {
               child: HiveAvatar(
                 name: shown[i],
                 imageUrl: i < imageUrls.length ? imageUrls[i] : null,
+                pronouns: i < pronouns.length ? pronouns[i] : null,
                 size: size,
                 ring: true,
               ),

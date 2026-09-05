@@ -20,6 +20,7 @@ import '../../core/util/keys.dart';
 import '../../core/widgets/entity_avatar.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
+import '../../core/widgets/entity_avatar_editor.dart';
 import '../sprint/modals/glass_modal.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/repositories/user_repository.dart';
@@ -553,6 +554,9 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   bool _saving = false;
   String? _error;
 
+  /// The picture chosen before the project exists, uploaded right after it does.
+  PickedImage? _pendingAvatar;
+
   static final _keyPattern = RegExp(r'^[A-Z][A-Z0-9]{1,9}$');
 
   @override
@@ -690,7 +694,17 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   }
 
   Widget _identityRow(bool compact) {
-    final glyph = _GlyphPreview(hue: _hue, keyText: _key.text);
+    // The key/colour tile doubles as the picture field: a project being created
+    // has no id yet and the avatar endpoints are addressed by id, so the pick is
+    // held in memory and uploaded the moment the project exists.
+    final glyph = PendingAvatarField(
+      picked: _pendingAvatar,
+      size: 52,
+      radius: 15,
+      strings: EntityAvatarStrings.project,
+      fallback: _GlyphPreview(hue: _hue, keyText: _key.text),
+      onPicked: (image) => setState(() => _pendingAvatar = image),
+    );
     final nameField = GlassField(
       label: context.t('projects.name'),
       child: TextField(
@@ -808,6 +822,15 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
         color: hexForHue(_hue),
         leadId: _leadId,
       );
+      if (mounted) {
+        final repo = context.read<ProjectRepository>();
+        await uploadPendingAvatar(
+          context,
+          _pendingAvatar,
+          EntityAvatarStrings.project,
+          (file) => repo.uploadProjectAvatar(project.id, file),
+        );
+      }
       if (mounted) Navigator.of(context).pop(project);
     } on ApiFailure catch (failure) {
       setState(() {

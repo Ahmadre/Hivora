@@ -194,6 +194,7 @@ class _BoardColumn extends StatefulWidget {
     required this.palette,
     required this.names,
     required this.avatars,
+    required this.pronouns,
     required this.onAccept,
     required this.canAccept,
     required this.quickCreate,
@@ -209,6 +210,7 @@ class _BoardColumn extends StatefulWidget {
   final ProjectPalette palette;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
 
   /// The board's projects by id — more than one on a merged board, where the
   /// column says which of them it belongs to and a refused drop says whose
@@ -423,6 +425,8 @@ class _BoardColumnState extends State<_BoardColumn> {
                                           widget.names[issue.assigneeId],
                                       assigneeAvatar:
                                           widget.avatars[issue.assigneeId],
+                                      assigneePronouns:
+                                          widget.pronouns[issue.assigneeId],
                                       onOpen: () => widget.onOpenIssue(issue),
                                       onOpenIssue: widget.onOpenIssue,
                                     ),
@@ -441,6 +445,8 @@ class _BoardColumnState extends State<_BoardColumn> {
                                           widget.names[issue.assigneeId],
                                       assigneeAvatar:
                                           widget.avatars[issue.assigneeId],
+                                      assigneePronouns:
+                                          widget.pronouns[issue.assigneeId],
                                       dragging: true,
                                     ),
                                     child: card,
@@ -497,6 +503,7 @@ class _BoardCard extends StatelessWidget {
     required this.palette,
     this.assigneeName,
     this.assigneeAvatar,
+    this.assigneePronouns,
     this.dragging = false,
     this.onOpen,
     this.onOpenIssue,
@@ -506,6 +513,7 @@ class _BoardCard extends StatelessWidget {
   final ProjectPalette palette;
   final String? assigneeName;
   final String? assigneeAvatar;
+  final String? assigneePronouns;
 
   final bool dragging;
   final VoidCallback? onOpen;
@@ -601,6 +609,7 @@ class _BoardCard extends StatelessWidget {
                           HiveAvatar(
                             name: assigneeName ?? issue.assigneeId!,
                             imageUrl: assigneeAvatar,
+                            pronouns: assigneePronouns,
                             size: 24,
                           ),
                       ],

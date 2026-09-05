@@ -149,6 +149,10 @@ class CommentBubbleRow extends StatelessWidget {
             color: AppColors.ink,
           ),
         ),
+        PronounsLabel(
+          pronouns: _x.pronounsFor(_c.authorId),
+          fontSize: isReply ? 11 : 11.5,
+        ),
         if (when.isNotEmpty)
           Text(
             when,

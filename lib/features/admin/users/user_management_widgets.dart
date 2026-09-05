@@ -12,6 +12,7 @@ import '../../../core/widgets/glass_bulk_bar.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/glass_popup_menu.dart';
 import '../../../core/widgets/hive_widgets.dart';
+import '../../../core/widgets/user_pronouns.dart';
 import '../../search/search_tokens.dart';
 import '../../sprint/modals/glass_modal.dart' show showGlassBottomSheet;
 

@@ -114,6 +114,7 @@ class _MemberRow extends StatelessWidget {
                             ),
                           ),
                         ),
+                        PronounsLabel(pronouns: user?.pronouns, leadingGap: 6),
                         if (isSelf) ...[
                           const SizedBox(width: 8),
                           Container(

@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../core/api/api_client.dart';
+import '../../core/repositories/project_repository.dart';
 import '../../core/repositories/team_repository.dart';
 import '../../core/i18n/i18n.dart';
 import '../../core/models/core_models.dart';
@@ -10,6 +11,7 @@ import '../../core/models/team_models.dart';
 import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/entity_avatar_editor.dart';
 import 'team_modal_kit.dart';
 import 'team_widgets.dart';
 
@@ -62,6 +64,10 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
   late int _hue = widget.team.colorHue;
   late String _lead = widget.currentUserId;
   bool _busy = false;
+
+  /// The picture chosen before the project exists, uploaded right after it
+  /// does.
+  PickedImage? _pendingAvatar;
   String? _error;
 
   @override
@@ -102,7 +108,7 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
   );
 
   Future<void> _create() => _run(() async {
-    await widget.repo.createTeamProject(
+    final created = await widget.repo.createTeamProject(
       widget.team.id,
       key: _effectiveKey,
       name: _name.text.trim(),
@@ -110,6 +116,15 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
       color: teamHueHex(_hue),
       leadId: _lead,
     );
+    if (mounted) {
+      final repo = context.read<ProjectRepository>();
+      await uploadPendingAvatar(
+        context,
+        _pendingAvatar,
+        EntityAvatarStrings.project,
+        (file) => repo.uploadProjectAvatar(created.id, file),
+      );
+    }
   });
 
   @override
@@ -211,12 +226,19 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
       Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          ProjectKeyGlyph(
-            label: _effectiveKey.isEmpty ? 'P' : _effectiveKey,
-            color: color,
+          PendingAvatarField(
+            picked: _pendingAvatar,
             size: 52,
             radius: 15,
-            fontSize: 14,
+            strings: EntityAvatarStrings.project,
+            fallback: ProjectKeyGlyph(
+              label: _effectiveKey.isEmpty ? 'P' : _effectiveKey,
+              color: color,
+              size: 52,
+              radius: 15,
+              fontSize: 14,
+            ),
+            onPicked: (image) => setState(() => _pendingAvatar = image),
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -882,7 +882,12 @@ class _DocumentedIn extends StatelessWidget {
 /// Lives here rather than on one screen because the detail view, the create
 /// form and the clone dialog all render an assignee — three copies of what a
 /// person looks like in a field is how they drift apart.
-Widget _person(String? name, {required String fallback, String? imageUrl}) {
+Widget _person(
+  String? name, {
+  required String fallback,
+  String? imageUrl,
+  String? pronouns,
+}) {
   if (name == null || name.isEmpty) {
     return Text(
       fallback,
@@ -892,7 +897,7 @@ Widget _person(String? name, {required String fallback, String? imageUrl}) {
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      HiveAvatar(name: name, imageUrl: imageUrl, size: 22),
+      HiveAvatar(name: name, imageUrl: imageUrl, size: 22, pronouns: pronouns),
       const SizedBox(width: 8),
       Flexible(
         child: Text(
@@ -1066,8 +1071,10 @@ class _PeoplePickerState extends State<_PeoplePicker> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
+          // Picking who to hand work to is a moment to get the person right,
+          // so the pronouns sit on the row rather than a hover away.
           subtitle: Text(
-            '@${u.username}',
+            ['@${u.username}', ?normalizePronouns(u.pronouns)].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

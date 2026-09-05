@@ -165,6 +165,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   // [_users] does — so [_setUsers] is the one place that refreshes them.
   Map<String, String> _names = const {};
   Map<String, String> _avatars = const {};
+  Map<String, String> _pronouns = const {};
   Map<String, String> get _sprintNames => {
     for (final s in _sprints) s.id: s.name,
   };
@@ -177,6 +178,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       for (final u in users)
         if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty) u.id: u.avatarUrl!,
     };
+    _pronouns = pronounsById(users);
   }
 
   bool _loading = true;
@@ -2405,6 +2407,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                   _person(
                     _names[issue.assigneeIds.first],
                     imageUrl: _avatars[issue.assigneeIds.first],
+                    pronouns: _pronouns[issue.assigneeIds.first],
                     fallback: context.t('issues.unassigned'),
                   )
                 else
@@ -2416,6 +2419,9 @@ class IssueDetailBodyState extends State<IssueDetailBody>
                     ],
                     imageUrls: [
                       for (final aid in issue.assigneeIds) _avatars[aid],
+                    ],
+                    pronouns: [
+                      for (final aid in issue.assigneeIds) _pronouns[aid],
                     ],
                     size: 28,
                   ),
@@ -2505,6 +2511,9 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               imageUrl: issue.reporterId != null
                   ? _avatars[issue.reporterId!]
                   : null,
+              pronouns: issue.reporterId != null
+                  ? _pronouns[issue.reporterId!]
+                  : null,
               fallback: context.t('issues.unassigned'),
             ),
           ),
@@ -2526,6 +2535,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       onToggle: toggleWatch,
       nameFor: (id) => _names[id],
       avatarFor: (id) => _avatars[id],
+      pronounsFor: (id) => _pronouns[id],
     );
   }
 
@@ -3161,6 +3171,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       meId: me?.id,
       nameFor: (id) => _names[id] ?? id,
       avatarFor: (id) => _avatars[id],
+      pronounsFor: (id) => _pronouns[id],
       loadVoice: (c) =>
           () => _commentApi.voiceCommentAudio(widget.issueId, c.id),
       canManage: (c) => me != null && c.authorId == me.id,

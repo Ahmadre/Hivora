@@ -88,6 +88,9 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
   /// already stored — it is never sent with the form.
   late String? _avatarUrl = widget.existing?.avatarUrl;
   bool _busy = false;
+
+  /// The picture chosen before the team exists, uploaded right after it does.
+  PickedImage? _pendingAvatar;
   String? _error;
 
   /// While true the key follows the name. It starts on for a new team, and for
@@ -194,6 +197,14 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
           colorHue: _hue,
           icon: _icon,
         );
+        if (mounted) {
+          await uploadPendingAvatar(
+            context,
+            _pendingAvatar,
+            EntityAvatarStrings.team,
+            (file) => widget.repo.uploadTeamAvatar(created.id, file),
+          );
+        }
         if (mounted) Navigator.of(context).pop(created);
       }
     } on ApiFailure catch (failure) {
@@ -205,11 +216,11 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
   }
 
   /// The 52px identity square: a live preview of the colour + icon being
-  /// picked, and — once the team exists — the picture upload itself.
+  /// picked, and the picture itself.
   ///
-  /// A team being *created* has no id yet, so there is nothing to upload
-  /// against; it stays the plain preview and gets its picture from the settings
-  /// tab afterwards.
+  /// A team being *created* has no id yet, and the avatar endpoints are
+  /// addressed by id — so there the pick is held in memory and uploaded the
+  /// moment the team exists.
   Widget _identityGlyph(Color color) {
     final preview = Container(
       width: 52,
@@ -222,7 +233,16 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
       child: Icon(teamIcon(_icon), size: 26, color: color),
     );
     final team = widget.existing;
-    if (team == null) return preview;
+    if (team == null) {
+      return PendingAvatarField(
+        picked: _pendingAvatar,
+        size: 52,
+        radius: 15,
+        strings: EntityAvatarStrings.team,
+        fallback: preview,
+        onPicked: (image) => setState(() => _pendingAvatar = image),
+      );
+    }
     return EntityAvatarField(
       avatarUrl: _avatarUrl,
       size: 52,
