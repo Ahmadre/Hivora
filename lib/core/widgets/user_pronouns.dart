@@ -35,8 +35,7 @@ String personTooltip({required String name, String? pronouns}) {
 /// render rows from it. Skips everyone who has not said, so a lookup miss and
 /// "not set" are the same thing at every call site.
 Map<String, String> pronounsById(Iterable<DirectoryUser> users) => {
-  for (final user in users)
-    if (normalizePronouns(user.pronouns) case final said?) user.id: said,
+  for (final user in users) user.id: ?normalizePronouns(user.pronouns),
 };
 
 /// The inline, muted pronouns that sit next to a name — comment headers,
