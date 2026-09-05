@@ -137,8 +137,7 @@ class _Assignee extends StatelessWidget {
       // This tile only ever knows the signed-in user by name, so the pronouns
       // join its existing tooltip rather than nesting a second one.
       message: mine
-          ? (personTooltip(name: me.displayName, pronouns: me.pronouns) ??
-                me.displayName)
+          ? personTooltip(name: me.displayName, pronouns: me.pronouns)
           : context.t('issues.assignee'),
       child: HiveAvatar(
         name: mine ? me.displayName : issue.assigneeId!,

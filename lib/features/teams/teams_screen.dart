@@ -18,6 +18,7 @@ import 'team_modals.dart';
 import 'team_widgets.dart';
 import '../../core/repositories/team_repository.dart';
 import '../../core/repositories/user_repository.dart';
+import '../../core/widgets/user_pronouns.dart';
 
 typedef _TeamsData = ({
   List<Team> teams,
@@ -52,11 +53,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
           if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
             u.id: u.avatarUrl!,
       };
-      final pronouns = {
-        for (final u in users)
-          if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
-            u.id: u.pronouns!.trim(),
-      };
+      final pronouns = pronounsById(users);
       return (teams: teams, names: names, avatars: avatars, pronouns: pronouns);
     })..load();
   }

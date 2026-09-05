@@ -21,6 +21,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
+import '../../core/widgets/user_pronouns.dart';
 import '../../core/widgets/subtask_widgets.dart';
 import '../issues/issue_detail_sheet.dart';
 import '../issues/issues_screen.dart' show IssueRow;
@@ -424,11 +425,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
             if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
               u.id: u.avatarUrl!,
         };
-        _pronouns = {
-          for (final u in users)
-            if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
-              u.id: u.pronouns!.trim(),
-        };
+        _pronouns = pronounsById(users);
         _projectNames = {for (final p in projects) p.id: p.name};
         _projectsById = {
           for (final p in projects)

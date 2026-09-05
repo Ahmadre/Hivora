@@ -139,15 +139,11 @@ class UserDrawerBody extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (normalizePronouns(u.pronouns) != null) ...[
-                              const SizedBox(width: 7),
-                              Flexible(
-                                child: PronounsLabel(
-                                  pronouns: u.pronouns,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ],
+                            PronounsLabel(
+                              pronouns: u.pronouns,
+                              fontSize: 12.5,
+                              leadingGap: 7,
+                            ),
                           ],
                         ),
                         Text(

@@ -12,7 +12,6 @@ import '../../core/models/work_models.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/entity_avatar_editor.dart';
-import '../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import 'team_modal_kit.dart';
 import 'team_widgets.dart';
 
@@ -65,6 +64,10 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
   late int _hue = widget.team.colorHue;
   late String _lead = widget.currentUserId;
   bool _busy = false;
+
+  /// The picture chosen before the project exists, uploaded right after it
+  /// does.
+  PickedImage? _pendingAvatar;
   String? _error;
 
   @override
@@ -100,26 +103,6 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
     }
   }
 
-  /// The picture chosen before the project exists, uploaded right after it does.
-  PickedImage? _pendingAvatar;
-
-  /// Sends the picture chosen before the project existed. The project is
-  /// already created here, so a failure is said out loud rather than reported
-  /// as a failed creation — the picture can be set again from its settings.
-  Future<void> _uploadPendingAvatar(String projectId) async {
-    final pending = _pendingAvatar;
-    if (pending == null) return;
-    final failed = mounted ? context.t('projectSettings.avatar.failed') : null;
-    try {
-      await context.read<ProjectRepository>().uploadProjectAvatar(
-        projectId,
-        pending.toMultipart(),
-      );
-    } catch (_) {
-      if (mounted && failed != null) showGlassErrorToast(context, failed);
-    }
-  }
-
   Future<void> _attach() => _run(
     () => widget.repo.attachTeamProjects(widget.team.id, _selected.toList()),
   );
@@ -133,7 +116,15 @@ class _AddProjectBodyState extends State<_AddProjectBody> {
       color: teamHueHex(_hue),
       leadId: _lead,
     );
-    await _uploadPendingAvatar(created.id);
+    if (mounted) {
+      final repo = context.read<ProjectRepository>();
+      await uploadPendingAvatar(
+        context,
+        _pendingAvatar,
+        EntityAvatarStrings.project,
+        (file) => repo.uploadProjectAvatar(created.id, file),
+      );
+    }
   });
 
   @override

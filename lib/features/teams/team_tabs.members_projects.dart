@@ -114,12 +114,7 @@ class _MemberRow extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (normalizePronouns(user?.pronouns) != null) ...[
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: PronounsLabel(pronouns: user?.pronouns),
-                          ),
-                        ],
+                        PronounsLabel(pronouns: user?.pronouns, leadingGap: 6),
                         if (isSelf) ...[
                           const SizedBox(width: 8),
                           Container(

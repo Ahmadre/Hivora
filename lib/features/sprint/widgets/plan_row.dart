@@ -89,14 +89,10 @@ class PlanRow extends StatelessWidget {
               const SizedBox(width: 10),
               if (issue.assigneeId != null)
                 Tooltip(
-                  // The row owns this tooltip already, so the pronouns join it
-                  // rather than nesting a second one inside the avatar.
-                  message:
-                      personTooltip(
-                        name: assigneeName ?? issue.assigneeId!,
-                        pronouns: assigneePronouns,
-                      ) ??
-                      issue.assigneeId!,
+                  message: personTooltip(
+                    name: assigneeName ?? issue.assigneeId!,
+                    pronouns: assigneePronouns,
+                  ),
                   child: HiveAvatar(
                     name: assigneeName ?? issue.assigneeId!,
                     imageUrl: assigneeAvatar,

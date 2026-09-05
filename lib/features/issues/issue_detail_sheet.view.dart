@@ -178,11 +178,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
       for (final u in users)
         if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty) u.id: u.avatarUrl!,
     };
-    _pronouns = {
-      for (final u in users)
-        if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
-          u.id: u.pronouns!.trim(),
-    };
+    _pronouns = pronounsById(users);
   }
 
   bool _loading = true;

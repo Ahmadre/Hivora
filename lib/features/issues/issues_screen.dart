@@ -48,6 +48,7 @@ import '../../core/repositories/issue_repository.dart';
 import '../../core/repositories/meta_repository.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/repositories/user_repository.dart';
+import '../../core/widgets/user_pronouns.dart';
 
 part 'issues_screen.toolbar.dart';
 part 'issues_screen.rows.dart';
@@ -258,11 +259,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
               if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
                 u.id: u.avatarUrl!,
           },
-          pronouns: {
-            for (final u in users)
-              if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
-                u.id: u.pronouns!.trim(),
-          },
+          pronouns: pronounsById(users),
           projectNames: {for (final p in projects) p.id: p.name},
           stateOrder: stateOrder,
           palette: ProjectPalette.fromProjects(projects),

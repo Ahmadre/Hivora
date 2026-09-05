@@ -124,13 +124,11 @@ class UserAvatar extends StatelessWidget {
     required this.name,
     this.imageUrl,
     this.size = 36,
-    this.pronouns,
   });
 
   final String name;
   final String? imageUrl;
   final double size;
-  final String? pronouns;
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +138,6 @@ class UserAvatar extends StatelessWidget {
       name: name,
       imageUrl: imageUrl,
       size: size,
-      pronouns: pronouns,
       background: userColor(name),
     );
   }

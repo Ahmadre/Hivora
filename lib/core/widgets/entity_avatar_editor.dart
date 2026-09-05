@@ -70,6 +70,30 @@ class EntityAvatarStrings {
 ///
 /// Uploads take effect immediately and are *not* part of any draft/save bar:
 /// the picture is server-owned, so there is nothing to commit later.
+/// The corner affordance both picture fields wear, so "tap me to change the
+/// picture" looks the same before and after the thing exists.
+const Widget _cameraBadge = Positioned(
+  right: -4,
+  bottom: -4,
+  child: _CameraBadge(),
+);
+
+class _CameraBadge extends StatelessWidget {
+  const _CameraBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 24,
+    height: 24,
+    decoration: BoxDecoration(
+      color: AppColors.accent,
+      shape: BoxShape.circle,
+      border: Border.all(color: AppColors.surface, width: 2),
+    ),
+    child: const Icon(LucideIcons.camera, size: 12, color: Color(0xFF2A2410)),
+  );
+}
+
 class EntityAvatarField extends StatefulWidget {
   const EntityAvatarField({
     super.key,
@@ -200,24 +224,7 @@ class _EntityAvatarFieldState extends State<EntityAvatarField> {
                   child: const Center(child: HiveLoader(size: 22)),
                 ),
               ),
-            Positioned(
-              right: -4,
-              bottom: -4,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.surface, width: 2),
-                ),
-                child: const Icon(
-                  LucideIcons.camera,
-                  size: 12,
-                  color: Color(0xFF2A2410),
-                ),
-              ),
-            ),
+            _cameraBadge,
           ],
         ),
       ),
@@ -238,16 +245,31 @@ class PickedImage {
   final String name;
 
   MultipartFile toMultipart() => MultipartFile.fromBytes(bytes, filename: name);
+
+  /// Drops this image's decode from the global image cache.
+  ///
+  /// [Image.memory] keys its cache entry on the byte list, so a preview that is
+  /// never evicted keeps both the encoded bytes and the decoded bitmap resident
+  /// long after the dialog that showed them is gone.
+  void evict() => PaintingBinding.instance.imageCache.evict(MemoryImage(bytes));
 }
+
+/// What the server accepts for an avatar (`AvatarImages.MAX_UPLOAD_BYTES`).
+///
+/// Checked here as well, before the file is read: the server's cap only stops
+/// the *upload*, and by then the client has already pulled the whole file into
+/// memory and decoded it. A 25 MB photo picked by mistake should be refused
+/// while it is still just a path.
+const int kMaxAvatarBytes = 12 * 1024 * 1024;
 
 /// Opens the platform image picker and keeps the bytes, for a create dialog
 /// that cannot upload yet. Null when nothing usable came back.
 Future<PickedImage?> pickImageBytes(BuildContext context) async {
   final List<ChosenFile> picked;
   try {
-    // Bytes on every platform here (unlike [pickImageMultipart], which streams
-    // from a path off-web): they are needed for the preview either way, and
-    // the server caps an avatar at 12 MB, so it is a bounded read.
+    // Bytes on every platform here, unlike [pickImageMultipart], which streams
+    // from a path off-web: the preview has to draw the image before there is
+    // anywhere to upload it to. Bounded by the size check below.
     picked = await pickFilesToUpload(
       context,
       kind: FilePickKind.image,
@@ -257,10 +279,15 @@ Future<PickedImage?> pickImageBytes(BuildContext context) async {
     return null;
   }
   if (picked.isEmpty) return null;
-  final bytes = picked.first.bytes;
-  return bytes == null
-      ? null
-      : PickedImage(bytes: bytes, name: picked.first.name);
+  final file = picked.first;
+  if (file.size > kMaxAvatarBytes) {
+    if (context.mounted) {
+      showGlassErrorToast(context, context.t('error.avatar.tooLarge'));
+    }
+    return null;
+  }
+  final bytes = file.bytes;
+  return bytes == null ? null : PickedImage(bytes: bytes, name: file.name);
 }
 
 /// The picture field for a thing that does not exist yet.
@@ -294,7 +321,7 @@ class PendingAvatarField extends StatelessWidget {
 
   Future<void> _edit(BuildContext context) async {
     if (picked == null) {
-      onPicked(await pickImageBytes(context));
+      await _pick(context);
       return;
     }
     final action = await showAvatarActions(
@@ -304,13 +331,29 @@ class PendingAvatarField extends StatelessWidget {
       changeKey: strings.change,
       removeKey: strings.remove,
     );
-    if (!context.mounted || action == null) return;
-    if (action == AvatarAction.change) {
-      onPicked(await pickImageBytes(context));
-    } else {
-      onPicked(null);
+    if (!context.mounted) return;
+    switch (action) {
+      case AvatarAction.change:
+        await _pick(context);
+      case AvatarAction.remove:
+        picked?.evict();
+        onPicked(null);
+      case null:
+        break;
     }
   }
+
+  Future<void> _pick(BuildContext context) async {
+    final image = await pickImageBytes(context);
+    if (!context.mounted || image == null) return;
+    // The one it replaces is nothing to anybody now.
+    picked?.evict();
+    onPicked(image);
+  }
+
+  /// Physical pixels for a [size]-wide tile on this screen.
+  static int _decodePx(BuildContext context, double size) =>
+      (size * MediaQuery.devicePixelRatioOf(context)).round();
 
   @override
   Widget build(BuildContext context) {
@@ -330,32 +373,21 @@ class PendingAvatarField extends StatelessWidget {
                 borderRadius: BorderRadius.circular(radius),
                 child: image == null
                     ? fallback
+                    // Decoded at the size it is drawn at. Without this a 12 MP
+                    // photo decodes full-resolution into a 52 px tile — tens of
+                    // megabytes of bitmap for a thumbnail, and an OOM on a
+                    // modest phone.
                     : Image.memory(
                         image.bytes,
                         width: size,
                         height: size,
                         fit: BoxFit.cover,
+                        cacheWidth: _decodePx(context, size),
+                        cacheHeight: _decodePx(context, size),
                       ),
               ),
             ),
-            Positioned(
-              right: -4,
-              bottom: -4,
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.accent,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.surface, width: 2),
-                ),
-                child: const Icon(
-                  LucideIcons.camera,
-                  size: 12,
-                  color: Color(0xFF2A2410),
-                ),
-              ),
-            ),
+            _cameraBadge,
           ],
         ),
       ),
@@ -393,4 +425,29 @@ Future<MultipartFile?> pickImageMultipart(BuildContext context) async {
   return path == null
       ? null
       : await MultipartFile.fromFile(path, filename: file.name);
+}
+
+/// Uploads the picture that was chosen before [upload]'s subject existed.
+///
+/// Every create dialog that offers a picture needs the same three things after
+/// its create call answers: skip when nothing was picked, send it, and — this
+/// is the part worth sharing — refuse to let a failed picture look like a
+/// failed creation. The team or project is already real by then, so a failure
+/// says so and leaves it alone; the picture can be set from its settings.
+Future<void> uploadPendingAvatar(
+  BuildContext context,
+  PickedImage? picked,
+  EntityAvatarStrings strings,
+  Future<void> Function(MultipartFile file) upload,
+) async {
+  if (picked == null) return;
+  // Resolved before the upload's async gap, like everywhere else in this file.
+  final failed = context.t(strings.failed);
+  try {
+    await upload(picked.toMultipart());
+  } catch (_) {
+    if (context.mounted) showGlassErrorToast(context, failed);
+  } finally {
+    picked.evict();
+  }
 }

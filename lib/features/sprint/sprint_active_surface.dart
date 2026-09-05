@@ -612,15 +612,10 @@ class _SprintCard extends StatelessWidget {
                         const Spacer(),
                         if (issue.assigneeId != null)
                           Tooltip(
-                            // The card already owns this tooltip, so the
-                            // pronouns join its message rather than nesting a
-                            // second one inside the avatar.
-                            message:
-                                personTooltip(
-                                  name: assigneeName ?? issue.assigneeId!,
-                                  pronouns: assigneePronouns,
-                                ) ??
-                                issue.assigneeId!,
+                            message: personTooltip(
+                              name: assigneeName ?? issue.assigneeId!,
+                              pronouns: assigneePronouns,
+                            ),
                             child: HiveAvatar(
                               name: assigneeName ?? issue.assigneeId!,
                               imageUrl: assigneeAvatar,

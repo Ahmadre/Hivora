@@ -152,7 +152,7 @@ class _BoardFilterDialogState extends State<_BoardFilterDialog> {
   List<_Opt> _optionsFor(BoardFilterFacet f) {
     String name(String id) => widget.names[id] ?? id;
     String? avatar(String id) => widget.avatars[id];
-    String? saidPronouns(String id) => widget.pronouns[id];
+    String? pronounsOf(String id) => widget.pronouns[id];
     switch (f) {
       case BoardFilterFacet.state:
         return [
@@ -193,7 +193,7 @@ class _BoardFilterDialogState extends State<_BoardFilterDialog> {
               leading: HiveAvatar(
                 name: name(id),
                 imageUrl: avatar(id),
-                pronouns: saidPronouns(id),
+                pronouns: pronounsOf(id),
                 size: 20,
               ),
             ),
@@ -207,7 +207,7 @@ class _BoardFilterDialogState extends State<_BoardFilterDialog> {
               leading: HiveAvatar(
                 name: name(id),
                 imageUrl: avatar(id),
-                pronouns: saidPronouns(id),
+                pronouns: pronounsOf(id),
                 size: 20,
               ),
             ),

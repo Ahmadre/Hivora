@@ -15,10 +15,10 @@ class BoardPeopleStrip extends StatefulWidget {
     super.key,
     required this.userIds,
     required this.names,
-    required this.pronouns,
     required this.selected,
     required this.onToggle,
     this.avatars = const {},
+    this.pronouns = const {},
     this.size = 30,
   });
 
@@ -129,7 +129,7 @@ class _PersonAvatar extends StatelessWidget {
           // This row is faces only — the tooltip is the sole place the name
           // and pronouns appear, so both ride in this one message rather than
           // nesting a second tooltip inside the avatar.
-          message: personTooltip(name: name, pronouns: pronouns) ?? name,
+          message: personTooltip(name: name, pronouns: pronouns),
           waitDuration: const Duration(milliseconds: 400),
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 150),

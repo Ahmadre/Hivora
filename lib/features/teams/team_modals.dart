@@ -10,7 +10,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/util/keys.dart';
 import '../../core/widgets/entity_avatar_editor.dart';
-import '../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import '../deletion/delete_flows.dart';
 import 'team_modal_kit.dart';
 import 'team_widgets.dart';
@@ -89,6 +88,9 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
   /// already stored — it is never sent with the form.
   late String? _avatarUrl = widget.existing?.avatarUrl;
   bool _busy = false;
+
+  /// The picture chosen before the team exists, uploaded right after it does.
+  PickedImage? _pendingAvatar;
   String? _error;
 
   /// While true the key follows the name. It starts on for a new team, and for
@@ -163,9 +165,6 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
     return suggestKey(_name.text, taken: _taken, maxLength: _maxKeyLength);
   }
 
-  /// The picture chosen before the team exists, uploaded right after it does.
-  PickedImage? _pendingAvatar;
-
   Future<void> _submit() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
@@ -198,7 +197,14 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
           colorHue: _hue,
           icon: _icon,
         );
-        await _uploadPendingAvatar(created.id);
+        if (mounted) {
+          await uploadPendingAvatar(
+            context,
+            _pendingAvatar,
+            EntityAvatarStrings.team,
+            (file) => widget.repo.uploadTeamAvatar(created.id, file),
+          );
+        }
         if (mounted) Navigator.of(context).pop(created);
       }
     } on ApiFailure catch (failure) {
@@ -206,22 +212,6 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
         _busy = false;
         _error = failure.message;
       });
-    }
-  }
-
-  /// Sends the picture that was chosen before the team existed.
-  ///
-  /// The team is already created by this point, so a failure here must not read
-  /// as "creating the team failed": it is said out loud and the team is kept —
-  /// the picture can be set again from its settings tab.
-  Future<void> _uploadPendingAvatar(String teamId) async {
-    final pending = _pendingAvatar;
-    if (pending == null) return;
-    final failed = mounted ? context.t('teams.avatar.failed') : null;
-    try {
-      await widget.repo.uploadTeamAvatar(teamId, pending.toMultipart());
-    } catch (_) {
-      if (mounted && failed != null) showGlassErrorToast(context, failed);
     }
   }
 

@@ -73,7 +73,7 @@ class AppAvatar extends StatelessWidget {
     final said = normalizePronouns(pronouns);
     if (said == null) return _avatar(context);
     return Tooltip(
-      message: personTooltip(name: name, pronouns: said)!,
+      message: personTooltip(name: name, pronouns: said),
       waitDuration: const Duration(milliseconds: 400),
       child: _avatar(context),
     );

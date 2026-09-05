@@ -20,8 +20,8 @@ import '../../core/util/keys.dart';
 import '../../core/widgets/entity_avatar.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
-import '../sprint/modals/glass_modal.dart';
 import '../../core/widgets/entity_avatar_editor.dart';
+import '../sprint/modals/glass_modal.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/repositories/user_repository.dart';
 
@@ -806,23 +806,6 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
     );
   }
 
-  /// Sends the picture chosen before the project existed. The project is
-  /// already created here, so a failure is said out loud rather than reported
-  /// as a failed creation — the picture can be set again from its settings.
-  Future<void> _uploadPendingAvatar(String projectId) async {
-    final pending = _pendingAvatar;
-    if (pending == null) return;
-    final failed = mounted ? context.t('projectSettings.avatar.failed') : null;
-    try {
-      await context.read<ProjectRepository>().uploadProjectAvatar(
-        projectId,
-        pending.toMultipart(),
-      );
-    } catch (_) {
-      if (mounted && failed != null) showGlassErrorToast(context, failed);
-    }
-  }
-
   Future<void> _save() async {
     if (!_valid || _saving) return;
     setState(() {
@@ -839,7 +822,15 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
         color: hexForHue(_hue),
         leadId: _leadId,
       );
-      await _uploadPendingAvatar(project.id);
+      if (mounted) {
+        final repo = context.read<ProjectRepository>();
+        await uploadPendingAvatar(
+          context,
+          _pendingAvatar,
+          EntityAvatarStrings.project,
+          (file) => repo.uploadProjectAvatar(project.id, file),
+        );
+      }
       if (mounted) Navigator.of(context).pop(project);
     } on ApiFailure catch (failure) {
       setState(() {

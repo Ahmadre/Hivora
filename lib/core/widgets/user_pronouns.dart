@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../models/core_models.dart';
 import '../theme/app_colors.dart';
 
 /// How a person's pronouns are presented, everywhere in the app.
@@ -23,38 +24,48 @@ String? normalizePronouns(String? pronouns) {
 
 /// Tooltip text for a person's avatar: who they are, and — when we know them
 /// and the surface is not already showing them — how to refer to them.
-///
-/// Returns null when there is nothing worth a tooltip, so callers can skip
-/// wrapping entirely rather than attaching an empty one.
-String? personTooltip({required String name, String? pronouns}) {
+String personTooltip({required String name, String? pronouns}) {
   final said = normalizePronouns(pronouns);
   final who = name.trim();
-  if (said == null) return who.isEmpty ? null : who;
+  if (said == null) return who;
   return who.isEmpty ? said : '$who · $said';
 }
+
+/// Pronouns by user id, for the screens that resolve a directory once and then
+/// render rows from it. Skips everyone who has not said, so a lookup miss and
+/// "not set" are the same thing at every call site.
+Map<String, String> pronounsById(Iterable<DirectoryUser> users) => {
+  for (final user in users)
+    if (normalizePronouns(user.pronouns) case final said?) user.id: said,
+};
 
 /// The inline, muted pronouns that sit next to a name — comment headers,
 /// member rows, the admin user list, the audit trail.
 ///
-/// Renders nothing when there are no pronouns to show, so callers can drop it
-/// into a Row unconditionally instead of guarding at every call site.
+/// Renders nothing at all — not even [leadingGap] — when there is nothing to
+/// say, so a row can hold one unconditionally instead of guarding at the call
+/// site and having the gap survive the label it was spacing.
 class PronounsLabel extends StatelessWidget {
   const PronounsLabel({
     super.key,
     required this.pronouns,
     this.fontSize = 12,
     this.color,
+    this.leadingGap = 0,
   });
 
   final String? pronouns;
   final double fontSize;
   final Color? color;
 
+  /// Space between the name and the pronouns, dropped along with them.
+  final double leadingGap;
+
   @override
   Widget build(BuildContext context) {
     final said = normalizePronouns(pronouns);
     if (said == null) return const SizedBox.shrink();
-    return Text(
+    final label = Text(
       said,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -63,6 +74,14 @@ class PronounsLabel extends StatelessWidget {
         fontWeight: FontWeight.w500,
         color: color ?? AppColors.inkFaint,
       ),
+    );
+    if (leadingGap == 0) return label;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(width: leadingGap),
+        Flexible(child: label),
+      ],
     );
   }
 }

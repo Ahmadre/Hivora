@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hinata/core/models/core_models.dart';
 import 'package:hinata/core/widgets/hive_widgets.dart';
 import 'package:hinata/core/widgets/user_pronouns.dart';
 
@@ -32,15 +33,37 @@ void main() {
       );
     });
 
-    test('is null when there is nothing at all to say', () {
-      expect(personTooltip(name: '   '), isNull);
+    test('is empty when there is nothing at all to say', () {
+      expect(personTooltip(name: '   '), isEmpty);
+    });
+
+    test('is the pronouns alone when the name is not known', () {
+      expect(personTooltip(name: '', pronouns: 'she/her'), 'she/her');
+    });
+  });
+
+  group('pronounsById', () {
+    test('indexes only the people who have said', () {
+      const users = [
+        DirectoryUser(id: 'a', username: 'a', displayName: 'A', pronouns: ' '),
+        DirectoryUser(id: 'b', username: 'b', displayName: 'B'),
+        DirectoryUser(
+          id: 'c',
+          username: 'c',
+          displayName: 'C',
+          pronouns: ' they/them ',
+        ),
+      ];
+      expect(pronounsById(users), {'c': 'they/them'});
     });
   });
 
   group('PronounsLabel', () {
     testWidgets('renders nothing at all when unset', (tester) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: PronounsLabel(pronouns: '  '))),
+        const MaterialApp(
+          home: Scaffold(body: PronounsLabel(pronouns: '  ')),
+        ),
       );
       expect(find.byType(Text), findsNothing);
     });
@@ -60,7 +83,9 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: HiveAvatar(name: 'Alex'))),
+        const MaterialApp(
+          home: Scaffold(body: HiveAvatar(name: 'Alex')),
+        ),
       );
       // No pronouns → no tooltip, so an avatar that already sits inside one
       // (board people strip, sprint card) can never end up with two.
