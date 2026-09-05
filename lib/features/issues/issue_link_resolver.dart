@@ -67,7 +67,7 @@ class IssueLinkResolver extends SmartLinkResolver {
     return SmartPerson(
       id: u.id,
       name: u.displayName,
-      subtitle: '@${u.username}',
+      subtitle: userHandle(u.username),
     );
   }
 
@@ -131,7 +131,7 @@ class IssueLinkResolver extends SmartLinkResolver {
             title: u.displayName,
             // The picker is the moment you choose who to address, so the
             // pronouns belong on the row you are choosing from.
-            sub: ['@${u.username}', ?normalizePronouns(u.pronouns)].join(' · '),
+            sub: [userHandle(u.username), ?normalizePronouns(u.pronouns)].join(' · '),
           ),
         );
       }

@@ -210,6 +210,10 @@ flutter:
     - assets/i18n/zh/
     - assets/i18n/hi/
     - assets/i18n/es/
+    - assets/i18n/ja/
+    - assets/i18n/fr/
+    - assets/i18n/ru/
+    - assets/i18n/ar/
     - assets/branding/
     - assets/backgrounds/
   fonts:

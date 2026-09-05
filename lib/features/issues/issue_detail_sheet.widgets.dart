@@ -1074,7 +1074,7 @@ class _PeoplePickerState extends State<_PeoplePicker> {
           // Picking who to hand work to is a moment to get the person right,
           // so the pronouns sit on the row rather than a hover away.
           subtitle: Text(
-            ['@${u.username}', ?normalizePronouns(u.pronouns)].join(' · '),
+            [userHandle(u.username), ?normalizePronouns(u.pronouns)].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

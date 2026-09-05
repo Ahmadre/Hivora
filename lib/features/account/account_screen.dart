@@ -36,6 +36,7 @@ import 'account_modals.dart';
 import 'account_widgets.dart';
 import 'pat_section.dart';
 import 'twofa_modals.dart';
+import 'package:hinata/core/widgets/user_pronouns.dart';
 
 part 'account_screen.widgets.dart';
 
@@ -791,7 +792,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
               const SizedBox(height: 2),
               Text(
-                '@${me.username} · ${me.title ?? me.origin.label}',
+                '${userHandle(me.username)} · ${me.title ?? me.origin.label}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

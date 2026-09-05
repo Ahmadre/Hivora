@@ -38,6 +38,21 @@ Map<String, String> pronounsById(Iterable<DirectoryUser> users) => {
   for (final user in users) user.id: ?normalizePronouns(user.pronouns),
 };
 
+/// A username as it is shown to a reader: `@name`, kept left-to-right.
+///
+/// The `@` is a neutral character, so in a right-to-left paragraph the bidi
+/// algorithm reads it as belonging to the Arabic around it and moves it to the
+/// visual end — `@pronoun-tester` renders as `pronoun-tester@`. Wrapping the
+/// handle in an isolate (U+2066 … U+2069) says "this run has its own direction,
+/// resolve it on its own", which is exactly what a Latin identifier inside
+/// Arabic prose needs. Invisible in every left-to-right language, so there is
+/// one form of this string rather than two.
+String userHandle(String? username) {
+  final name = username?.trim() ?? '';
+  if (name.isEmpty) return '';
+  return '\u2066@$name\u2069';
+}
+
 /// The inline, muted pronouns that sit next to a name — comment headers,
 /// member rows, the admin user list, the audit trail.
 ///
