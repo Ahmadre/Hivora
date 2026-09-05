@@ -285,6 +285,7 @@ class DirectoryUser extends Equatable {
     required this.displayName,
     this.avatarUrl,
     this.title,
+    this.pronouns,
   });
 
   final String id;
@@ -292,6 +293,7 @@ class DirectoryUser extends Equatable {
   final String displayName;
   final String? avatarUrl;
   final String? title;
+  final String? pronouns;
 
   factory DirectoryUser.fromJson(Map<String, dynamic> json) => DirectoryUser(
     id: json['id'] as String,
@@ -299,10 +301,11 @@ class DirectoryUser extends Equatable {
     displayName: json['displayName'] as String? ?? '',
     avatarUrl: json['avatarUrl'] as String?,
     title: json['title'] as String?,
+    pronouns: json['pronouns'] as String?,
   );
 
   @override
-  List<Object?> get props => [id, username, displayName];
+  List<Object?> get props => [id, username, displayName, pronouns];
 }
 
 class SsoProvider extends Equatable {

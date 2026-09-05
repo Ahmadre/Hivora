@@ -91,6 +91,7 @@ class WeeklyContributor extends Equatable {
     required this.completed,
     this.title,
     this.avatarUrl,
+    this.pronouns,
   });
 
   final String userId;
@@ -98,6 +99,7 @@ class WeeklyContributor extends Equatable {
   final int completed;
   final String? title;
   final String? avatarUrl;
+  final String? pronouns;
 
   factory WeeklyContributor.fromJson(Map<String, dynamic> json) =>
       WeeklyContributor(
@@ -106,6 +108,7 @@ class WeeklyContributor extends Equatable {
         completed: (json['completed'] as num?)?.toInt() ?? 0,
         title: json['title'] as String?,
         avatarUrl: json['avatarUrl'] as String?,
+        pronouns: json['pronouns'] as String?,
       );
 
   @override

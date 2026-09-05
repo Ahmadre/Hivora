@@ -61,6 +61,15 @@ class _UserTableRow extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (normalizePronouns(u.pronouns) != null) ...[
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: PronounsLabel(
+                                  pronouns: u.pronouns,
+                                  fontSize: 11.5,
+                                ),
+                              ),
+                            ],
                             if (isMe) _YouChip(),
                           ],
                         ),
@@ -214,6 +223,15 @@ class _UserCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                if (normalizePronouns(u.pronouns) != null) ...[
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: PronounsLabel(
+                                      pronouns: u.pronouns,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                                 if (isMe) _YouChip(),
                               ],
                             ),

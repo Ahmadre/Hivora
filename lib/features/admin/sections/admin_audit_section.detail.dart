@@ -23,7 +23,7 @@ class _AuditDetailSheet extends StatelessWidget {
         icon: LucideIcons.user,
         label: context.t('audit.detail.actor'),
         value: entry.actorLabel?.isNotEmpty == true
-            ? entry.actorLabel!
+            ? _withPronouns(entry.actorLabel!, entry.actorPronouns)
             : context.t('audit.actor.system'),
         sub: entry.actorId,
         tokens: tokens,
@@ -33,7 +33,7 @@ class _AuditDetailSheet extends StatelessWidget {
           icon: LucideIcons.target,
           label: context.t('audit.detail.target'),
           value: entry.targetLabel?.isNotEmpty == true
-              ? entry.targetLabel!
+              ? _withPronouns(entry.targetLabel!, entry.targetPronouns)
               : (entry.targetId ?? '—'),
           sub: entry.targetLabel?.isNotEmpty == true ? entry.targetId : null,
           tokens: tokens,
@@ -467,12 +467,24 @@ IconData _actionIcon(String action) => switch (action) {
 /// Human "actor → target" line for the card subtitle. Returns null when there
 /// is nothing meaningful to show beyond the action title itself.
 String? _actorTargetLine(BuildContext context, AuditEntry entry) {
-  final actor = entry.actorLabel?.isNotEmpty == true
-      ? entry.actorLabel!
-      : context.t('audit.actor.system');
+  final actor = _withPronouns(
+    entry.actorLabel?.isNotEmpty == true
+        ? entry.actorLabel!
+        : context.t('audit.actor.system'),
+    // Only when there was a real account behind it: "System (she/her)" would
+    // be nonsense on an anonymous or automated entry.
+    entry.actorLabel?.isNotEmpty == true ? entry.actorPronouns : null,
+  );
   final target = entry.targetLabel?.isNotEmpty == true
-      ? entry.targetLabel!
+      ? _withPronouns(entry.targetLabel!, entry.targetPronouns)
       : null;
   if (target != null && target != actor) return '$actor → $target';
   return actor;
+}
+
+/// "Alex Rivera (they/them)" — the audit trail is plain text, so the pronouns
+/// ride along in the label rather than as a separate widget.
+String _withPronouns(String label, String? pronouns) {
+  final said = normalizePronouns(pronouns);
+  return said == null ? label : '$label ($said)';
 }

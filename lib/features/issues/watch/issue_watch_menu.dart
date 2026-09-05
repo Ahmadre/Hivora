@@ -29,6 +29,7 @@ class IssueWatchMenuData {
     required this.onToggle,
     required this.nameFor,
     required this.avatarFor,
+    required this.pronounsFor,
   });
 
   final IssueWatchCubit cubit;
@@ -42,6 +43,7 @@ class IssueWatchMenuData {
 
   final String? Function(String userId) nameFor;
   final String? Function(String userId) avatarFor;
+  final String? Function(String userId) pronounsFor;
 
   /// The signed-in user, or null while the session is still resolving — taken
   /// from the cubit so the roster and the toggle can never disagree on who
@@ -206,6 +208,7 @@ class IssueWatchPanel extends StatelessWidget {
                       // it, where it renders as a neutral glyph.
                       name: data.nameFor(id),
                       avatarUrl: data.avatarFor(id),
+                      pronouns: data.pronounsFor(id),
                       isMe: id == me,
                       fallbackSeed: id,
                     );
@@ -304,11 +307,13 @@ class _WatcherRow extends StatelessWidget {
     required this.avatarUrl,
     required this.isMe,
     required this.fallbackSeed,
+    this.pronouns,
   });
 
   final SearchTokens tokens;
   final String? name;
   final String? avatarUrl;
+  final String? pronouns;
   final bool isMe;
   final String fallbackSeed;
 
@@ -318,7 +323,12 @@ class _WatcherRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
       child: Row(
         children: [
-          HiveAvatar(name: name ?? fallbackSeed, imageUrl: avatarUrl, size: 26),
+          HiveAvatar(
+            name: name ?? fallbackSeed,
+            imageUrl: avatarUrl,
+            pronouns: pronouns,
+            size: 26,
+          ),
           const SizedBox(width: 10),
           // Name and "you" marker share one line so the row can only ever
           // ellipsise, never overflow — the popover is narrow and a display

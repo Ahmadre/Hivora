@@ -10,6 +10,7 @@ import '../../core/theme/hue_colors.dart';
 import '../../core/theme/project_palette.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/subtask_widgets.dart';
+import '../../core/widgets/user_pronouns.dart';
 import '../board/board_drag.dart';
 import '../board/board_filter.dart';
 import '../board/board_swimlanes.dart';
@@ -33,6 +34,7 @@ class SprintActiveSurface extends StatelessWidget {
     this.issuesById = const {},
     this.epics = const [],
     this.names = const {},
+    this.pronouns = const {},
     this.avatars = const {},
     this.projectNames = const {},
     this.projectsById = const {},
@@ -62,6 +64,7 @@ class SprintActiveSurface extends StatelessWidget {
   final List<Issue> epics;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
 
   /// Project names by id — lane headers for the project grouping on a Scrum
   /// board that spans several projects.
@@ -109,6 +112,7 @@ class SprintActiveSurface extends StatelessWidget {
       epics: epics,
       names: names,
       avatars: avatars,
+      pronouns: pronouns,
       palette: ProjectPalette.empty,
       projectNames: projectNames,
       onOpenIssue: onOpenIssue,
@@ -135,6 +139,7 @@ class SprintActiveSurface extends StatelessWidget {
         issues: colIssues,
         names: names,
         avatars: avatars,
+        pronouns: pronouns,
         laneMode: true,
         width: width,
         projectsById: projectsById,
@@ -213,6 +218,7 @@ class SprintActiveSurface extends StatelessWidget {
                             issues: colIssues,
                             names: names,
                             avatars: avatars,
+                            pronouns: pronouns,
                             onAccept: (issue) => onMoveState(
                               issue,
                               boardDropState(
@@ -243,6 +249,7 @@ class _SprintColumn extends StatelessWidget {
     required this.column,
     required this.issues,
     required this.names,
+    this.pronouns = const {},
     required this.avatars,
     required this.onAccept,
     required this.onOpenIssue,
@@ -260,6 +267,7 @@ class _SprintColumn extends StatelessWidget {
   /// id, which is not something to render at a person.
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final void Function(Issue) onAccept;
   final void Function(Issue) onOpenIssue;
 
@@ -435,6 +443,8 @@ class _SprintColumn extends StatelessWidget {
                                     issue: issue,
                                     assigneeName: names[issue.assigneeId],
                                     assigneeAvatar: avatars[issue.assigneeId],
+                                    assigneePronouns:
+                                        pronouns[issue.assigneeId],
                                     accent: dotColor,
                                   ),
                                   child: BoardLandingCard(
@@ -444,6 +454,8 @@ class _SprintColumn extends StatelessWidget {
                                       issue: issue,
                                       assigneeName: names[issue.assigneeId],
                                       assigneeAvatar: avatars[issue.assigneeId],
+                                      assigneePronouns:
+                                          pronouns[issue.assigneeId],
                                       accent: dotColor,
                                       onOpen: () => onOpenIssue(issue),
                                       onOpenIssue: onOpenIssue,
@@ -491,6 +503,7 @@ class _SprintCard extends StatelessWidget {
     required this.issue,
     this.assigneeName,
     this.assigneeAvatar,
+    this.assigneePronouns,
     this.accent,
     this.onOpen,
     this.onOpenIssue,
@@ -502,6 +515,7 @@ class _SprintCard extends StatelessWidget {
   /// directory — the issue only carries the assignee id.
   final String? assigneeName;
   final String? assigneeAvatar;
+  final String? assigneePronouns;
 
   /// Project-configured state color for this card's column; falls back to the
   /// global palette when unknown.
@@ -598,7 +612,15 @@ class _SprintCard extends StatelessWidget {
                         const Spacer(),
                         if (issue.assigneeId != null)
                           Tooltip(
-                            message: assigneeName ?? issue.assigneeId!,
+                            // The card already owns this tooltip, so the
+                            // pronouns join its message rather than nesting a
+                            // second one inside the avatar.
+                            message:
+                                personTooltip(
+                                  name: assigneeName ?? issue.assigneeId!,
+                                  pronouns: assigneePronouns,
+                                ) ??
+                                issue.assigneeId!,
                             child: HiveAvatar(
                               name: assigneeName ?? issue.assigneeId!,
                               imageUrl: assigneeAvatar,

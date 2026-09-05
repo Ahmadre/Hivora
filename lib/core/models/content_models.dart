@@ -179,6 +179,7 @@ class RankEntry extends Equatable {
     required this.points,
     this.title,
     this.avatarUrl,
+    this.pronouns,
   });
 
   final String userId;
@@ -186,6 +187,7 @@ class RankEntry extends Equatable {
   final int points;
   final String? title;
   final String? avatarUrl;
+  final String? pronouns;
 
   factory RankEntry.fromJson(Map<String, dynamic> json) => RankEntry(
     userId: json['userId'] as String? ?? '',
@@ -193,6 +195,7 @@ class RankEntry extends Equatable {
     points: json['points'] as int? ?? 0,
     title: json['title'] as String?,
     avatarUrl: json['avatarUrl'] as String?,
+    pronouns: json['pronouns'] as String?,
   );
 
   @override
@@ -258,20 +261,23 @@ class SprintMember extends Equatable {
     required this.userId,
     required this.displayName,
     this.avatarUrl,
+    this.pronouns,
   });
 
   final String userId;
   final String displayName;
   final String? avatarUrl;
+  final String? pronouns;
 
   factory SprintMember.fromJson(Map<String, dynamic> json) => SprintMember(
     userId: json['userId'] as String? ?? '',
     displayName: json['displayName'] as String? ?? '',
     avatarUrl: json['avatarUrl'] as String?,
+    pronouns: json['pronouns'] as String?,
   );
 
   @override
-  List<Object?> get props => [userId, displayName, avatarUrl];
+  List<Object?> get props => [userId, displayName, avatarUrl, pronouns];
 }
 
 /// Snapshot of the caller's active board powering the dashboard hero — either a

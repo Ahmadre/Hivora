@@ -15,6 +15,7 @@ import '../../core/widgets/hive_loader.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
+import '../../core/widgets/user_pronouns.dart';
 import '../sprint/modals/glass_modal.dart'
     show showGlassConfirm, showGlassErrorToast;
 import 'team_detail_screen.dart' show TeamDetailData;

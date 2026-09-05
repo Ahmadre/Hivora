@@ -28,6 +28,7 @@ Future<void> openBoardFilter(
   required BoardFilterOptions options,
   required Map<String, String> names,
   Map<String, String> avatars = const {},
+  Map<String, String> pronouns = const {},
   required Map<String, String> sprintNames,
   Map<String, String> epicNames = const {},
   required ValueChanged<BoardFilter> onChanged,
@@ -49,6 +50,7 @@ Future<void> openBoardFilter(
       options: options,
       names: names,
       avatars: avatars,
+      pronouns: pronouns,
       sprintNames: sprintNames,
       epicNames: epicNames,
       onChanged: onChanged,
@@ -72,6 +74,7 @@ class _BoardFilterDialog extends StatefulWidget {
     required this.options,
     required this.names,
     required this.avatars,
+    required this.pronouns,
     required this.sprintNames,
     required this.epicNames,
     required this.onChanged,
@@ -82,6 +85,7 @@ class _BoardFilterDialog extends StatefulWidget {
   final BoardFilterOptions options;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final Map<String, String> sprintNames;
   final Map<String, String> epicNames;
   final ValueChanged<BoardFilter> onChanged;
@@ -148,6 +152,7 @@ class _BoardFilterDialogState extends State<_BoardFilterDialog> {
   List<_Opt> _optionsFor(BoardFilterFacet f) {
     String name(String id) => widget.names[id] ?? id;
     String? avatar(String id) => widget.avatars[id];
+    String? saidPronouns(String id) => widget.pronouns[id];
     switch (f) {
       case BoardFilterFacet.state:
         return [
@@ -188,6 +193,7 @@ class _BoardFilterDialogState extends State<_BoardFilterDialog> {
               leading: HiveAvatar(
                 name: name(id),
                 imageUrl: avatar(id),
+                pronouns: saidPronouns(id),
                 size: 20,
               ),
             ),
@@ -201,6 +207,7 @@ class _BoardFilterDialogState extends State<_BoardFilterDialog> {
               leading: HiveAvatar(
                 name: name(id),
                 imageUrl: avatar(id),
+                pronouns: saidPronouns(id),
                 size: 20,
               ),
             ),

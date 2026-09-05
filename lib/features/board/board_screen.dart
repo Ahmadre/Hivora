@@ -345,6 +345,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
   BoardViewMode _mode = BoardViewMode.board;
   Map<String, String> _names = const {};
   Map<String, String> _avatars = const {};
+  Map<String, String> _pronouns = const {};
   Map<String, String> _projectNames = const {};
 
   /// The board's spanned projects by id. A cross-project board needs the full
@@ -422,6 +423,11 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           for (final u in users)
             if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
               u.id: u.avatarUrl!,
+        };
+        _pronouns = {
+          for (final u in users)
+            if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
+              u.id: u.pronouns!.trim(),
         };
         _projectNames = {for (final p in projects) p.id: p.name};
         _projectsById = {
@@ -689,6 +695,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
     options: _options,
     names: _names,
     avatars: _avatars,
+    pronouns: _pronouns,
     sprintNames: _sprintNames,
     epicNames: _epicNames,
     onChanged: (f) => setState(() => _filter = f),
@@ -729,6 +736,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           view: view,
           names: _names,
           avatars: _avatars,
+          pronouns: _pronouns,
           projectNames: _projectNames,
           projectsById: _projectsById,
           onOpenIssue: _openIssue,
@@ -893,6 +901,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       userIds: _peopleIds,
       names: _names,
       avatars: _avatars,
+      pronouns: _pronouns,
       selected: _filter.assignees,
       onToggle: (id) => setState(
         () => _filter = _filter.toggle(BoardFilterFacet.assignee, id),
@@ -1002,6 +1011,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
                 palette: _palette,
                 names: _names,
                 avatars: _avatars,
+                pronouns: _pronouns,
                 projectsById: _projectsById,
                 onAccept: (issue) => _moveIssue(issue, column),
                 canAccept: (issue) => _canDrop(issue, column),
@@ -1030,6 +1040,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
       epics: _epics,
       names: _names,
       avatars: _avatars,
+      pronouns: _pronouns,
       palette: _palette,
       projectNames: _projectNames,
       onOpenIssue: _openIssue,
@@ -1059,6 +1070,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
         palette: _palette,
         names: _names,
         avatars: _avatars,
+        pronouns: _pronouns,
         projectsById: _projectsById,
         onAccept: (issue) => _moveIssue(issue, column),
         canAccept: (issue) => _canDrop(issue, column),

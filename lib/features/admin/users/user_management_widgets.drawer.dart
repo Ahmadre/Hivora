@@ -122,14 +122,33 @@ class UserDrawerBody extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 2),
-                        Text(
-                          u.name,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontBrand,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink,
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                u.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontBrand,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.ink,
+                                ),
+                              ),
+                            ),
+                            if (normalizePronouns(u.pronouns) != null) ...[
+                              const SizedBox(width: 7),
+                              Flexible(
+                                child: PronounsLabel(
+                                  pronouns: u.pronouns,
+                                  fontSize: 12.5,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         Text(
                           u.email,

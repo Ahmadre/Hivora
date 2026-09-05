@@ -25,6 +25,7 @@ class SprintPlanningSurface extends StatelessWidget {
     required this.activeSprintId,
     required this.issuesBySprint,
     required this.names,
+    this.pronouns = const {},
     required this.avatars,
     required this.filter,
     required this.backlog,
@@ -58,6 +59,7 @@ class SprintPlanningSurface extends StatelessWidget {
   /// something to render at a person.
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final BoardFilter filter;
   final List<Issue> backlog;
   final int backlogTotal;
@@ -106,6 +108,7 @@ class SprintPlanningSurface extends StatelessWidget {
                 isActive: s.id == activeSprintId,
                 names: names,
                 avatars: avatars,
+                pronouns: pronouns,
                 issues: (issuesBySprint[s.id] ?? const [])
                     .where(filter.matches)
                     .where(_matchesQuery)
@@ -137,6 +140,7 @@ class SprintPlanningSurface extends StatelessWidget {
               issues: backlog.where(filter.matches).toList(),
               names: names,
               avatars: avatars,
+              pronouns: pronouns,
               total: backlogTotal,
               page: backlogPage,
               pages: backlogPages,
@@ -280,6 +284,7 @@ class _SprintGroup extends StatefulWidget {
     required this.issues,
     required this.names,
     required this.avatars,
+    this.pronouns = const {},
     required this.selected,
     required this.onToggleSelect,
     required this.onOpenIssue,
@@ -295,6 +300,7 @@ class _SprintGroup extends StatefulWidget {
   final List<Issue> issues;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final Set<String> selected;
   final ValueChanged<String> onToggleSelect;
   final void Function(Issue) onOpenIssue;
@@ -572,6 +578,7 @@ class _BacklogGroup extends StatefulWidget {
     required this.issues,
     required this.names,
     required this.avatars,
+    this.pronouns = const {},
     required this.total,
     required this.page,
     required this.pages,
@@ -590,6 +597,7 @@ class _BacklogGroup extends StatefulWidget {
   final List<Issue> issues;
   final Map<String, String> names;
   final Map<String, String> avatars;
+  final Map<String, String> pronouns;
   final int total;
   final int page;
   final int pages;
