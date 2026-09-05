@@ -1,5 +1,8 @@
-• Exports now read in your own language, not always in English
-• Dates and times in an export are shown in your time zone, in your language's format
-• Mentions and links to issues, people and wiki pages now appear by name in an export instead of as internal ids
-• Saving or sharing an export no longer fails
+• Hinata now speaks nine languages: English, German, Spanish, Chinese, Hindi, Japanese, French, Russian and Arabic
+• Arabic reads right to left throughout, including menus, lists and navigation
+• Set your own pronouns, and see other people's where you work with them
+• Choose a picture while you create a team or a project, instead of only afterwards
+• Write comments in the same editor as a description, with the same formatting
+• The formatting bar stays on screen while you write and no longer covers the editor's own controls
+• The session list no longer buries the settings underneath it
 • Several smaller fixes and refinements

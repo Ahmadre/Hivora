@@ -3,6 +3,3 @@
 • Set your own pronouns, and see other people's where you work with them
 • Choose a picture while you create a team or a project, instead of only afterwards
 • Write comments in the same editor as a description, with the same formatting
-• The formatting bar stays on screen while you write and no longer covers the editor's own controls
-• The session list no longer buries the settings underneath it
-• Several smaller fixes and refinements

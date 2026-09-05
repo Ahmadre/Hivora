@@ -1,5 +1,8 @@
-• Exporte sind jetzt in deiner Sprache verfasst und nicht mehr immer auf Englisch
-• Datum und Uhrzeit erscheinen im Export in deiner Zeitzone und im Format deiner Sprache
-• Erwähnungen und Verweise auf Vorgänge, Personen und Wiki-Seiten stehen im Export jetzt mit Namen statt als interne IDs
-• Exporte lassen sich wieder zuverlässig speichern und teilen
+• Hinata spricht jetzt neun Sprachen: Englisch, Deutsch, Spanisch, Chinesisch, Hindi, Japanisch, Französisch, Russisch und Arabisch
+• Arabisch läuft durchgehend von rechts nach links — Menüs, Listen und Navigation eingeschlossen
+• Lege deine eigenen Pronomen fest und sieh die der anderen dort, wo ihr zusammenarbeitet
+• Wähle das Bild schon beim Anlegen eines Teams oder Projekts statt erst danach
+• Schreibe Kommentare im selben Editor wie eine Beschreibung, mit denselben Formatierungen
+• Die Formatierungsleiste bleibt beim Schreiben sichtbar und verdeckt die Bedienelemente des Editors nicht mehr
+• Die Sitzungsliste begräbt die Einstellungen darunter nicht mehr
 • Mehrere kleinere Korrekturen und Verbesserungen
