@@ -286,7 +286,11 @@ class MentionFieldState extends State<MentionField> {
     final caret = _ctrl.selection.baseOffset.clamp(0, _ctrl.text.length);
     final painter = TextPainter(
       text: TextSpan(text: _ctrl.text.substring(0, caret), style: _textStyle()),
-      textDirection: TextDirection.ltr,
+      // The field's own direction, not a fixed one: this painter mirrors the
+      // real field to find the caret, and in a right-to-left language a
+      // left-to-right mirror puts the caret at the opposite edge — so the
+      // mention popover would open across the field from the word being typed.
+      textDirection: Directionality.of(context),
       maxLines: null,
     )..layout(maxWidth: (box.size.width - padH * 2).clamp(0, double.infinity));
     final local = painter.getOffsetForCaret(

@@ -10,6 +10,10 @@ abstract final class I18n {
     Locale('zh'),
     Locale('hi'),
     Locale('es'),
+    Locale('ja'),
+    Locale('fr'),
+    Locale('ru'),
+    Locale('ar'),
   ];
 
   /// Each language named in itself — someone looking for their own language
@@ -20,6 +24,10 @@ abstract final class I18n {
     'zh': '简体中文（中国）',
     'hi': 'हिन्दी (भारत)',
     'es': 'Español (España)',
+    'ja': '日本語（日本）',
+    'fr': 'Français (France)',
+    'ru': 'Русский (Россия)',
+    'ar': 'العربية',
   };
 
   static List<LocalizationsDelegate<dynamic>> delegates() => [

@@ -17,6 +17,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../sprint/modals/glass_modal.dart';
+import 'package:hinata/core/widgets/user_pronouns.dart';
 
 /// Issue types the quick composer offers. Mirrors the full create form minus
 /// `SUBTASK`, which never gets picked — it arrives forced by a sub-task lane.
@@ -895,7 +896,7 @@ class _QuickPeoplePickerState extends State<_QuickPeoplePicker> {
                         ],
                       ),
                       subtitle: Text(
-                        '@${user.username}',
+                        userHandle(user.username),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
