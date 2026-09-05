@@ -11,11 +11,21 @@ import '../../core/theme/app_colors.dart';
 /// `/{lang}/{slug}`.
 const String _legalBaseUrl = 'https://hinata.ahmadre.com';
 
-/// Public URL of a hosted legal page, matching the app's current locale.
+/// The languages the hosted legal pages are actually published in.
+///
+/// Deliberately narrower than the languages the app itself speaks: a privacy
+/// policy and terms of service are legal instruments, not UI copy, and a
+/// machine translation of one is not a translation anybody should be asked to
+/// agree to. Until a reviewed translation is published, those readers are sent
+/// to the English text — the document that is actually binding — rather than to
+/// a 404 or to a version nobody has checked.
+const Set<String> _publishedLegalLanguages = {'en', 'de'};
+
+/// Public URL of a hosted legal page, in the reader's language where one has
+/// been published and in English otherwise.
 Uri legalUrl(BuildContext context, String slug) {
-  final lang = Localizations.localeOf(context).languageCode == 'de'
-      ? 'de'
-      : 'en';
+  final code = Localizations.localeOf(context).languageCode;
+  final lang = _publishedLegalLanguages.contains(code) ? code : 'en';
   return Uri.parse('$_legalBaseUrl/$lang/$slug');
 }
 

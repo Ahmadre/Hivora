@@ -158,9 +158,15 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
     'Australia/Sydney',
   ];
 
-  static const _locales = [
-    ('de', 'Deutsch (Deutschland)'),
-    ('en', 'English (United Kingdom)'),
+  /// Every language the app ships, named in itself — read from the one list
+  /// that defines them, so a language added there appears here too instead of
+  /// being silently missing from the admin default.
+  static final _locales = [
+    for (final locale in I18n.supportedLocales)
+      (
+        locale.languageCode,
+        I18n.localeNames[locale.languageCode] ?? locale.languageCode,
+      ),
   ];
 
   /// A liquid-glass select styled like the rest of the admin inputs (shared

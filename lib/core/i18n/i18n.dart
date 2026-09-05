@@ -4,11 +4,22 @@ import 'package:i18next/i18next.dart';
 
 /// Central i18next wiring. Translations live in `assets/i18n/<lang>/common.json`.
 abstract final class I18n {
-  static const supportedLocales = [Locale('en'), Locale('de')];
+  static const supportedLocales = [
+    Locale('en'),
+    Locale('de'),
+    Locale('zh'),
+    Locale('hi'),
+    Locale('es'),
+  ];
 
+  /// Each language named in itself — someone looking for their own language
+  /// scans for the word they would use for it, not for its English name.
   static const localeNames = {
     'en': 'English (UK)',
     'de': 'Deutsch (Deutschland)',
+    'zh': '简体中文（中国）',
+    'hi': 'हिन्दी (भारत)',
+    'es': 'Español (España)',
   };
 
   static List<LocalizationsDelegate<dynamic>> delegates() => [
