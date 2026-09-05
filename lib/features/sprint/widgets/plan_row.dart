@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_widgets.dart';
 import '../../../core/widgets/subtask_widgets.dart';
+import '../../../core/widgets/user_pronouns.dart';
 
 /// One draggable issue row in the planning surface: select checkbox · type
 /// glyph · id · title · first tag · priority · points badge (tap → poker) ·
@@ -21,6 +22,7 @@ class PlanRow extends StatelessWidget {
     required this.onEstimate,
     this.assigneeName,
     this.assigneeAvatar,
+    this.assigneePronouns,
   });
 
   final Issue issue;
@@ -30,6 +32,7 @@ class PlanRow extends StatelessWidget {
   /// and an id has no initials worth drawing.
   final String? assigneeName;
   final String? assigneeAvatar;
+  final String? assigneePronouns;
   final bool selected;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpen;
@@ -86,7 +89,14 @@ class PlanRow extends StatelessWidget {
               const SizedBox(width: 10),
               if (issue.assigneeId != null)
                 Tooltip(
-                  message: assigneeName ?? issue.assigneeId!,
+                  // The row owns this tooltip already, so the pronouns join it
+                  // rather than nesting a second one inside the avatar.
+                  message:
+                      personTooltip(
+                        name: assigneeName ?? issue.assigneeId!,
+                        pronouns: assigneePronouns,
+                      ) ??
+                      issue.assigneeId!,
                   child: HiveAvatar(
                     name: assigneeName ?? issue.assigneeId!,
                     imageUrl: assigneeAvatar,

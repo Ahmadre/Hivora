@@ -45,6 +45,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/hue_colors.dart';
 import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/hive_widgets.dart';
+import '../../core/widgets/user_pronouns.dart';
 import '../../core/widgets/markdown_toolbar.dart';
 import '../../core/widgets/soft_card.dart';
 import 'package:image_picker/image_picker.dart' show ImageSource;

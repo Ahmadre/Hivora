@@ -844,6 +844,7 @@ class _ContributorRow extends StatelessWidget {
         HiveAvatar(
           name: contributor.displayName,
           imageUrl: contributor.avatarUrl,
+          pronouns: contributor.pronouns,
           size: 30,
         ),
         const SizedBox(width: 10),

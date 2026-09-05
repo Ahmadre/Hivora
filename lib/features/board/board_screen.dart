@@ -1172,6 +1172,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
               issue: issue,
               assignee: _names[issue.assigneeId],
               assigneeAvatar: _avatars[issue.assigneeId],
+              assigneePronouns: _pronouns[issue.assigneeId],
               onTap: () => _openIssue(issue),
             ),
           );

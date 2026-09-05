@@ -366,6 +366,8 @@ class _SprintGroupState extends State<_SprintGroup> {
                               issue: issue,
                               assigneeName: widget.names[issue.assigneeId],
                               assigneeAvatar: widget.avatars[issue.assigneeId],
+                              assigneePronouns:
+                                  widget.pronouns[issue.assigneeId],
                               selected: widget.selected.contains(issue.id),
                               onToggleSelect: () =>
                                   widget.onToggleSelect(issue.id),
@@ -724,6 +726,8 @@ class _BacklogGroupState extends State<_BacklogGroup> {
                               issue: issue,
                               assigneeName: widget.names[issue.assigneeId],
                               assigneeAvatar: widget.avatars[issue.assigneeId],
+                              assigneePronouns:
+                                  widget.pronouns[issue.assigneeId],
                               selected: widget.selected.contains(issue.id),
                               onToggleSelect: () =>
                                   widget.onToggleSelect(issue.id),
@@ -756,6 +760,7 @@ class _DraggableRow extends StatelessWidget {
     required this.issue,
     required this.assigneeName,
     required this.assigneeAvatar,
+    this.assigneePronouns,
     required this.selected,
     required this.onToggleSelect,
     required this.onOpen,
@@ -765,6 +770,7 @@ class _DraggableRow extends StatelessWidget {
   final Issue issue;
   final String? assigneeName;
   final String? assigneeAvatar;
+  final String? assigneePronouns;
   final bool selected;
   final VoidCallback onToggleSelect;
   final VoidCallback onOpen;
@@ -776,6 +782,7 @@ class _DraggableRow extends StatelessWidget {
       issue: issue,
       assigneeName: assigneeName,
       assigneeAvatar: assigneeAvatar,
+      assigneePronouns: assigneePronouns,
       selected: selected,
       onToggleSelect: onToggleSelect,
       onOpen: onOpen,

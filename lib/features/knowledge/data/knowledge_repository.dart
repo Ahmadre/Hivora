@@ -72,6 +72,7 @@ class KnowledgeRepository {
         name: me.displayName,
         title: me.title ?? '',
         hue: _hueFor(me.id),
+        pronouns: me.pronouns,
       );
     } catch (_) {
       // Non-critical — `me` falls back to the first directory user.
@@ -114,6 +115,7 @@ class KnowledgeRepository {
 
   KbUser _toKbUser(DirectoryUser u) => KbUser(
     id: u.id,
+    pronouns: u.pronouns,
     name: u.displayName,
     title: u.title ?? '',
     hue: _hueFor(u.id),

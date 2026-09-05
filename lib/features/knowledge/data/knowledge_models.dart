@@ -16,12 +16,14 @@ class KbUser {
     required this.name,
     required this.title,
     required this.hue,
+    this.pronouns,
   });
 
   final String id;
   final String name;
   final String title;
   final int hue;
+  final String? pronouns;
 
   String get firstName => name.split(' ').first;
 }

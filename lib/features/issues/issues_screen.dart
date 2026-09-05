@@ -58,6 +58,7 @@ part 'issues_screen.rows.dart';
 typedef _RefData = ({
   Map<String, String> names,
   Map<String, String> avatars,
+  Map<String, String> pronouns,
   Map<String, String> projectNames,
   List<String> stateOrder,
   ProjectPalette palette,
@@ -90,6 +91,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
   static final _RefData _emptyRef = (
     names: const {},
     avatars: const {},
+    pronouns: const {},
     projectNames: const {},
     stateOrder: const [],
     palette: ProjectPalette.empty,
@@ -255,6 +257,11 @@ class _IssuesScreenState extends State<IssuesScreen> {
             for (final u in users)
               if (u.avatarUrl != null && u.avatarUrl!.isNotEmpty)
                 u.id: u.avatarUrl!,
+          },
+          pronouns: {
+            for (final u in users)
+              if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
+                u.id: u.pronouns!.trim(),
           },
           projectNames: {for (final p in projects) p.id: p.name},
           stateOrder: stateOrder,
@@ -1038,6 +1045,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
                                   entries[i],
                                   ref.names,
                                   ref.avatars,
+                                  ref.pronouns,
                                   ref.palette,
                                 ),
                               );
@@ -1181,6 +1189,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
     _RowEntry entry,
     Map<String, String> names,
     Map<String, String> avatars,
+    Map<String, String> pronouns,
     ProjectPalette palette,
   ) {
     switch (entry.kind) {
@@ -1205,6 +1214,7 @@ class _IssuesScreenState extends State<IssuesScreen> {
             issue: issue,
             assignee: names[issue.assigneeId],
             assigneeAvatar: avatars[issue.assigneeId],
+            assigneePronouns: pronouns[issue.assigneeId],
             palette: palette,
             selectionMode: _selectionMode,
             selected: _selectedIds.contains(issue.id),

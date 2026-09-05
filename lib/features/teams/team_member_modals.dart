@@ -264,6 +264,7 @@ class _AddMembersBodyState extends State<_AddMembersBody> with _ProjectLookup {
             leading: HiveAvatar(
               name: _results[i].displayName,
               imageUrl: _results[i].avatarUrl,
+              pronouns: _results[i].pronouns,
               size: 34,
             ),
             title: _results[i].displayName,

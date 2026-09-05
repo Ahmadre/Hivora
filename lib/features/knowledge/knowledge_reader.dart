@@ -455,7 +455,11 @@ class _KnowledgeReaderState extends State<KnowledgeReader> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                AppAvatar(name: repo.userById(id)?.name ?? '?', radius: 13),
+                AppAvatar(
+                  name: repo.userById(id)?.name ?? '?',
+                  pronouns: repo.userById(id)?.pronouns,
+                  radius: 13,
+                ),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(

@@ -149,6 +149,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
                               children: [
                                 AppAvatar(
                                   name: _users[row.userId]?.displayName ?? '?',
+                                  pronouns: _users[row.userId]?.pronouns,
                                   radius: 12,
                                 ),
                                 const SizedBox(width: 8),

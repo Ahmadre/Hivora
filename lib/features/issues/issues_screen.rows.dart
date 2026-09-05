@@ -173,6 +173,7 @@ class IssueRow extends StatelessWidget {
     required this.issue,
     this.assignee,
     this.assigneeAvatar,
+    this.assigneePronouns,
     this.onTap,
     this.palette,
     this.selectionMode = false,
@@ -184,6 +185,7 @@ class IssueRow extends StatelessWidget {
   final Issue issue;
   final String? assignee;
   final String? assigneeAvatar;
+  final String? assigneePronouns;
   final VoidCallback? onTap;
 
   final ProjectPalette? palette;
@@ -271,7 +273,12 @@ class IssueRow extends StatelessWidget {
                     ),
                   ),
                   if (name.isNotEmpty)
-                    HiveAvatar(name: name, imageUrl: assigneeAvatar, size: 22),
+                    HiveAvatar(
+                      name: name,
+                      imageUrl: assigneeAvatar,
+                      pronouns: assigneePronouns,
+                      size: 22,
+                    ),
                   if (due != null) ...[
                     const SizedBox(width: 10),
                     Text(
@@ -367,6 +374,7 @@ class IssueRow extends StatelessWidget {
                         HiveAvatar(
                           name: name,
                           imageUrl: assigneeAvatar,
+                          pronouns: assigneePronouns,
                           size: 24,
                         ),
                         const SizedBox(width: 8),
