@@ -21,6 +21,7 @@ import '../../core/widgets/entity_avatar.dart';
 import '../../core/widgets/hive_widgets.dart';
 import '../../core/widgets/soft_card.dart';
 import '../sprint/modals/glass_modal.dart';
+import '../../core/widgets/entity_avatar_editor.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/repositories/user_repository.dart';
 
@@ -553,6 +554,9 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   bool _saving = false;
   String? _error;
 
+  /// The picture chosen before the project exists, uploaded right after it does.
+  PickedImage? _pendingAvatar;
+
   static final _keyPattern = RegExp(r'^[A-Z][A-Z0-9]{1,9}$');
 
   @override
@@ -690,7 +694,17 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   }
 
   Widget _identityRow(bool compact) {
-    final glyph = _GlyphPreview(hue: _hue, keyText: _key.text);
+    // The key/colour tile doubles as the picture field: a project being created
+    // has no id yet and the avatar endpoints are addressed by id, so the pick is
+    // held in memory and uploaded the moment the project exists.
+    final glyph = PendingAvatarField(
+      picked: _pendingAvatar,
+      size: 52,
+      radius: 15,
+      strings: EntityAvatarStrings.project,
+      fallback: _GlyphPreview(hue: _hue, keyText: _key.text),
+      onPicked: (image) => setState(() => _pendingAvatar = image),
+    );
     final nameField = GlassField(
       label: context.t('projects.name'),
       child: TextField(
@@ -792,6 +806,23 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
     );
   }
 
+  /// Sends the picture chosen before the project existed. The project is
+  /// already created here, so a failure is said out loud rather than reported
+  /// as a failed creation — the picture can be set again from its settings.
+  Future<void> _uploadPendingAvatar(String projectId) async {
+    final pending = _pendingAvatar;
+    if (pending == null) return;
+    final failed = mounted ? context.t('projectSettings.avatar.failed') : null;
+    try {
+      await context.read<ProjectRepository>().uploadProjectAvatar(
+        projectId,
+        pending.toMultipart(),
+      );
+    } catch (_) {
+      if (mounted && failed != null) showGlassErrorToast(context, failed);
+    }
+  }
+
   Future<void> _save() async {
     if (!_valid || _saving) return;
     setState(() {
@@ -808,6 +839,7 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
         color: hexForHue(_hue),
         leadId: _leadId,
       );
+      await _uploadPendingAvatar(project.id);
       if (mounted) Navigator.of(context).pop(project);
     } on ApiFailure catch (failure) {
       setState(() {

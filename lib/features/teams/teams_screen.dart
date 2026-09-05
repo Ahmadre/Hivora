@@ -57,12 +57,7 @@ class _TeamsScreenState extends State<TeamsScreen> {
           if (u.pronouns != null && u.pronouns!.trim().isNotEmpty)
             u.id: u.pronouns!.trim(),
       };
-      return (
-        teams: teams,
-        names: names,
-        avatars: avatars,
-        pronouns: pronouns,
-      );
+      return (teams: teams, names: names, avatars: avatars, pronouns: pronouns);
     })..load();
   }
 
@@ -192,9 +187,7 @@ class _TeamCard extends StatelessWidget {
         .map((m) => names[m.userId] ?? m.userId)
         .toList();
     final memberAvatars = team.members.map((m) => avatars[m.userId]).toList();
-    final memberPronouns = team.members
-        .map((m) => pronouns[m.userId])
-        .toList();
+    final memberPronouns = team.members.map((m) => pronouns[m.userId]).toList();
 
     return SoftCard(
       onTap: () => context.go('/teams/${team.id}'),

@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/util/keys.dart';
 import '../../core/widgets/entity_avatar_editor.dart';
+import '../sprint/modals/glass_modal.dart' show showGlassErrorToast;
 import '../deletion/delete_flows.dart';
 import 'team_modal_kit.dart';
 import 'team_widgets.dart';
@@ -162,6 +163,9 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
     return suggestKey(_name.text, taken: _taken, maxLength: _maxKeyLength);
   }
 
+  /// The picture chosen before the team exists, uploaded right after it does.
+  PickedImage? _pendingAvatar;
+
   Future<void> _submit() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
@@ -194,6 +198,7 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
           colorHue: _hue,
           icon: _icon,
         );
+        await _uploadPendingAvatar(created.id);
         if (mounted) Navigator.of(context).pop(created);
       }
     } on ApiFailure catch (failure) {
@@ -204,12 +209,28 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
     }
   }
 
-  /// The 52px identity square: a live preview of the colour + icon being
-  /// picked, and — once the team exists — the picture upload itself.
+  /// Sends the picture that was chosen before the team existed.
   ///
-  /// A team being *created* has no id yet, so there is nothing to upload
-  /// against; it stays the plain preview and gets its picture from the settings
-  /// tab afterwards.
+  /// The team is already created by this point, so a failure here must not read
+  /// as "creating the team failed": it is said out loud and the team is kept —
+  /// the picture can be set again from its settings tab.
+  Future<void> _uploadPendingAvatar(String teamId) async {
+    final pending = _pendingAvatar;
+    if (pending == null) return;
+    final failed = mounted ? context.t('teams.avatar.failed') : null;
+    try {
+      await widget.repo.uploadTeamAvatar(teamId, pending.toMultipart());
+    } catch (_) {
+      if (mounted && failed != null) showGlassErrorToast(context, failed);
+    }
+  }
+
+  /// The 52px identity square: a live preview of the colour + icon being
+  /// picked, and the picture itself.
+  ///
+  /// A team being *created* has no id yet, and the avatar endpoints are
+  /// addressed by id — so there the pick is held in memory and uploaded the
+  /// moment the team exists.
   Widget _identityGlyph(Color color) {
     final preview = Container(
       width: 52,
@@ -222,7 +243,16 @@ class _TeamFormBodyState extends State<_TeamFormBody> {
       child: Icon(teamIcon(_icon), size: 26, color: color),
     );
     final team = widget.existing;
-    if (team == null) return preview;
+    if (team == null) {
+      return PendingAvatarField(
+        picked: _pendingAvatar,
+        size: 52,
+        radius: 15,
+        strings: EntityAvatarStrings.team,
+        fallback: preview,
+        onPicked: (image) => setState(() => _pendingAvatar = image),
+      );
+    }
     return EntityAvatarField(
       avatarUrl: _avatarUrl,
       size: 52,

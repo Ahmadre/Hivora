@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart' show MultipartFile;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -200,6 +200,144 @@ class _EntityAvatarFieldState extends State<EntityAvatarField> {
                   child: const Center(child: HiveLoader(size: 22)),
                 ),
               ),
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.surface, width: 2),
+                ),
+                child: const Icon(
+                  LucideIcons.camera,
+                  size: 12,
+                  color: Color(0xFF2A2410),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// An image chosen in a *create* dialog, held in memory until the thing it
+/// belongs to exists and can be uploaded against.
+///
+/// Bytes rather than a [MultipartFile], deliberately: a MultipartFile may only
+/// be sent once, and a creation can fail and be retried. Keeping the raw bytes
+/// means every attempt builds a fresh one — and the same bytes draw the preview.
+class PickedImage {
+  const PickedImage({required this.bytes, required this.name});
+
+  final Uint8List bytes;
+  final String name;
+
+  MultipartFile toMultipart() => MultipartFile.fromBytes(bytes, filename: name);
+}
+
+/// Opens the platform image picker and keeps the bytes, for a create dialog
+/// that cannot upload yet. Null when nothing usable came back.
+Future<PickedImage?> pickImageBytes(BuildContext context) async {
+  final List<ChosenFile> picked;
+  try {
+    // Bytes on every platform here (unlike [pickImageMultipart], which streams
+    // from a path off-web): they are needed for the preview either way, and
+    // the server caps an avatar at 12 MB, so it is a bounded read.
+    picked = await pickFilesToUpload(
+      context,
+      kind: FilePickKind.image,
+      withData: true,
+    );
+  } catch (_) {
+    return null;
+  }
+  if (picked.isEmpty) return null;
+  final bytes = picked.first.bytes;
+  return bytes == null
+      ? null
+      : PickedImage(bytes: bytes, name: picked.first.name);
+}
+
+/// The picture field for a thing that does not exist yet.
+///
+/// Same square, same camera badge and same chooser as [EntityAvatarField], but
+/// nothing leaves the device: the pick is held by the caller and uploaded once
+/// the entity has an id. That is what lets the create dialog offer a picture at
+/// all — the avatar endpoints are addressed by entity id, so there is nothing
+/// to upload against until the create call has answered.
+class PendingAvatarField extends StatelessWidget {
+  const PendingAvatarField({
+    super.key,
+    required this.picked,
+    required this.fallback,
+    required this.strings,
+    required this.onPicked,
+    this.size = 72,
+    this.radius = 20,
+  });
+
+  /// The image chosen so far, or null while the glyph stands in.
+  final PickedImage? picked;
+  final Widget fallback;
+  final EntityAvatarStrings strings;
+
+  /// The new choice, or null when the reader dropped the one they had.
+  final ValueChanged<PickedImage?> onPicked;
+
+  final double size;
+  final double radius;
+
+  Future<void> _edit(BuildContext context) async {
+    if (picked == null) {
+      onPicked(await pickImageBytes(context));
+      return;
+    }
+    final action = await showAvatarActions(
+      context,
+      titleKey: strings.title,
+      subtitleKey: strings.subtitle,
+      changeKey: strings.change,
+      removeKey: strings.remove,
+    );
+    if (!context.mounted || action == null) return;
+    if (action == AvatarAction.change) {
+      onPicked(await pickImageBytes(context));
+    } else {
+      onPicked(null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = picked;
+    return Semantics(
+      button: true,
+      label: context.t(strings.title),
+      child: GestureDetector(
+        onTap: () => _edit(context),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            SizedBox(
+              width: size,
+              height: size,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(radius),
+                child: image == null
+                    ? fallback
+                    : Image.memory(
+                        image.bytes,
+                        width: size,
+                        height: size,
+                        fit: BoxFit.cover,
+                      ),
+              ),
+            ),
             Positioned(
               right: -4,
               bottom: -4,

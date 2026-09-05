@@ -455,6 +455,9 @@ IssueWatchCubit _cubit(
 /// watcher, the way it is for anyone the issue doesn't otherwise reference.
 const _directory = {'u1': 'Rebar', 'u2': 'Mia'};
 
+/// Only one of them has said — the other must render exactly as before.
+const _pronouns = {'u2': 'she/her'};
+
 IssueWatchMenuData _menuData(IssueWatchCubit cubit, Issue issue) =>
     IssueWatchMenuData(
       cubit: cubit,
@@ -462,6 +465,7 @@ IssueWatchMenuData _menuData(IssueWatchCubit cubit, Issue issue) =>
       onToggle: cubit.toggle,
       nameFor: (id) => _directory[id],
       avatarFor: (_) => null,
+      pronounsFor: (id) => _pronouns[id],
     );
 
 /// The popover's body on its own, in a box the size the overlay gives it.

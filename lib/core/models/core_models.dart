@@ -242,7 +242,15 @@ class AuthUser extends Equatable {
   );
 
   @override
-  List<Object?> get props => [id, email, username, displayName, roles, title, pronouns];
+  List<Object?> get props => [
+    id,
+    email,
+    username,
+    displayName,
+    roles,
+    title,
+    pronouns,
+  ];
 }
 
 /// Outcome of a password login: either a token pair (+ user), or a 2FA

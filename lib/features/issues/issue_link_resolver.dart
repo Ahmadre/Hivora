@@ -131,10 +131,7 @@ class IssueLinkResolver extends SmartLinkResolver {
             title: u.displayName,
             // The picker is the moment you choose who to address, so the
             // pronouns belong on the row you are choosing from.
-            sub: [
-              '@${u.username}',
-              ?normalizePronouns(u.pronouns),
-            ].join(' · '),
+            sub: ['@${u.username}', ?normalizePronouns(u.pronouns)].join(' · '),
           ),
         );
       }
