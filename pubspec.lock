@@ -1128,10 +1128,10 @@ packages:
     description:
       path: "."
       ref: main
-      resolved-ref: d9944fa0ad6991f588de9b5b2d72eaa67f3c4ae0
+      resolved-ref: "798b3bf3e9df4f812ab4c552dadfc99f96df7ff9"
       url: "https://github.com/hinata-platform/liquid_glass_widgets.git"
     source: git
-    version: "0.30.2"
+    version: "1.3.1"
   logging:
     dependency: transitive
     description:
