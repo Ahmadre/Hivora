@@ -110,7 +110,13 @@ Future<bool?> showDeleteTeamFlow(
 }
 
 Future<bool?> _show(BuildContext context, _DeleteFlow flow) =>
-    showGlassModal<bool>(context, width: 480, builder: (_) => flow);
+    showGlassModal<bool>(
+      context,
+      width: 480,
+      // A delete confirmation is three lines; a full-width sheet overstates it.
+      adaptive: false,
+      builder: (_) => flow,
+    );
 
 // ── impact → view model ─────────────────────────────────────────────────────
 

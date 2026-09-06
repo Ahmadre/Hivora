@@ -220,6 +220,7 @@ Future<bool> _confirm(
 }) async {
   final result = await showGlassModal<bool>(
     context,
+    adaptive: false,
     width: 480,
     // Use the dialog's own context to pop — the screen context lives under
     // go_router's nested navigator, so popping with it would dismiss the page

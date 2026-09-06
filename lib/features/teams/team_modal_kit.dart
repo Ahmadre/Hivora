@@ -10,10 +10,10 @@ import 'team_widgets.dart';
 
 // ════════════════════════════════════════════════════════════════════════
 //  Shared building blocks for the Teams modals. Every modal is presented on
-//  the app's signature Liquid-Glass material (via [showGlassModal]) — a
-//  blurred, tinted panel with a spring entrance. The shell pins the header &
-//  footer and scrolls the body so it never overflows; controls use translucent
-//  fills so the glass reads through.
+//  the app's signature Liquid-Glass material (via [showGlassModal]), which is
+//  a blurred, tinted card on a wide screen and a bottom sheet on a phone. The
+//  shell pins the header & footer and scrolls the body so it never overflows;
+//  controls use translucent fills so the glass reads through.
 // ════════════════════════════════════════════════════════════════════════
 
 /// Translucent control fill so the Liquid-Glass panel shows through.

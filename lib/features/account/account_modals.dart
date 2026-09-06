@@ -295,6 +295,7 @@ Future<bool?> showConfirm(
 }) {
   return showGlassModal<bool>(
     context,
+    adaptive: false,
     width: 420,
     builder: (_) => _ConfirmModal(
       icon: icon,
@@ -395,6 +396,7 @@ Future<AvatarAction?> showAvatarActions(
 }) {
   return showGlassModal<AvatarAction>(
     context,
+    adaptive: false,
     width: 380,
     // Use the modal's OWN context for pops: showGlassModal pushes on the root
     // navigator, but the outer `context` resolves to GoRouter's shell navigator

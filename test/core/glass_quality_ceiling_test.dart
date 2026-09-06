@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hinata/core/theme/glass_ceiling.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 /// Performance + stability regression guard for the app-root glass quality
@@ -19,17 +20,19 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 /// This mirrors the exact config used at the app root; if that wrap is removed or
 /// its cap is loosened to premium, this test fails.
 void main() {
-  // Mirror of lib/app.dart's root wrap config. Keep in sync.
+  test('the ceiling the app installs is capped at standard', () {
+    // Asserted on the constant itself, so a raised cap fails here even on a
+    // machine whose renderer would have resolved to standard anyway.
+    expect(kGlassCeiling.maxQuality, GlassQuality.standard);
+  });
+
+  // The app's own ceiling, not a copy of it. It used to be a copy under a
+  // "keep in sync" comment, and it drifted: the root wrap was raised to
+  // premium and this test went on passing against its own standard.
   Widget wrapWithAppCeiling(Widget child) => LiquidGlassWidgets.wrap(
     adaptiveQuality: true,
     // ignore: experimental_member_use
-    adaptiveConfig: const GlassAdaptiveScopeConfig(
-      initialQuality: GlassQuality.standard,
-      maxQuality: GlassQuality.standard,
-      minQuality: GlassQuality.minimal,
-      allowStepUp: true,
-      targetFrameMs: 16,
-    ),
+    adaptiveConfig: kGlassCeiling,
     child: child,
   );
 
