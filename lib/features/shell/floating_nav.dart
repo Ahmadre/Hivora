@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassExtraButtonPlacement;
 
 // ───────────────────────── Floating nav geometry ──────────────────────────
 //
@@ -118,3 +120,19 @@ class FloatingNavPadding extends StatelessWidget {
     );
   }
 }
+
+/// Which side of the tab pill the detached search button sits on.
+///
+/// `GlassTabBarExtraButton.placement` is *physical* by the package's own
+/// contract — it resolves to a `Positioned(left:)`/`Positioned(right:)` inside a
+/// `Stack`, and a `Stack` does not mirror those. The bar reverses its own tabs
+/// under RTL, so left as-is the search button was the one piece of the nav still
+/// sitting on the leading edge in Arabic while everything around it had moved.
+///
+/// It lives beside the rest of the nav geometry because it is the same kind of
+/// fact: something about where the floating nav is that the package cannot
+/// decide for us.
+GlassExtraButtonPlacement floatingNavExtraPlacement(TextDirection direction) =>
+    direction == TextDirection.rtl
+    ? GlassExtraButtonPlacement.left
+    : GlassExtraButtonPlacement.right;

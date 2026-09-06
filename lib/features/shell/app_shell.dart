@@ -56,6 +56,7 @@ import '../sprint/modals/glass_modal.dart'
 import 'floating_nav.dart';
 import 'page_chrome.dart';
 import 'swipe_back.dart';
+import '../../core/widgets/hive_widgets.dart' show backArrow, forwardArrow;
 
 part 'app_shell.wide.dart';
 part 'app_shell.notifications.dart';

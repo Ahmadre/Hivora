@@ -88,7 +88,7 @@ class _UserTableRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: RoleBadge(u.role),
             ),
           ),
@@ -308,7 +308,7 @@ class _UserCard extends StatelessWidget {
 class _YouChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(left: 6),
+    padding: const EdgeInsetsDirectional.only(start: 6),
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(

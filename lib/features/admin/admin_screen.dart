@@ -28,6 +28,7 @@ import 'sections/admin_general_section.dart';
 import 'sections/admin_git_section.dart';
 import 'sections/admin_mcp_section.dart';
 import 'sections/admin_security_section.dart';
+import '../../core/widgets/hive_widgets.dart' show forwardChevron;
 
 // ─────────────────────────── Section enum ────────────────────────────────
 
@@ -449,7 +450,7 @@ class _MobileNavTile extends StatelessWidget {
                 ),
               ),
               Icon(
-                isUsers ? LucideIcons.externalLink : LucideIcons.chevronRight,
+                isUsers ? LucideIcons.externalLink : forwardChevron(context),
                 size: 18,
                 color: AppColors.inkFaint,
               ),

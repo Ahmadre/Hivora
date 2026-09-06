@@ -1845,6 +1845,7 @@
     "avgVelocity": "औसत वेलोसिटी",
     "lastSprints": "पिछले स्प्रिंट",
     "burndown": "स्प्रिंट बर्नडाउन",
+    "burndownStart": "शु",
     "ptsRemaining": "{{points}} पॉइंट शेष",
     "actual": "वास्तविक",
     "guideline": "आदर्श रेखा",

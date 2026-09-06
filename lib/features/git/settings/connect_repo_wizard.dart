@@ -14,6 +14,7 @@ import '../../../core/widgets/hex_mark.dart';
 import '../../sprint/modals/glass_modal.dart';
 import '../git_tokens.dart';
 import '../widgets/provider_glyph.dart';
+import '../../../core/widgets/hive_widgets.dart' show backArrow, forwardChevron;
 
 part 'connect_repo_wizard.data.dart';
 part 'connect_repo_wizard.widgets.dart';
@@ -991,14 +992,10 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
         ),
         const SizedBox(height: 10),
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
             onPressed: () => setState(() => _step = _Step.provider),
-            icon: Icon(
-              LucideIcons.arrowLeft,
-              size: 14,
-              color: AppColors.inkSoft,
-            ),
+            icon: Icon(backArrow(context), size: 14, color: AppColors.inkSoft),
             label: Text(
               context.t('git.connect.useOauthInstead'),
               style: TextStyle(color: AppColors.inkSoft),
@@ -1056,7 +1053,7 @@ class _ConnectRepoWizardState extends State<_ConnectRepoWizard> {
             TextButton.icon(
               onPressed: _busy ? null : _back,
               icon: Icon(
-                LucideIcons.arrowLeft,
+                backArrow(context),
                 size: 14,
                 color: AppColors.inkSoft,
               ),

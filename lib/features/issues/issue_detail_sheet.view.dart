@@ -2248,7 +2248,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
               GestureDetector(
                 onTap: () => _toggleChildState(child),
                 child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsetsDirectional.only(end: 8),
                   child: Icon(
                     _childDone(child)
                         ? LucideIcons.checkCheck
@@ -2296,7 +2296,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   }
 
   Widget _addChildButton(Issue epic) => Align(
-    alignment: Alignment.centerLeft,
+    alignment: AlignmentDirectional.centerStart,
     child: TextButton.icon(
       onPressed: () => _addChild(epic),
       style: TextButton.styleFrom(foregroundColor: AppColors.stTodo),
@@ -2927,9 +2927,9 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         // 2-column: match the left column, aligned with the body's left padding.
         final leftW = (contentW - 18) * 3 / 5;
         return Padding(
-          padding: const EdgeInsets.only(left: 20),
+          padding: const EdgeInsetsDirectional.only(start: 20),
           child: Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: SizedBox(
               width: leftW,
               child: _composerDock(
@@ -3371,7 +3371,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
 
   /// Small "📌 Pinned" section header shown above pinned comments.
   Widget _pinnedHeader() => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 8),
+    padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
     child: Row(
       children: [
         Icon(LucideIcons.pin, size: 13, color: AppColors.inkFaint),

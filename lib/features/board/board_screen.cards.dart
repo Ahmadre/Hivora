@@ -110,9 +110,9 @@ class _BoardListCard extends StatelessWidget {
             ),
           const SizedBox(height: 4),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: Icon(
-              LucideIcons.arrowRight,
+              forwardArrow(context),
               size: 14,
               color: AppColors.inkSoft,
             ),

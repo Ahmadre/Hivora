@@ -693,7 +693,7 @@ class _ScrumBoardViewState extends State<ScrumBoardView> {
           child: !showFilter
               ? const SizedBox.shrink()
               : Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

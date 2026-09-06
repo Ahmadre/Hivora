@@ -173,7 +173,10 @@ class SettingRow extends StatelessWidget {
               ),
               if (trailing != null) ...[
                 const SizedBox(height: 10),
-                Align(alignment: Alignment.centerLeft, child: trailing!),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: trailing!,
+                ),
               ],
             ],
           )

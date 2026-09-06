@@ -172,7 +172,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
               // Timecodes below the waveform, indented past the play button
               // (40px button + 11px gap) so they align under the peaks.
               Padding(
-                padding: const EdgeInsets.only(left: 51),
+                padding: const EdgeInsetsDirectional.only(start: 51),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

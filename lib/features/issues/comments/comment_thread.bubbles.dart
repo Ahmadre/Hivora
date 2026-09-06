@@ -409,7 +409,7 @@ class _ReplyThreadView extends StatelessWidget {
     if (!thread.expanded) {
       final count = root.replyCount;
       return Padding(
-        padding: const EdgeInsets.only(left: _indent, top: 8),
+        padding: const EdgeInsetsDirectional.only(start: _indent, top: 8),
         child: _ThreadControl(
           icon: LucideIcons.messageCircle,
           loading: thread.loading,
@@ -436,7 +436,7 @@ class _ReplyThreadView extends StatelessWidget {
               last: i == replies.length - 1 && !thread.hasMore,
             ),
           Padding(
-            padding: const EdgeInsets.only(left: _indent, top: 6),
+            padding: const EdgeInsetsDirectional.only(start: _indent, top: 6),
             child: Row(
               children: [
                 if (thread.hasMore)

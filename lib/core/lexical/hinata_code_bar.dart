@@ -138,7 +138,7 @@ class _LanguageTrigger extends StatelessWidget {
   Widget build(BuildContext context) {
     final chosen = current != null && current!.isNotEmpty;
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       child: GlassPopupMenu<String>(
         width: 220,
         onOpenChanged: onMenu,
@@ -156,7 +156,7 @@ class _LanguageTrigger extends StatelessWidget {
           message: context.t('md.codeLanguage'),
           child: Container(
             height: 26,
-            padding: const EdgeInsets.only(left: 10, right: 4),
+            padding: const EdgeInsetsDirectional.only(start: 10, end: 4),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppTheme.radiusControl),
               border: Border.all(color: AppColors.hairline),

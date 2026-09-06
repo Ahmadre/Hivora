@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/repositories/notification_repository.dart';
 import '../../core/blocs/paged_cubit.dart';
@@ -15,6 +14,7 @@ import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
 import '../../core/widgets/soft_card.dart';
 import '../../core/widgets/status_widgets.dart';
+import '../../core/widgets/hive_widgets.dart' show forwardChevron;
 
 /// Full notification centre: the paged feed grouped into time buckets
 /// (today / yesterday / this week / …), rendered as iOS-style inset grouped
@@ -303,7 +303,7 @@ class _GroupLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      padding: const EdgeInsetsDirectional.only(start: 4, bottom: 8),
       child: Text(
         label.toUpperCase(),
         style: TextStyle(
@@ -417,7 +417,7 @@ class _NotificationTile extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Icon(
-                  LucideIcons.chevronRight,
+                  forwardChevron(context),
                   size: 15,
                   color: AppColors.inkFaint,
                 ),

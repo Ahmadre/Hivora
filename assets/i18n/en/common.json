@@ -1845,6 +1845,7 @@
     "avgVelocity": "Avg velocity",
     "lastSprints": "last sprints",
     "burndown": "Sprint burndown",
+    "burndownStart": "S",
     "ptsRemaining": "{{points}} pts remaining",
     "actual": "Actual",
     "guideline": "Guideline",

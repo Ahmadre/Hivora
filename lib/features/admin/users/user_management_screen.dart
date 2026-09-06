@@ -22,6 +22,8 @@ import '../../sprint/modals/glass_modal.dart'
 import '../glass_filter_bar.dart';
 import 'user_management_modals.dart';
 import 'user_management_widgets.dart';
+import '../../../core/widgets/hive_widgets.dart'
+    show backChevron, forwardChevron;
 
 part 'user_management_screen.rows.dart';
 
@@ -811,7 +813,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ),
             const SizedBox(width: 12),
             _PagerButton(
-              icon: LucideIcons.chevronLeft,
+              icon: backChevron(context),
               enabled: _pageNum > 1,
               onTap: () => _goToPage(_pageNum - 1),
             ),
@@ -827,7 +829,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       onTap: () => _goToPage(p),
                     ),
             _PagerButton(
-              icon: LucideIcons.chevronRight,
+              icon: forwardChevron(context),
               enabled: _pageNum < pages,
               onTap: () => _goToPage(_pageNum + 1),
             ),

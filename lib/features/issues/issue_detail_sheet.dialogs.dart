@@ -352,7 +352,10 @@ class _DetailRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Align(alignment: Alignment.centerLeft, child: child),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: child,
+              ),
             ),
             if (onTap != null)
               Icon(
@@ -457,7 +460,7 @@ class _SubtaskQuickAddState extends State<_SubtaskQuickAdd> {
         // The "+" is the submit button while the field is open.
         if (_busy)
           const Padding(
-            padding: EdgeInsets.only(right: 8),
+            padding: EdgeInsetsDirectional.only(end: 8),
             child: SizedBox(
               width: 16,
               height: 16,

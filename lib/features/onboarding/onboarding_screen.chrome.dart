@@ -104,9 +104,9 @@ class _TopBar extends StatelessWidget {
         duration: const Duration(milliseconds: 240),
         opacity: visible ? 1 : 0,
         child: Align(
-          alignment: Alignment.centerRight,
+          alignment: AlignmentDirectional.centerEnd,
           child: Padding(
-            padding: const EdgeInsets.only(right: 20),
+            padding: const EdgeInsetsDirectional.only(end: 20),
             child: TextButton(
               onPressed: visible ? onSkip : null,
               style: TextButton.styleFrom(

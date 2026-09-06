@@ -1845,6 +1845,7 @@
     "avgVelocity": "平均速率",
     "lastSprints": "最近几个迭代",
     "burndown": "迭代燃尽图",
+    "burndownStart": "始",
     "ptsRemaining": "剩余 {{points}} 点",
     "actual": "实际",
     "guideline": "参考线",

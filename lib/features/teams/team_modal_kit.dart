@@ -203,7 +203,10 @@ class ModalFooter extends StatelessWidget {
             // the right gutter (two competing flex widgets left a gap).
             if (leading != null)
               Expanded(
-                child: Align(alignment: Alignment.centerLeft, child: leading),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: leading,
+                ),
               )
             else
               const Spacer(),

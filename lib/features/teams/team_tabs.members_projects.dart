@@ -435,7 +435,10 @@ class _ProjectRow extends StatelessWidget {
                 const SizedBox(height: 10),
                 HiveProgress(value: _progress(project), color: color),
                 const SizedBox(height: 10),
-                Align(alignment: Alignment.centerRight, child: trailing),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: trailing,
+                ),
               ],
             );
           }

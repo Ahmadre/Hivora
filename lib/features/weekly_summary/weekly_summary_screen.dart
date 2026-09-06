@@ -627,7 +627,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 12),
           FittedBox(
             fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               value,
               style: TextStyle(
@@ -906,7 +906,7 @@ class _HighlightsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsetsDirectional.only(end: 8),
             child: _CardTitle(
               icon: LucideIcons.sparkles,
               label: context.t('weeklySummary.completedHighlights'),
@@ -945,7 +945,7 @@ class _UpcomingCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsetsDirectional.only(end: 8),
             child: Row(
               children: [
                 Expanded(
@@ -991,7 +991,7 @@ class _UpcomingCard extends StatelessWidget {
             _IssueRow(issue: issue, showDue: true),
           const SizedBox(height: 6),
           Padding(
-            padding: const EdgeInsets.only(right: 8, top: 2),
+            padding: const EdgeInsetsDirectional.only(end: 8, top: 2),
             child: Row(
               children: [
                 // Expanded, not Text + Spacer: the count has to give way to the
@@ -1015,7 +1015,7 @@ class _UpcomingCard extends StatelessWidget {
                 ),
                 GhostButton(
                   label: context.t('weeklySummary.viewAll'),
-                  icon: LucideIcons.arrowRight,
+                  icon: forwardArrow(context),
                   onPressed: () => context.go('/issues?view=today'),
                 ),
               ],
@@ -1109,7 +1109,7 @@ class _IssueRow extends StatelessWidget {
               PriorityFlag(priority: issue.priority),
               const SizedBox(width: 6),
               Icon(
-                LucideIcons.chevronRight,
+                forwardChevron(context),
                 size: 15,
                 color: AppColors.inkFaint,
               ),

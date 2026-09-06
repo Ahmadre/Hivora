@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/features/shell/floating_nav.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
+    show GlassExtraButtonPlacement;
 
 /// How far the floating bottom nav is lifted off the bottom of the window.
 ///
@@ -200,6 +202,26 @@ void main() {
       // from the nav (the toast, the last row of a list) is wrong by that much,
       // because the footprint reads the same keyboard-adjusted inset.
       expect(screen.height - keyboard - nav.bottom, kFloatingNavPaddingV);
+    });
+  });
+
+  // The bar reverses its own tabs under RTL, but the detached search button is
+  // placed by a `Positioned(left:)`/`Positioned(right:)`, which a `Stack` does
+  // not mirror. In Arabic it was the one piece of the nav still sitting on the
+  // leading edge while everything around it had moved.
+  group('the detached search button', () {
+    test('trails the tabs in a left-to-right locale', () {
+      expect(
+        floatingNavExtraPlacement(TextDirection.ltr),
+        GlassExtraButtonPlacement.right,
+      );
+    });
+
+    test('trails them on the other side in Arabic', () {
+      expect(
+        floatingNavExtraPlacement(TextDirection.rtl),
+        GlassExtraButtonPlacement.left,
+      );
     });
   });
 }

@@ -16,6 +16,7 @@ import '../../../core/repositories/issue_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/hive_loader.dart';
+import '../../../core/widgets/hive_widgets.dart' show backArrow;
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, glassWoltSurface, showGlassErrorToast, showGlassToast;
 
@@ -61,11 +62,11 @@ Future<void> showEmailReplySheet(
         hasTopBarLayer: true,
         isTopBarLayerAlwaysVisible: true,
         leadingNavBarWidget: const Padding(
-          padding: EdgeInsets.only(left: 14.0),
+          padding: EdgeInsetsDirectional.only(start: 14.0),
           child: _EmailSheetTitle(),
         ),
         trailingNavBarWidget: Padding(
-          padding: const EdgeInsets.only(right: 6.0),
+          padding: const EdgeInsetsDirectional.only(end: 6.0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -863,7 +864,7 @@ class _EmailRouteTopBar extends StatelessWidget {
           children: [
             IconButton(
               tooltip: context.t('common.back'),
-              icon: Icon(LucideIcons.arrowLeft, size: 22, color: AppColors.ink),
+              icon: Icon(backArrow(context), size: 22, color: AppColors.ink),
               onPressed: onBack,
             ),
             Container(

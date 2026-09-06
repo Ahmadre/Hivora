@@ -197,6 +197,9 @@ class _CompactShellState extends State<_CompactShell> {
                     // stretch the row that carries both.
                     size: kFloatingNavBarHeight,
                     iconColor: dark ? AppColors.inkDark : AppColors.ink,
+                    placement: floatingNavExtraPlacement(
+                      Directionality.of(context),
+                    ),
                   ),
                   // Ours, not the package default: navFootprint and the
                   // scrim are built from this number, and a bump to the
@@ -353,11 +356,11 @@ class _GlassTopBar extends StatelessWidget {
                         ).backButtonTooltip,
                         child: !isNativeApp
                             ? _FrostedCircleButton(
-                                icon: LucideIcons.arrowLeft,
+                                icon: backArrow(context),
                                 onTap: onBack,
                               )
                             : GlassButton(
-                                icon: const Icon(LucideIcons.arrowLeft),
+                                icon: Icon(backArrow(context)),
                                 onTap: onBack,
                                 width: 42,
                                 height: 42,

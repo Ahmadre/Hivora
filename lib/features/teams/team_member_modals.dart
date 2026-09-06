@@ -214,7 +214,7 @@ class _AddMembersBodyState extends State<_AddMembersBody> with _ProjectLookup {
         ],
       ),
       footer: ModalFooter(
-        leadingIcon: stepTwo ? LucideIcons.arrowLeft : null,
+        leadingIcon: stepTwo ? backArrow(context) : null,
         leadingLabel: stepTwo ? context.t('teams.back') : null,
         onLeading: stepTwo ? () => setState(() => _step = 1) : null,
         primaryLabel: stepTwo
@@ -224,7 +224,7 @@ class _AddMembersBodyState extends State<_AddMembersBody> with _ProjectLookup {
                 count: _selected.length,
               )
             : context.t('common.continueAction'),
-        primaryIcon: stepTwo ? LucideIcons.userPlus : LucideIcons.arrowRight,
+        primaryIcon: stepTwo ? LucideIcons.userPlus : forwardArrow(context),
         busy: _busy,
         onPrimary: stepTwo
             ? (canAdd ? _commit : null)

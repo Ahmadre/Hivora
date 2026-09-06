@@ -93,7 +93,7 @@ class AdminGlassSearchField extends StatelessWidget {
   Widget build(BuildContext context) {
     return AdminGlassPill(
       child: Padding(
-        padding: const EdgeInsets.only(left: 14, right: 10),
+        padding: const EdgeInsetsDirectional.only(start: 14, end: 10),
         child: Row(
           children: [
             Icon(LucideIcons.search, size: 17, color: AppColors.inkSoft),

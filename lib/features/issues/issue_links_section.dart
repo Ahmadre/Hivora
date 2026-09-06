@@ -291,7 +291,7 @@ class _IssueLinksSectionState extends State<IssueLinksSection> {
                       )
                     : Align(
                         key: const ValueKey('button'),
-                        alignment: Alignment.centerLeft,
+                        alignment: AlignmentDirectional.centerStart,
                         child: TextButton.icon(
                           onPressed: () => setState(() => _adding = true),
                           style: TextButton.styleFrom(

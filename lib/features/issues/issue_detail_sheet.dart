@@ -216,7 +216,7 @@ Future<void> showIssueDetailSheet(
           builder: (_, issue, _) => issue == null
               ? const SizedBox.shrink()
               : Padding(
-                  padding: const EdgeInsets.only(left: 16.0),
+                  padding: const EdgeInsetsDirectional.only(start: 16.0),
                   child: CopyLinkId(
                     type: issue.type,
                     readableId: issue.readableId,
@@ -511,7 +511,7 @@ class _CopyLinkIdState extends State<CopyLinkId> {
             showWhenUnlinked: false,
             offset: const Offset(0, 30),
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: _CopiedHintChip(id: id),
             ),
           ),
@@ -555,7 +555,7 @@ class _CopyLinkIdState extends State<CopyLinkId> {
               // is loading comments its layout churns every frame, which turned
               // that into an assert flood that hung the app on web/desktop.
               Padding(
-                padding: const EdgeInsets.only(left: 4),
+                padding: const EdgeInsetsDirectional.only(start: 4),
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 160),
                   opacity: visible ? 1 : 0,

@@ -25,6 +25,7 @@ import 'board_manage_menu.dart';
 import '../../core/repositories/board_repository.dart';
 import '../../core/repositories/project_repository.dart';
 import '../../core/repositories/team_repository.dart';
+import '../../core/widgets/hive_widgets.dart' show forwardArrow;
 
 /// Lists all boards for a single project and allows creating new ones.
 class ProjectBoardsScreen extends StatefulWidget {
@@ -354,7 +355,7 @@ class _BoardCard extends StatelessWidget {
                 foreground: AppColors.textSecondary,
               ),
               const Spacer(),
-              Icon(LucideIcons.arrowRight, size: 14, color: AppColors.inkSoft),
+              Icon(forwardArrow(context), size: 14, color: AppColors.inkSoft),
             ],
           ),
         ],

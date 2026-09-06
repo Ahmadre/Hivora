@@ -284,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           onFieldSubmitted: (_) => _submit(),
                         ),
                         Align(
-                          alignment: Alignment.centerRight,
+                          alignment: AlignmentDirectional.centerEnd,
                           child: TextButton(
                             onPressed: busy
                                 ? null

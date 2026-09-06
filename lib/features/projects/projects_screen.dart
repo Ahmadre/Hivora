@@ -129,7 +129,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                   ),
                   sliver: SliverToBoxAdapter(
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: AlignmentDirectional.centerStart,
                       child: SegmentedControl(
                         selected: _showArchived ? 1 : 0,
                         onChanged: (i) =>
@@ -329,8 +329,8 @@ class _ProjectCard extends StatelessWidget {
                   children: [
                     // Leave room for the corner gear only when it's shown.
                     Padding(
-                      padding: EdgeInsets.only(
-                        right: compact && canManage ? 26 : 0,
+                      padding: EdgeInsetsDirectional.only(
+                        end: compact && canManage ? 26 : 0,
                       ),
                       child: Text(
                         project.name,
