@@ -2884,26 +2884,21 @@ class IssueDetailBodyState extends State<IssueDetailBody>
         child: _selectionBar(floating: true),
       );
     }
-    // Wolt lifts the sticky action bar above the keyboard whenever *any* field
-    // is focused. That's wrong for the comment composer: while the keyboard is
-    // up for another input (sub-task / linked-issue / inline title-edit), the
-    // composer would still ride above it. Only keep it mounted when the keyboard
-    // is down or the comment field itself is the reason it's up.
-    //
-    // Read the *raw* keyboard height off the FlutterView, NOT
-    // `MediaQuery.viewInsetsOf(context)`: Wolt hosts the sheet in a Scaffold with
-    // `resizeToAvoidBottomInset`, which strips the bottom view inset from the
-    // sticky-bar subtree's MediaQuery (`removeViewInsets(removeBottom: true)`),
-    // so MediaQuery would report 0 here even with the keyboard up — and the
-    // composer would never hide. The physical view inset is immune to that.
-    // [didChangeMetrics] nudges this subtree to re-evaluate as the keyboard moves.
-    final keyboardUp = View.of(context).viewInsets.bottom > 0;
-    if (keyboardUp && !_commentFocus.hasFocus) return const SizedBox.shrink();
-    return SmartLinkScope(
-      resolver: _buildResolver(issue),
-      child: _dockAligned(
-        deviceSafeArea: deviceSafeArea,
-        child: _commentComposer(),
+    // While the keyboard is up for some *other* field in the sheet (sub-task,
+    // linked issue, inline title edit), the dock takes itself out of the tree
+    // rather than ride above a keyboard that is not its own — Wolt lifts the
+    // sticky bar for any focused field. [ComposerKeyboardGate] owns that rule
+    // and the definition of "its own", which is the whole composer subtree and
+    // not the single-line field: format mode swaps that field for the rich
+    // editor, and asking the field alone made the dock evict itself the moment
+    // the editor raised the keyboard.
+    return ComposerKeyboardGate(
+      child: SmartLinkScope(
+        resolver: _buildResolver(issue),
+        child: _dockAligned(
+          deviceSafeArea: deviceSafeArea,
+          child: _commentComposer(),
+        ),
       ),
     );
   }

@@ -1,0 +1,5 @@
+{
+  "_comment": "Hand-written store release notes for 10.3.2, in both listing languages. tool/gen_changelog.py prefers this file over anything it can derive from the commits, then runs it through the same per-store platform gate as every other source — so keep every line free of operating-system, device and store names. One line per bullet; the leading bullet character is added when the note is written. Keep it short: the Play note is capped at 480 characters including the bullets.",
+  "en": "Fixed: opening text formatting in a comment closed the editor again straight away\nThe new-item button is round again on a phone, in the same glass as the rest of the controls\nSharper glass on devices fast enough for it, and lighter on those that are not",
+  "de": "Behoben: Textformatierung in einem Kommentar zu öffnen schloss den Editor sofort wieder\nDer Neu-Knopf ist auf dem Telefon wieder rund, im selben Glas wie die übrigen Bedienelemente\nKlareres Glas auf Geräten, die schnell genug dafür sind, und leichteres auf den anderen"
+}

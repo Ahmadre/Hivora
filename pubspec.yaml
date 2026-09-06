@@ -292,5 +292,7 @@ msix_config:
   #   webcam         — photo/video capture for attachments (camera_windows,
   #                    driven by lib/core/platform/desktop_camera_delegate.dart)
   capabilities: internetClient, microphone, webcam
-  languages: en-us, de-de
+  # The "Supported languages" the Microsoft Store lists. Same set as
+  # I18n.supportedLocales; store_languages_test.dart fails if they drift.
+  languages: en-us, de-de, zh-cn, hi-in, es-es, ja-jp, fr-fr, ru-ru, ar-sa
   store: true
