@@ -4,8 +4,9 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hinata/features/shell/app_shell.dart'
-    show kNavGlassDark, kNavGlassLight, isNativeApp;
+import 'package:hinata/core/theme/glass_chrome.dart'
+    show kNavGlassDark, kNavGlassLight;
+import 'package:hinata/features/shell/app_shell.dart' show isNativeApp;
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show GlassContainer, LiquidRoundedSuperellipse;
 import 'package:lucide_icons_flutter/lucide_icons.dart';

@@ -40,7 +40,6 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
         GlassContainer,
         GlassPopover,
         GlassQuality,
-        LiquidGlassSettings,
         LiquidRoundedSuperellipse;
 import '../../core/api/api_client.dart' show ApiFailure;
 import '../../core/models/account_models.dart' show Me;
@@ -56,6 +55,7 @@ import '../sprint/modals/glass_modal.dart'
 import 'floating_nav.dart';
 import 'page_chrome.dart';
 import 'swipe_back.dart';
+import '../../core/theme/glass_chrome.dart' show kNavGlassDark, kNavGlassLight;
 import '../../core/widgets/hive_widgets.dart' show backArrow, forwardArrow;
 
 part 'app_shell.wide.dart';
@@ -92,35 +92,6 @@ const _bottomTabs = [
   _Destination('/board', 'nav.board', LucideIcons.squareKanban),
   _Destination('/more', 'nav.more', LucideIcons.layoutGrid),
 ];
-
-// ── Floating bottom-nav glass presets ───────────────────────────────────────
-// The mobile nav is two *separate* floating glass elements (the tab pill and a
-// detached search button, iOS-26 style). Both must refract identically, so they
-// share one preset. Values mirror the package's kBottomBarGlassDefaults; the
-// glass is tinted translucent-black in dark mode (so it doesn't turn milky) and
-// translucent-white in light mode (clean frost).
-const kNavGlassDark = LiquidGlassSettings(
-  thickness: 30,
-  blur: 3,
-  chromaticAberration: 0.3,
-  lightIntensity: 0.6,
-  refractiveIndex: 1.59,
-  saturation: 0.7,
-  ambientStrength: 1,
-  lightAngle: 2.356194490192345, // 0.75π — Apple key light
-  glassColor: Color(0x4D0A0A0A),
-);
-const kNavGlassLight = LiquidGlassSettings(
-  thickness: 30,
-  blur: 3,
-  chromaticAberration: 0.3,
-  lightIntensity: 0.6,
-  refractiveIndex: 1.59,
-  saturation: 0.7,
-  ambientStrength: 1,
-  lightAngle: 2.356194490192345, // 0.75π — Apple key light
-  glassColor: Color(0x3DFFFFFF),
-);
 
 bool get isNativeApp =>
     !kIsWeb &&

@@ -6,8 +6,8 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/frosted_surface.dart';
 import '../../core/widgets/glass_popup_menu.dart';
-import '../shell/app_shell.dart'
-    show kNavGlassDark, kNavGlassLight, isNativeApp;
+import '../shell/app_shell.dart' show isNativeApp;
+import '../../core/theme/glass_chrome.dart' show kNavGlassDark, kNavGlassLight;
 
 /// Height of one docked control row (search / chip row) — the pill height.
 const double kAdminPillHeight = 42;

@@ -8,6 +8,7 @@ import '../api/api_client.dart';
 import '../i18n/i18n.dart';
 import '../responsive/responsive.dart';
 import '../theme/app_colors.dart';
+import '../theme/glass_chrome.dart' show GlassCircleButton;
 import '../theme/app_theme.dart';
 import '../theme/hue_colors.dart';
 import 'preview_image.dart' show blurHashProviderFor;
@@ -620,9 +621,21 @@ class PageHead extends StatelessWidget {
 
 /// Navy primary action button.
 ///
-/// When [collapseToIcon] is set, the button drops its label and renders as a
-/// square icon-only control on compact (phone) layouts — the label is moved to
-/// a tooltip — so action-heavy headers don't crowd out the page title.
+/// When [collapseToIcon] is set, the button drops its label on compact (phone)
+/// layouts and becomes a round honey-amber Liquid Glass control — the label
+/// moves to a tooltip — so action-heavy headers don't crowd out the page title.
+/// Above that breakpoint it stays the solid amber button with its label.
+///
+/// Two decisions live in that sentence. **Round**, because on a phone every
+/// other control in the band is a circle (the bell, the settings gear, the
+/// page's own export button) and the odd one out reads as a different kind of
+/// thing rather than as the primary action. And **glass**, because the phone
+/// header floats over the page it scrolls: a flat fill sits on top of that,
+/// where the same material as the rest of the chrome sits in it.
+///
+/// It keeps the amber. Neutral glass would make the page's one primary action
+/// look exactly like the filter and export buttons beside it — the tint is what
+/// says which one it is.
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
@@ -641,21 +654,11 @@ class PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final glyph = icon ?? LucideIcons.plus;
     if (collapseToIcon && context.isCompact) {
-      return Tooltip(
-        message: label,
-        child: FilledButton(
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.accent,
-            foregroundColor: const Color(0xFF2A2410),
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(46, 46),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-            ),
-          ),
-          child: Icon(glyph, size: 18),
-        ),
+      return GlassCircleButton(
+        icon: glyph,
+        amber: true,
+        tooltip: label,
+        onTap: onPressed,
       );
     }
     return FilledButton.icon(
@@ -706,9 +709,7 @@ class GhostButton extends StatelessWidget {
             side: BorderSide(color: AppColors.hairline),
             padding: EdgeInsets.zero,
             minimumSize: const Size(46, 46),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-            ),
+            shape: const CircleBorder(),
           ),
           child: Icon(glyph, size: 18),
         ),
