@@ -53,6 +53,7 @@ import 'package:image_picker/image_picker.dart' show ImageSource;
 import 'comments/comment_attach.dart';
 import 'comments/comment_copy.dart';
 import 'comments/comment_thread.dart';
+import 'comments/composer_keyboard_gate.dart';
 import 'comments/glass_comment_composer.dart';
 import 'comments/voice/voice_recorder.dart' show VoiceRecording;
 import 'issue_move_wizard.dart';

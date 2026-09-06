@@ -322,12 +322,19 @@ class _ActionPopup extends StatelessWidget {
                 child: Icon(icon, size: 22, color: AppColors.inkSoft),
               ),
               const SizedBox(width: 14),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.ink,
+              // Flexible, because the label is a translation: the popover is a
+              // fixed 268 wide and a longer language than German would push the
+              // row past it.
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
             ],
