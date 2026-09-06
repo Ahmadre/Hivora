@@ -188,7 +188,13 @@ class _NotificationBellState extends State<_NotificationBell> {
                   setState(() => _open = true);
                 },
                 onClose: () => setState(() => _open = false),
-                triggerBuilder: (context, toggle) => isNativeApp
+                // The glass pill is the phone's chrome, where the bell sits on
+                // a translucent bar and needs its own ground to be legible. On a
+                // desktop window the header is opaque already, so the same pill
+                // reads as a milky disc around an icon that needs no disc — the
+                // wide shell's plain icon button is what belongs there.
+                triggerBuilder: (context, toggle) =>
+                    isNativeApp && context.isCompact
                     ? buildMobileTrigger(toggle)
                     : buildTrigger(toggle),
                 contentBuilder: (context, close) => _NotifPopoverCard(

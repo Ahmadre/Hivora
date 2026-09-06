@@ -307,7 +307,12 @@ class GlassModalFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
+      // The bottom inset is the footer's own: as a dialog it never touched the
+      // screen edge, but as the last row of a bottom sheet it sits exactly where
+      // the home indicator is. `top: false` because the sheet's top is the
+      // header's problem, not this one's.
+      padding: const EdgeInsets.fromLTRB(22, 14, 22, 18) +
+          EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(color: AppColors.hairline.withValues(alpha: 0.6)),

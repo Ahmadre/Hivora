@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart'
     show GlassContainer, GlassQuality, LiquidRoundedSuperellipse;
 
@@ -17,20 +18,98 @@ import '../../search/search_tokens.dart';
 
 part 'glass_modal.fields.dart';
 
-/// Phone breakpoint for the sprint modals (matches the app's φ-stepped phone bp
-/// used by the search palette).
+/// Where a modal stops being a card and becomes a bottom sheet. The app's
+/// φ-stepped phone breakpoint, shared with the search palette.
 const double _kPhoneBreakpoint = 610;
 
-/// Opens a Liquid-Glass sprint modal over a dimmed, blurred app — the shared
-/// material for Create / Start / Complete / Estimate (mirrors `sprint.css`
-/// "LIQUID-GLASS SPRINT MODALS": radius 26, blurred scrim, spring entrance).
+/// Opens a modal on the app's Liquid-Glass material — the shared presenter for
+/// every form and confirmation in the app, not only the sprint ones it was
+/// written for.
 ///
-/// Honours `prefers-reduced-motion`: cross-fade only, no spring/blur ramp.
+/// Two shapes, one call. Above [_kPhoneBreakpoint] it is a centred card over a
+/// dimmed, blurred app (radius 26, spring entrance, and `prefers-reduced-motion`
+/// honoured with a cross-fade). Below it, a form is a bottom sheet instead —
+/// full width, as tall as it needs, draggable — because a centred card on a
+/// phone leaves a margin on all four sides and cannot use the height it has.
+/// Pass [adaptive] `false` to stay a card at every width.
+///
+/// The sheet is bounded here rather than by its body: Wolt hands a page
+/// unbounded height, and these bodies pin their footer with a `Flexible`, which
+/// does not flex without a bound — the footer would sit below the fold.
 Future<T?> showGlassModal<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   double width = 540,
+
+  /// Whether a phone gets this as a bottom sheet. True for a form — which is
+  /// what most of these are. False for a confirmation, a picker or a short
+  /// action list: full width and a slide from the bottom overstate a question
+  /// that fits in two lines, and reads as a bigger interruption than it is.
+  bool adaptive = true,
 }) {
+  // On a phone a centred card is the wrong shape for a form: it leaves a margin
+  // on every side, cannot use the height it needs, and has no way to be
+  // dismissed but the small close button. A bottom sheet is what the platform
+  // does — full width, as tall as its content, draggable — and it is already
+  // what creating an issue uses, so this is one behaviour rather than two.
+  //
+  // Everything routes through here, so every form got it at once. What must NOT
+  // get it is the short stuff: a two-line confirmation or a date picker as a
+  // full-width sheet reads as a much bigger interruption than it is. Those pass
+  // `adaptive: false` and stay the card they were.
+  // View.of, not MediaQuery.sizeOf: this runs from an onTap, not from a build,
+  // and sizeOf would leave the *calling* element subscribed to every resize for
+  // the rest of its life — at forty-odd call sites, many of them list rows.
+  final view = View.of(context);
+  final logicalWidth = view.physicalSize.width / view.devicePixelRatio;
+  if (adaptive && logicalWidth < _kPhoneBreakpoint) {
+    return WoltModalSheet.show<T>(
+      context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      // The bodies bring their own header, and their footers take their own
+      // bottom inset (see GlassModalFooter), so Wolt's top bar would be a second
+      // header and its SafeArea a second inset.
+      useSafeArea: false,
+      pageContentDecorator: glassWoltSurface,
+      // No drag handle. Wolt's is a full-width, 48-pixel, opaque gesture target
+      // laid over the top of the page, and with no top bar the body starts
+      // underneath it — which puts it directly on top of every one of these
+      // headers' close buttons. Dragging the sheet still works; `enableDrag` is
+      // a separate thing.
+      modalTypeBuilder: (_) => const WoltBottomSheetType(showDragHandle: false),
+      pageListBuilder: (modalContext) => [
+        WoltModalSheetPage(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          hasTopBarLayer: false,
+          // Wolt hands its page an unbounded height. These bodies are all
+          // `Column(min) [header, Flexible(scroll), footer]`, and a Flexible
+          // under an unbounded parent does not flex: the scroll view
+          // shrink-wraps, the column grows past the sheet, and the footer —
+          // which is where Save lives — ends up below the fold. Bounding it here
+          // is what makes the footer pin, exactly as the dialog path's own
+          // ConstrainedBox does.
+          child: Builder(
+            builder: (sheetContext) {
+              final media = MediaQuery.of(sheetContext);
+              return ConstrainedBox(
+                constraints: BoxConstraints(
+                  // Read here rather than at push time so it follows the
+                  // keyboard: with the keyboard up the sheet is half the screen,
+                  // and a bound taken before it opened would put the footer
+                  // below the fold again.
+                  maxHeight:
+                      (media.size.height - media.viewInsets.bottom) * 0.92,
+                ),
+                child: builder(sheetContext),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: true,
@@ -60,6 +139,7 @@ Future<bool?> showGlassConfirm(
 }) {
   return showGlassModal<bool>(
     context,
+    adaptive: false,
     width: 420,
     builder: (modalContext) => Column(
       mainAxisSize: MainAxisSize.min,
@@ -562,6 +642,7 @@ Future<DateTime?> showGlassDatePicker(
 }) {
   return showGlassModal<DateTime>(
     context,
+    adaptive: false,
     width: 360,
     builder: (modalContext) => _GlassDatePicker(
       initialDate: initialDate,
@@ -796,6 +877,7 @@ Future<DateTimeRange?> showGlassDateRangePicker(
 }) {
   return showGlassModal<DateTimeRange>(
     context,
+    adaptive: false,
     width: 400,
     builder: (modalContext) => _GlassDateRangePicker(
       firstDate: DateUtils.dateOnly(firstDate),
@@ -1206,7 +1288,12 @@ Widget glassWoltSurface(Widget pageContent) {
         shadows: tokens.panelShadow,
         child: GlassContainer(
           useOwnLayer: true,
-          quality: GlassQuality.premium,
+          // standard, not premium: the wash below is 0.84-0.88 opaque and is
+          // painted *over* the glass, so premium's second BackdropFilter and its
+          // refraction shader are computed for pixels that are then 88 % hidden.
+          // Since the phone branch routes every form through here, that was paid
+          // on every one of them — and on a drag it was paid per frame.
+          quality: GlassQuality.standard,
           clipBehavior: Clip.antiAlias,
           shape: const LiquidRoundedSuperellipse(borderRadius: 26),
           settings: liquidGlassPanelSettings(

@@ -978,6 +978,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
   Future<void> _deleteComment(IssueComment comment) async {
     final confirmed = await showGlassModal<bool>(
       context,
+      adaptive: false,
       width: 420,
       builder: (_) => const _DeleteCommentConfirm(),
     );
@@ -1206,6 +1207,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     if (ids.isEmpty) return;
     final confirmed = await showGlassModal<bool>(
       context,
+      adaptive: false,
       width: 420,
       builder: (_) => _DeleteCommentConfirm(count: ids.length),
     );
@@ -3665,6 +3667,7 @@ class IssueDetailBodyState extends State<IssueDetailBody>
     }
     final action = await showGlassModal<_IssueRemovalAction>(
       context,
+      adaptive: false,
       width: 420,
       builder: (_) => _RemoveIssueConfirm(issue: issue, canDelete: _canDelete),
     );
