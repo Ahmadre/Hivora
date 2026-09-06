@@ -56,8 +56,8 @@ class _CardHead extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 3),
-                const Icon(
-                  LucideIcons.arrowRight,
+                Icon(
+                  forwardArrow(context),
                   size: 13,
                   color: AppColors.accentStrong,
                 ),

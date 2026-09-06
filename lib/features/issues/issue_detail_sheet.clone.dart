@@ -374,7 +374,7 @@ class _ClonePersonField extends StatelessWidget {
   Widget _value(BuildContext context) {
     if (names.length > 1) {
       return Align(
-        alignment: Alignment.centerLeft,
+        alignment: AlignmentDirectional.centerStart,
         child: HiveAvatarStack(names: names, size: 26),
       );
     }

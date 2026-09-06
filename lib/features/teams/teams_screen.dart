@@ -265,7 +265,7 @@ class _TeamCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Icon(LucideIcons.arrowRight, size: 16, color: AppColors.inkSoft),
+              Icon(forwardArrow(context), size: 16, color: AppColors.inkSoft),
             ],
           ),
         ],

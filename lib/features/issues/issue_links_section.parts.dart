@@ -370,7 +370,10 @@ class _LinkEditorState extends State<_LinkEditor> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Align(alignment: Alignment.centerLeft, child: type),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: type,
+                    ),
                     const SizedBox(height: 8),
                     field,
                   ],

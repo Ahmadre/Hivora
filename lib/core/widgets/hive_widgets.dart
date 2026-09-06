@@ -847,6 +847,53 @@ class SegmentedControl extends StatelessWidget {
   return (text: DateFormat.MMMd(locale).format(d), late: false);
 }
 
+// ───────────────────────── directional chevrons ─────────────────────────
+//
+// Lucide ships fixed glyphs — unlike Material's `arrow_forward`, a
+// `LucideIcons.chevronRight` does not turn around when the text does. Every
+// disclosure arrow in the app therefore kept pointing at the leading edge in
+// Arabic, into the row it was supposed to lead out of.
+//
+// These pick the glyph rather than wrapping it: a call site keeps its own size,
+// colour and semantics, and the change at each one is a single token.
+
+/// The chevron that points the way the text runs — "open this", "next page",
+/// "later week". Use it for disclosure arrows and for stepping *forward*
+/// through a sequence.
+IconData forwardChevron(BuildContext context) =>
+    Directionality.of(context) == TextDirection.rtl
+    ? LucideIcons.chevronLeft
+    : LucideIcons.chevronRight;
+
+/// The chevron that points against the text run — "back", "previous page",
+/// "earlier week". The mirror of [forwardChevron], and always its pair.
+IconData backChevron(BuildContext context) =>
+    Directionality.of(context) == TextDirection.rtl
+    ? LucideIcons.chevronRight
+    : LucideIcons.chevronLeft;
+
+/// The arrow that points the way the text runs — "next step", "go to this",
+/// and the `from → to` of a change. [backArrow] is its pair, for "back".
+IconData forwardArrow(BuildContext context) =>
+    Directionality.of(context) == TextDirection.rtl
+    ? LucideIcons.arrowLeft
+    : LucideIcons.arrowRight;
+
+/// The arrow that points against the text run — every "back" in the app.
+IconData backArrow(BuildContext context) =>
+    Directionality.of(context) == TextDirection.rtl
+    ? LucideIcons.arrowRight
+    : LucideIcons.arrowLeft;
+
+/// The quarter turn that swings a chevron between pointing the way text runs
+/// and pointing down, for the twisty on an expandable section.
+///
+/// Clockwise in LTR (right → down), counter-clockwise in RTL (left → down); a
+/// fixed `0.25` would send the Arabic one up instead. Negate it to swing the
+/// other way, from down back to the reading direction.
+double chevronTurn(BuildContext context) =>
+    Directionality.of(context) == TextDirection.rtl ? -0.25 : 0.25;
+
 /// Format minutes as `2h 30m`.
 String fmtDuration(int? minutes) {
   if (minutes == null) return '—';

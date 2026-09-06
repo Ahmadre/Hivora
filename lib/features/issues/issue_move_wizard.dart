@@ -178,7 +178,7 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
               ? context.t('common.next')
               : context.t('issues.move.confirm'),
           confirmIcon: onTargetStep
-              ? LucideIcons.arrowRight
+              ? forwardArrow(context)
               : LucideIcons.folderInput,
           busy: _analysing || _moving,
           hint: onTargetStep ? null : _backButton(),
@@ -191,10 +191,10 @@ class _MoveWizardBodyState extends State<_MoveWizardBody> {
   }
 
   Widget _backButton() => Align(
-    alignment: Alignment.centerLeft,
+    alignment: AlignmentDirectional.centerStart,
     child: TextButton.icon(
       onPressed: _moving ? null : () => setState(() => _preflight = null),
-      icon: const Icon(LucideIcons.arrowLeft, size: 15),
+      icon: Icon(backArrow(context), size: 15),
       label: Text(context.t('common.back')),
     ),
   );
@@ -402,7 +402,7 @@ class _MappingRow extends StatelessWidget {
             ),
           ),
           Icon(
-            LucideIcons.arrowRight,
+            forwardArrow(context),
             size: 15,
             color: unmatched ? AppColors.warning : AppColors.inkFaint,
           ),
@@ -511,7 +511,7 @@ class _PreviewRow extends StatelessWidget {
           ],
           IdMono(preview.readableId, fontSize: 11.5),
           const SizedBox(width: 6),
-          Icon(LucideIcons.arrowRight, size: 12, color: AppColors.inkFaint),
+          Icon(forwardArrow(context), size: 12, color: AppColors.inkFaint),
           const SizedBox(width: 6),
           IdMono(preview.nextReadableId, fontSize: 11.5),
           const SizedBox(width: 10),

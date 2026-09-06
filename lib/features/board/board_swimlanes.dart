@@ -192,7 +192,7 @@ class BoardColumnOwnerMark extends StatelessWidget {
         variables: {'projects': owners.join(', ')},
       ),
       child: Container(
-        margin: const EdgeInsets.only(right: 6),
+        margin: const EdgeInsetsDirectional.only(end: 6),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppTheme.radiusPill),
@@ -682,9 +682,9 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
           controller: horizontal,
           scrollDirection: Axis.horizontal,
           physics: BoardColumnSnapPhysics.maybe(snap),
-          padding: EdgeInsets.only(
-            left: widget.padding.left,
-            right: widget.padding.right,
+          padding: EdgeInsetsDirectional.only(
+            start: widget.padding.left,
+            end: widget.padding.right,
           ),
           child: SizedBox(
             width: boardWidth,
@@ -735,7 +735,7 @@ class _BoardSwimlanesState extends State<BoardSwimlanes> {
       child: Row(
         children: [
           Padding(
-            padding: const EdgeInsets.only(right: 2),
+            padding: const EdgeInsetsDirectional.only(end: 2),
             child: AnimatedRotation(
               turns: collapsed ? -0.25 : 0,
               duration: const Duration(milliseconds: 160),

@@ -341,7 +341,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           const SizedBox(height: 16),
           if (_projects.isNotEmpty)
             Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: _ProjectPicker(
                 projects: _projects,
                 selected: _projectId,

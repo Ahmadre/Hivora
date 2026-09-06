@@ -525,7 +525,7 @@ class _GitIntegrationSectionState extends State<GitIntegrationSection> {
                         ),
                       ),
                       Icon(
-                        LucideIcons.arrowRight,
+                        forwardArrow(context),
                         size: 14,
                         color: AppColors.inkFaint,
                       ),

@@ -24,9 +24,9 @@ class _CollapsibleHeader extends StatelessWidget {
         child: Row(
           children: [
             Padding(
-              padding: const EdgeInsets.only(right: 2),
+              padding: const EdgeInsetsDirectional.only(end: 2),
               child: AnimatedRotation(
-                turns: collapsed ? -0.25 : 0,
+                turns: collapsed ? -chevronTurn(context) : 0,
                 duration: const Duration(milliseconds: 160),
                 child: Icon(
                   LucideIcons.chevronDown,
@@ -123,6 +123,17 @@ String _enumLabel(BuildContext context, String prefix, String code) {
 
 // ───────────────────────────── table ────────────────────────────────────
 
+/// The due column was a fixed 60px — enough for English `17d overdue`, and for
+/// nothing else. Every other language spells the unit out (`17 T. überfällig`,
+/// `просрочено на 17 дн.`, `متأخرة 17 ي`), so the text was cut mid-word.
+///
+/// It is a flex column now rather than a wider fixed one: header and row must
+/// resolve to the same width or every flex column between them stops lining up,
+/// and a shared flex guarantees that where two independently-computed pixel
+/// widths would not. It also grows with the window instead of staying at the
+/// width the shortest language needs.
+const int _kDueFlex = 2;
+
 class _IssueTableHeader extends StatelessWidget {
   const _IssueTableHeader();
 
@@ -159,8 +170,9 @@ class _IssueTableHeader extends StatelessWidget {
           const SizedBox(width: 8),
           cell('issues.colAssignee', flex: 3),
           const SizedBox(width: 8),
-          cell('issues.colDue', width: 60),
-          const SizedBox(width: 18),
+          cell('issues.colDue', flex: _kDueFlex),
+          // 18 gap + the row's 18px chevron, so the header sits over its column.
+          const SizedBox(width: 36),
         ],
       ),
     );
@@ -349,7 +361,7 @@ class IssueRow extends StatelessWidget {
             Expanded(
               flex: 3,
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: StateDotBadge(
                   state: issue.state,
                   color: palette?.stateColor(issue.state),
@@ -360,7 +372,7 @@ class IssueRow extends StatelessWidget {
             Expanded(
               flex: 3,
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: PriorityFlag(priority: issue.priority, withLabel: true),
               ),
             ),
@@ -393,8 +405,8 @@ class IssueRow extends StatelessWidget {
                     ),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              width: 60,
+            Expanded(
+              flex: _kDueFlex,
               child: Text(
                 due?.text ?? '—',
                 maxLines: 1,
@@ -409,7 +421,7 @@ class IssueRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 18),
-            Icon(LucideIcons.chevronRight, size: 18, color: AppColors.inkFaint),
+            Icon(forwardChevron(context), size: 18, color: AppColors.inkFaint),
           ],
         ),
       ),

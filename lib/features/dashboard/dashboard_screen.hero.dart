@@ -800,7 +800,7 @@ class _KpiCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: _CountUp(

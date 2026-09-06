@@ -100,7 +100,7 @@ Future<Issue?> showIssueForm(
           ),
         ),
         trailingNavBarWidget: Container(
-          margin: const EdgeInsets.only(right: 12),
+          margin: const EdgeInsetsDirectional.only(end: 12),
           child: IconButton(
             onPressed: () => Navigator.of(modalContext).maybePop(),
             icon: Icon(LucideIcons.x, color: AppColors.inkSoft),

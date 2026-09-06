@@ -12,6 +12,7 @@ import '../../core/theme/app_theme.dart';
 import '../sprint/modals/glass_modal.dart'
     show showGlassModal, GlassModalHeader, showGlassToast, GlassToastKind;
 import 'account_widgets.dart';
+import '../../core/widgets/hive_widgets.dart' show forwardArrow;
 
 /// Renders a QR matrix for an `otpauth://` URI using the pure-Dart [qr]
 /// package — no network, no platform channel.
@@ -115,7 +116,9 @@ class _OtpInputState extends State<OtpInput> {
         for (var i = 0; i < _length; i++)
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(right: i == _length - 1 ? 0 : 8),
+              padding: EdgeInsetsDirectional.only(
+                end: i == _length - 1 ? 0 : 8,
+              ),
               child: KeyboardListener(
                 focusNode: _keyNodes[i],
                 onKeyEvent: (event) {
@@ -501,7 +504,7 @@ class _TwoFactorWizardState extends State<_TwoFactorWizard> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(LucideIcons.arrowRight, size: 15),
+                  : Icon(forwardArrow(context), size: 15),
               label: Text(
                 context.t(
                   _step == _Step.scan

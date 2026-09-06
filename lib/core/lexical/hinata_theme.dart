@@ -100,7 +100,7 @@ double hinataBlockSpacing(double fontSize) => fontSize * 0.75;
 Widget? _linkMark(BuildContext context, ElementNode node, TextStyle style) {
   final size = (style.fontSize ?? 15) * 0.82;
   return Padding(
-    padding: EdgeInsets.only(right: size * 0.22),
+    padding: EdgeInsetsDirectional.only(end: size * 0.22),
     child: Icon(
       LucideIcons.link,
       size: size,

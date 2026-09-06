@@ -103,7 +103,10 @@ class _Callout extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(top: 2, right: 10),
+                      padding: const EdgeInsetsDirectional.only(
+                        top: 2,
+                        end: 10,
+                      ),
                       child: Icon(style.icon, size: 16, color: style.accent),
                     ),
                     Expanded(

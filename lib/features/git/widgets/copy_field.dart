@@ -65,7 +65,7 @@ class _CopyFieldState extends State<CopyField> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   widget.text,
                   maxLines: 1,

@@ -1845,6 +1845,7 @@
     "avgVelocity": "Velocidad media",
     "lastSprints": "últimos sprints",
     "burndown": "Burndown del sprint",
+    "burndownStart": "I",
     "ptsRemaining": "{{points}} pts pendientes",
     "actual": "Real",
     "guideline": "Referencia",

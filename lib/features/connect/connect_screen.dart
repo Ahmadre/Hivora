@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../../core/widgets/soft_card.dart';
 import 'server_switcher.dart';
+import '../../core/widgets/hive_widgets.dart' show forwardChevron;
 
 /// First screen: the app cannot run without a server, so we ask for its URL
 /// and only continue once /api/v1/meta answers.
@@ -173,7 +174,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
             server.host,
             style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
-          trailing: const Icon(LucideIcons.chevronRight, size: 18),
+          trailing: Icon(forwardChevron(context), size: 18),
           onTap: connecting ? null : () => switchToServer(context, server.url),
         ),
     ];

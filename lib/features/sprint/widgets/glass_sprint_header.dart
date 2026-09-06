@@ -145,7 +145,7 @@ class GlassSprintHeader extends StatelessWidget {
 
     // Desktop / tablet: card hugs its content; progress floats on the canvas.
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

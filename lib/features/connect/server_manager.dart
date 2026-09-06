@@ -12,6 +12,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/hive_loader.dart';
 import '../../core/widgets/status_widgets.dart';
+import '../../core/widgets/hive_widgets.dart' show backArrow, forwardChevron;
 import '../sprint/modals/glass_modal.dart'
     show
         glassInputDecoration,
@@ -534,7 +535,7 @@ class _ServerRow extends StatelessWidget {
       );
     }
     if (status.reach == _Reach.offline) return const SizedBox.shrink();
-    return Icon(LucideIcons.chevronRight, size: 18, color: AppColors.inkFaint);
+    return Icon(forwardChevron(context), size: 18, color: AppColors.inkFaint);
   }
 }
 
@@ -679,7 +680,7 @@ class _AddServerPageState extends State<_AddServerPage> {
               IconButton(
                 onPressed: widget.onBack,
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(LucideIcons.arrowLeft, size: 20),
+                icon: Icon(backArrow(context), size: 20),
               ),
               const SizedBox(width: 4),
               Expanded(

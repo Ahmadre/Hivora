@@ -1845,6 +1845,7 @@
     "avgVelocity": "متوسط السرعة",
     "lastSprints": "آخر السبرنتات",
     "burndown": "مخطط إنجاز السبرنت",
+    "burndownStart": "ب",
     "ptsRemaining": "بقيت {{points}} نقطة",
     "actual": "الفعلي",
     "guideline": "المسار الإرشادي",

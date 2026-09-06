@@ -95,8 +95,8 @@ class _OwnerItem extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(
-            LucideIcons.chevronRight,
+          Icon(
+            forwardChevron(context),
             size: 18,
             color: AppColors.accentStrong,
           ),

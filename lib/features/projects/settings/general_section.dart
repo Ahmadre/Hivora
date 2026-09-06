@@ -352,7 +352,7 @@ class _Swatches extends StatelessWidget {
             ),
           ),
         Padding(
-          padding: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsetsDirectional.only(start: 4),
           child: Text(
             hueName(selectedHue),
             style: TextStyle(

@@ -117,7 +117,7 @@ class _IssueActionsMenu extends StatelessWidget {
             color: AppColors.inkSoft,
           ),
           trailing: Icon(
-            LucideIcons.chevronRight,
+            forwardChevron(context),
             size: 15,
             color: AppColors.inkFaint,
           ),
@@ -280,7 +280,7 @@ class _RouteTopBar extends StatelessWidget {
             IconButton(
               onPressed: onClose,
               icon: Icon(
-                LucideIcons.arrowLeft,
+                backArrow(context),
                 size: 20,
                 color: AppColors.inkSoft,
               ),
@@ -635,7 +635,7 @@ class _ActivityTile extends StatelessWidget {
           if (activity.createdAt != null) ...[
             const SizedBox(height: 3),
             Align(
-              alignment: Alignment.centerRight,
+              alignment: AlignmentDirectional.centerEnd,
               child: Text(
                 MaterialLocalizations.of(
                   context,
@@ -676,7 +676,7 @@ class _ActivityTile extends StatelessWidget {
       children: [
         if (from != null) _ChangeChip(from),
         if (from != null)
-          Icon(LucideIcons.arrowRight, size: 14, color: AppColors.inkFaint),
+          Icon(forwardArrow(context), size: 14, color: AppColors.inkFaint),
         if (to != null) _ChangeChip(to),
       ],
     );
@@ -1074,7 +1074,10 @@ class _PeoplePickerState extends State<_PeoplePicker> {
           // Picking who to hand work to is a moment to get the person right,
           // so the pronouns sit on the row rather than a hover away.
           subtitle: Text(
-            [userHandle(u.username), ?normalizePronouns(u.pronouns)].join(' · '),
+            [
+              userHandle(u.username),
+              ?normalizePronouns(u.pronouns),
+            ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

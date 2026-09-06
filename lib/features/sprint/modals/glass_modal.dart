@@ -383,7 +383,10 @@ Future<T?> showGlassOptions<T>(
                   horizontal: 16,
                   vertical: 11,
                 ),
-                child: Align(alignment: Alignment.centerLeft, child: o.child),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: o.child,
+                ),
               ),
             ),
         ],
@@ -458,7 +461,10 @@ class _OptionsList<T> extends StatelessWidget {
             onTap: () => Navigator.of(context).pop(o.value),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              child: Align(alignment: Alignment.centerLeft, child: o.child),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: o.child,
+              ),
             ),
           ),
         const SizedBox(height: 8),
@@ -762,7 +768,7 @@ class _GlassDatePopoverBody extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
               child: Align(
-                alignment: Alignment.centerLeft,
+                alignment: AlignmentDirectional.centerStart,
                 child: TextButton.icon(
                   onPressed: () {
                     onClear!();
@@ -840,7 +846,7 @@ class _GlassDatePickerState extends State<_GlassDatePicker> {
           hint: widget.onClear == null
               ? null
               : Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: TextButton.icon(
                     onPressed: () {
                       widget.onClear!();
@@ -1159,7 +1165,11 @@ class _MonthGrid extends StatelessWidget {
         SizedBox(
           height: _kMonthLabelHeight,
           child: Padding(
-            padding: const EdgeInsets.only(left: 2, top: 16, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(
+              start: 2,
+              top: 16,
+              bottom: 8,
+            ),
             child: Text(
               l.formatMonthYear(month),
               style: const TextStyle(

@@ -1845,6 +1845,7 @@
     "avgVelocity": "平均ベロシティ",
     "lastSprints": "直近のスプリント",
     "burndown": "スプリントバーンダウン",
+    "burndownStart": "開",
     "ptsRemaining": "残り {{points}} pt",
     "actual": "実績",
     "guideline": "理想線",

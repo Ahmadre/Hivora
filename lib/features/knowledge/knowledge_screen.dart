@@ -490,7 +490,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: AlignmentDirectional.centerStart,
               child: Material(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.circular(KbTokens.radiusControl),

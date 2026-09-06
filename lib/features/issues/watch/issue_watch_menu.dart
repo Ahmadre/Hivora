@@ -81,7 +81,7 @@ GlassMenuItem<T> issueWatchMenuItem<T>(
     size: 16,
     color: watching ? AppColors.accentStrong : AppColors.inkSoft,
   ),
-  trailing: Icon(LucideIcons.chevronRight, size: 15, color: AppColors.inkFaint),
+  trailing: Icon(forwardChevron(context), size: 15, color: AppColors.inkFaint),
 );
 
 /// Opens the watch panel as a glass overlay of its own: anchored under the "…"

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/i18n/i18n.dart';
 import '../../../core/models/work_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
@@ -55,6 +56,7 @@ class _BurndownChartState extends State<BurndownChart>
             ideal: AppColors.inkFaint,
             actual: AppColors.accentStrong,
             textColor: AppColors.inkFaint,
+            startTick: context.t('sprint.burndownStart'),
           ),
           size: Size.infinite,
         ),
@@ -73,6 +75,7 @@ class _BurndownPainter extends CustomPainter {
     required this.ideal,
     required this.actual,
     required this.textColor,
+    required this.startTick,
   });
 
   final List<BurndownPoint> points;
@@ -83,6 +86,9 @@ class _BurndownPainter extends CustomPainter {
   final Color ideal;
   final Color actual;
   final Color textColor;
+
+  /// Localised one-letter tick for the sprint's first day (`S`, `A`, `н` …).
+  final String startTick;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -120,7 +126,7 @@ class _BurndownPainter extends CustomPainter {
     }
     // X ticks: S, 1..n
     for (final p in points) {
-      final label = p.day == 0 ? 'S' : '${p.day}';
+      final label = p.day == 0 ? startTick : '${p.day}';
       _text(
         canvas,
         label,
@@ -215,5 +221,8 @@ class _BurndownPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BurndownPainter old) =>
-      old.progress != progress || old.points != points || old.top != top;
+      old.progress != progress ||
+      old.points != points ||
+      old.top != top ||
+      old.startTick != startTick;
 }

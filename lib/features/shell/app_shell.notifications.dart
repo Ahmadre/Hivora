@@ -356,7 +356,7 @@ class _NotifPopoverCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Icon(
-                    LucideIcons.arrowRight,
+                    forwardArrow(context),
                     size: 15,
                     color: AppColors.inkSoft,
                   ),

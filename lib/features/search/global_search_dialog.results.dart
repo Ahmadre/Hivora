@@ -147,7 +147,7 @@ class _RowShell extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Stack(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 120),

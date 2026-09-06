@@ -879,7 +879,7 @@ class _SubPageBar extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                 icon: Icon(
-                  LucideIcons.arrowLeft,
+                  backArrow(context),
                   size: 20,
                   color: AppColors.inkSoft,
                 ),

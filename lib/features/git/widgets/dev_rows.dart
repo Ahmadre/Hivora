@@ -561,7 +561,7 @@ class _GhostAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 2),
+      padding: const EdgeInsetsDirectional.only(end: 2),
       child: TextButton.icon(
         onPressed: onTap,
         style: TextButton.styleFrom(

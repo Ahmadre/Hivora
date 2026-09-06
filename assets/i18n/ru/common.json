@@ -1845,6 +1845,7 @@
     "avgVelocity": "Средняя скорость",
     "lastSprints": "последние спринты",
     "burndown": "Сгорание спринта",
+    "burndownStart": "Н",
     "ptsRemaining": "Осталось {{points}} п.",
     "actual": "Факт",
     "guideline": "Ориентир",

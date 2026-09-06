@@ -192,7 +192,7 @@ Widget _previewList(BuildContext context, List<AdminUser> users) {
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: Text(
               context.t(
                 'admin.um.andMore',

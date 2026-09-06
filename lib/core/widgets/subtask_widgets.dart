@@ -263,7 +263,7 @@ class _SubtaskExpanderState extends State<SubtaskExpander> {
       return Padding(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
         child: Align(
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
             onPressed: _load,
             style: TextButton.styleFrom(

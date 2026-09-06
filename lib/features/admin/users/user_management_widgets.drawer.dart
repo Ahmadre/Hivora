@@ -42,7 +42,7 @@ Future<void> showUserDrawer(
             child: GestureDetector(onTap: () => Navigator.of(ctx).pop()),
           ),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: SlideTransition(
               position: Tween(
                 begin: const Offset(1, 0),
@@ -650,7 +650,7 @@ class _ActRow extends StatelessWidget {
                 ),
               ),
               Icon(
-                LucideIcons.chevronRight,
+                forwardChevron(context),
                 size: 16,
                 color: AppColors.inkFaint,
               ),

@@ -16,6 +16,8 @@ import '../../sprint/modals/glass_modal.dart'
 import 'copy_field.dart';
 import 'dev_rows.dart';
 import 'provider_glyph.dart';
+import '../../../core/widgets/hive_widgets.dart'
+    show chevronTurn, forwardChevron;
 
 /// Issue right-rail quick-actions (`DeploymentPanel`): Create
 /// branch (with a copyable `git checkout -b …` + a branch-template gear) ·
@@ -141,10 +143,10 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
         child: Row(
           children: [
             AnimatedRotation(
-              turns: _open ? 0.25 : 0,
+              turns: _open ? chevronTurn(context) : 0,
               duration: const Duration(milliseconds: 180),
               child: Icon(
-                LucideIcons.chevronRight,
+                forwardChevron(context),
                 size: 15,
                 color: AppColors.inkFaint,
               ),
@@ -453,7 +455,7 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
         const WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: Padding(
-            padding: EdgeInsets.only(right: 5),
+            padding: EdgeInsetsDirectional.only(end: 5),
             child: Icon(
               LucideIcons.zap,
               size: 12,
@@ -478,7 +480,7 @@ class _DeploymentPanelState extends State<DeploymentPanel> {
         const WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: Padding(
-            padding: EdgeInsets.only(right: 5),
+            padding: EdgeInsetsDirectional.only(end: 5),
             child: Icon(
               LucideIcons.zap,
               size: 12,

@@ -315,7 +315,10 @@ class _BoardsListHeader extends StatelessWidget {
       children: [
         Expanded(child: titleText),
         if (filter != null)
-          Padding(padding: const EdgeInsets.only(right: 8), child: filter!),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(end: 8),
+            child: filter!,
+          ),
         createButton,
       ],
     );
@@ -807,7 +810,7 @@ class _KanbanBoardScreenState extends State<KanbanBoardScreen> {
           // width this row shares with group-by and filter, and a handle to
           // fold them away was one control more than the choice is worth.
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: SegmentedControl(
               iconsOnly: true,
               items: _switcherItems(),

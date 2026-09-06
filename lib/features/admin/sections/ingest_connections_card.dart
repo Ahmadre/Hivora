@@ -328,7 +328,7 @@ class _IngestConnectionsCardState extends State<IngestConnectionsCard> {
             ),
           const SizedBox(height: 4),
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: OutlinedButton.icon(
               onPressed: _edit,
               icon: const Icon(LucideIcons.plus, size: 16),

@@ -870,7 +870,7 @@ class _Pager extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _pageBtn(
-            child: const Icon(LucideIcons.chevronLeft, size: 18),
+            child: Icon(backChevron(context), size: 18),
             enabled: page > 0,
             onTap: () => onPage(page - 1),
           ),
@@ -896,7 +896,7 @@ class _Pager extends StatelessWidget {
             ),
           ),
           _pageBtn(
-            child: const Icon(LucideIcons.chevronRight, size: 18),
+            child: Icon(forwardChevron(context), size: 18),
             enabled: page < pages - 1,
             onTap: () => onPage(page + 1),
           ),

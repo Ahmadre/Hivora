@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_client.dart';
@@ -15,6 +14,8 @@ import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassToast;
 import '../git_tokens.dart';
 import 'dev_rows.dart';
+import '../../../core/widgets/hive_widgets.dart'
+    show chevronTurn, forwardChevron;
 
 /// Issue main-column summary: the auto-linked git activity for the issue,
 /// categorised into Branches · Commits · Pull/Merge requests · Builds. Fetches
@@ -248,7 +249,7 @@ class _DevelopmentSummaryState extends State<DevelopmentSummary> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: _repoChip(groups[i]),
                 ),
               ),
@@ -492,10 +493,10 @@ class _DevCat extends StatelessWidget {
                   const Spacer(),
                   if (badge != null) ...[badge!, const SizedBox(width: 8)],
                   AnimatedRotation(
-                    turns: open ? 0.25 : 0,
+                    turns: open ? chevronTurn(context) : 0,
                     duration: const Duration(milliseconds: 180),
                     child: Icon(
-                      LucideIcons.chevronRight,
+                      forwardChevron(context),
                       size: 16,
                       color: AppColors.inkFaint,
                     ),

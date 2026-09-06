@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/widgets/hive_empty_state.dart';
 import '../../core/widgets/hive_loader.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -187,7 +186,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
       children: [
         IconButton(
           onPressed: () => _shiftWeek(-1),
-          icon: const Icon(LucideIcons.chevronLeft),
+          icon: Icon(backChevron(context)),
         ),
         Text(
           '${localizations.formatShortDate(_from)} – ${localizations.formatShortDate(_to)}',
@@ -197,7 +196,7 @@ class _TimesheetScreenState extends State<TimesheetScreen> {
         ),
         IconButton(
           onPressed: () => _shiftWeek(1),
-          icon: const Icon(LucideIcons.chevronRight),
+          icon: Icon(forwardChevron(context)),
         ),
       ],
     );

@@ -223,7 +223,7 @@ class _DateButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.hairline),
           ),
-          alignment: Alignment.centerLeft,
+          alignment: AlignmentDirectional.centerStart,
           child: Row(
             children: [
               Expanded(

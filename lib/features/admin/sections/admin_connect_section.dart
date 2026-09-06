@@ -390,7 +390,7 @@ class _AdminConnectSectionState extends State<AdminConnectSection> {
                 ),
               ] else
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: _handshakeStarting
                       ? const SizedBox(
                           width: 20,
@@ -433,7 +433,7 @@ class _AdminConnectSectionState extends State<AdminConnectSection> {
               ),
               const SizedBox(height: 14),
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: _busy
                     ? const SizedBox(
                         width: 20,

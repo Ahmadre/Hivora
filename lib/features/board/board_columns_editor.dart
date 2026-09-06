@@ -468,7 +468,7 @@ class _ColumnsEditorBodyState extends State<_ColumnsEditorBody> {
           ),
           const SizedBox(height: 4),
           Padding(
-            padding: const EdgeInsets.only(left: 4),
+            padding: const EdgeInsetsDirectional.only(start: 4),
             child: column.states.isEmpty
                 ? Text(
                     context.t('board.columns.emptyColumn'),

@@ -1845,6 +1845,7 @@
     "avgVelocity": "Ø Velocity",
     "lastSprints": "letzte Sprints",
     "burndown": "Sprint-Burndown",
+    "burndownStart": "S",
     "ptsRemaining": "{{points}} Pkt verbleibend",
     "actual": "Ist",
     "guideline": "Richtlinie",

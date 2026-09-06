@@ -26,7 +26,7 @@ import '../../core/widgets/glass_popup_menu.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/hex_mark.dart';
 import '../../core/widgets/hive_loader.dart';
-import '../../core/widgets/hive_widgets.dart' show HiveSwitch;
+import '../../core/widgets/hive_widgets.dart' show HiveSwitch, forwardChevron;
 import '../../core/widgets/honeycomb_background.dart';
 import '../connect/server_switcher.dart';
 import '../legal/legal_links.dart';
@@ -160,8 +160,7 @@ class _AccountScreenState extends State<AccountScreen> {
         _repo.myProjects(),
       ]);
       if (!mounted) return;
-      final page =
-          results[1] as ({List<DeviceSession> items, int total});
+      final page = results[1] as ({List<DeviceSession> items, int total});
       setState(() {
         _me = results[0] as Me;
         _sessions = page.items;
@@ -638,7 +637,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
               const SizedBox(width: 8),
               Icon(
-                LucideIcons.chevronRight,
+                forwardChevron(context),
                 size: 18,
                 color: AppColors.inkFaint,
               ),
@@ -1014,9 +1013,8 @@ class _AccountScreenState extends State<AccountScreen> {
   /// The rows on screen: the whole list once expanded, the newest few until
   /// then. The current device is always among them — the server orders by last
   /// activity, and nothing is more recently active than the device asking.
-  List<DeviceSession> get _visibleSessions => _sessionsExpanded
-      ? _sessions
-      : _sessions.take(_sessionsPreview).toList();
+  List<DeviceSession> get _visibleSessions =>
+      _sessionsExpanded ? _sessions : _sessions.take(_sessionsPreview).toList();
 
   /// The largest page the server will serve; it clamps anything above this.
   static const int _sessionsPageSize = 100;
@@ -1081,7 +1079,8 @@ class _AccountScreenState extends State<AccountScreen> {
           if (i > 0) Divider(height: 1, color: AppColors.hairline2),
           _sessionRow(visible[i]),
         ],
-        if (hidden > 0 || _sessionsExpanded && _sessionsTotal > _sessionsPreview)
+        if (hidden > 0 ||
+            _sessionsExpanded && _sessionsTotal > _sessionsPreview)
           Divider(height: 1, color: AppColors.hairline2),
         if (hidden > 0)
           _SessionsExpander(
@@ -1566,7 +1565,7 @@ class _AccountScreenState extends State<AccountScreen> {
             const SizedBox(width: 8),
             AccountPill(label: role),
             const SizedBox(width: 4),
-            Icon(LucideIcons.chevronRight, size: 16, color: AppColors.inkFaint),
+            Icon(forwardChevron(context), size: 16, color: AppColors.inkFaint),
           ],
         ),
       ),

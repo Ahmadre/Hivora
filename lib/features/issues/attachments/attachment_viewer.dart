@@ -22,6 +22,8 @@ import '../../../core/widgets/hive_loader.dart';
 import '../../sprint/modals/glass_modal.dart'
     show GlassToastKind, showGlassToast;
 import 'attachment_kind.dart';
+import '../../../core/widgets/hive_widgets.dart'
+    show backChevron, forwardChevron;
 
 part 'attachment_viewer.pages.dart';
 
@@ -718,13 +720,13 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
         ),
         if (_multi) ...[
           Align(
-            alignment: Alignment.centerLeft,
+            alignment: AlignmentDirectional.centerStart,
             child: SafeArea(
               child: Padding(
-                padding: EdgeInsets.only(left: phone ? 8 : 18),
+                padding: EdgeInsetsDirectional.only(start: phone ? 8 : 18),
                 child: _absorbTaps(
                   _NavButton(
-                    icon: LucideIcons.chevronLeft,
+                    icon: backChevron(context),
                     tooltip: context.t('issues.attachments.viewer.previous'),
                     enabled: _index > 0,
                     onTap: () => _go(_index - 1),
@@ -734,13 +736,13 @@ class _ViewerScaffoldState extends State<_ViewerScaffold>
             ),
           ),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: SafeArea(
               child: Padding(
-                padding: EdgeInsets.only(right: phone ? 8 : 18),
+                padding: EdgeInsetsDirectional.only(end: phone ? 8 : 18),
                 child: _absorbTaps(
                   _NavButton(
-                    icon: LucideIcons.chevronRight,
+                    icon: forwardChevron(context),
                     tooltip: context.t('issues.attachments.viewer.next'),
                     enabled: _index < widget.items.length - 1,
                     onTap: () => _go(_index + 1),
