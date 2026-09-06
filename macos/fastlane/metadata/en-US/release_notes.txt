@@ -1,3 +1,1 @@
-• Fixed: opening text formatting in a comment closed the editor again straight away
-• The new-item button is round again on a phone, in the same glass as the rest of the controls
-• Sharper glass on devices fast enough for it, and lighter on those that are not
+• The new-item button is honey gold again in dark mode, and keeps its colour while you press it

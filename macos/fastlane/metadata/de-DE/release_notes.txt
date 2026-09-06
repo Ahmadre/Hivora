@@ -1,3 +1,1 @@
-• Behoben: Textformatierung in einem Kommentar zu öffnen schloss den Editor sofort wieder
-• Der Neu-Knopf ist auf dem Telefon wieder rund, im selben Glas wie die übrigen Bedienelemente
-• Klareres Glas auf Geräten, die schnell genug dafür sind, und leichteres auf den anderen
+• Der Neu-Knopf ist im dunklen Modus wieder honiggolden und behält seine Farbe, während man ihn drückt
