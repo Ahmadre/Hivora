@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/api/api_client.dart';
 import 'package:hinata/core/models/team_models.dart';
 import 'package:hinata/core/widgets/entity_avatar.dart';
+import 'package:hinata/core/widgets/entity_avatar_editor.dart';
 import 'package:hinata/features/teams/team_widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -211,6 +212,41 @@ void main() {
       expect(find.text('HIN'), findsOneWidget);
       expect(tester.getSize(find.byType(ProjectKeyGlyph)), const Size(36, 36));
     });
+  });
+
+  /// The picture fields frame their fallback, so a fallback must not size or
+  /// offset itself. This is the contract the project create dialog broke: its
+  /// glyph carried a 22-pixel top margin from an older layout, the field's
+  /// 52×52 box absorbed it, and every new project's picture tile shipped as a
+  /// 52×30 pill. Asserting the *constraints* rather than the rendered size is
+  /// what catches it — with the margin, the outer box still measured 52×52 and
+  /// only the painted interior was short.
+  group('a fallback is framed by the field, not by itself', () {
+    testWidgets('PendingAvatarField hands its fallback a tight square', (
+      tester,
+    ) async {
+      late BoxConstraints given;
+      await tester.pumpWidget(
+        host(
+          PendingAvatarField(
+            picked: null,
+            size: 52,
+            radius: 15,
+            strings: EntityAvatarStrings.project,
+            onPicked: (_) {},
+            fallback: LayoutBuilder(
+              builder: (_, constraints) {
+                given = constraints;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+
+      expect(given, BoxConstraints.tight(const Size(52, 52)));
+    });
+
   });
 }
 

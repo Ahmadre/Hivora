@@ -697,13 +697,21 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
     // The key/colour tile doubles as the picture field: a project being created
     // has no id yet and the avatar endpoints are addressed by id, so the pick is
     // held in memory and uploaded the moment the project exists.
-    final glyph = PendingAvatarField(
-      picked: _pendingAvatar,
-      size: 52,
-      radius: 15,
-      strings: EntityAvatarStrings.project,
-      fallback: _GlyphPreview(hue: _hue, keyText: _key.text),
-      onPicked: (image) => setState(() => _pendingAvatar = image),
+    // Dropped past the field's label so the tile lines up with the input beside
+    // it rather than with the label above it. On the row, not inside the glyph:
+    // the avatar field clips its fallback to a 52×52 box, so an offset in there
+    // comes out of the tile's own height — which is exactly how it shipped as a
+    // pill. `_kFieldLabelHeight` is GlassField's label line plus its 7-pixel gap.
+    final glyph = Padding(
+      padding: const EdgeInsets.only(top: _kFieldLabelHeight),
+      child: PendingAvatarField(
+        picked: _pendingAvatar,
+        size: 52,
+        radius: 15,
+        strings: EntityAvatarStrings.project,
+        fallback: _GlyphPreview(hue: _hue, keyText: _key.text),
+        onPicked: (image) => setState(() => _pendingAvatar = image),
+      ),
     );
     final nameField = GlassField(
       label: context.t('projects.name'),
@@ -762,6 +770,9 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
       );
     }
     return Row(
+      // start, not end: the key field grows a "key taken" line beneath it, and
+      // bottom-aligning would shove the picture tile and the name field down by
+      // that line's height every time the message appears.
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         glyph,
@@ -841,7 +852,20 @@ class _CreateProjectBodyState extends State<_CreateProjectBody> {
   }
 }
 
-/// Live glyph tile previewing the project's key + accent in the create modal.
+/// The project's key on its colour, standing in for a picture that has not been
+/// chosen.
+///
+/// Deliberately unsized: it fills whatever box it is given. It used to carry its
+/// own 54×54 and a 22-pixel top margin, from when it stood alone in the row and
+/// had to be pushed down past the field's label. Inside [PendingAvatarField]
+/// that margin ate 22 of the 52 available pixels and the tile came out as a
+/// 52×30 pill — the default state of every new project, and it shipped. A
+/// fallback has no business knowing how big it is; the field that frames it
+/// does.
+/// GlassField's label line (11.5 pt) plus the 7-pixel gap below it — how far a
+/// control beside a labelled field has to drop to sit level with its input.
+const double _kFieldLabelHeight = 22;
+
 class _GlyphPreview extends StatelessWidget {
   const _GlyphPreview({required this.hue, required this.keyText});
   final int hue;
@@ -852,22 +876,19 @@ class _GlyphPreview extends StatelessWidget {
     final label = keyText.isEmpty
         ? 'P'
         : keyText.substring(0, keyText.length.clamp(0, 3));
-    return Container(
-      width: 54,
-      height: 54,
-      margin: const EdgeInsets.only(top: 22),
-      decoration: BoxDecoration(
-        color: hueSoft(hue),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: AppTheme.fontMono,
-          fontWeight: FontWeight.w700,
-          fontSize: 15,
-          color: hueChipText(hue),
+    return ColoredBox(
+      color: hueSoft(hue),
+      child: Center(
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: TextStyle(
+            fontFamily: AppTheme.fontMono,
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            color: hueChipText(hue),
+          ),
         ),
       ),
     );
