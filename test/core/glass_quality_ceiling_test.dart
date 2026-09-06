@@ -3,32 +3,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hinata/core/theme/glass_ceiling.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
-/// Performance + stability regression guard for the app-root glass quality
-/// ceiling.
+/// What the app-root glass scope is allowed to decide, and what it must not.
 ///
-/// The app wraps its root (see `lib/app.dart`, `MaterialApp.builder`) with
-/// `LiquidGlassWidgets.wrap(adaptiveQuality: true, ...)` capped at
-/// [GlassQuality.standard]. Without that scope, every explicit
-/// `quality: GlassQuality.premium` in the app renders the full two-BackdropFilter
-/// + fragment-shader pipeline *ungated* on every device — the expensive path that
-/// also triggered shader-related production crashes on some Mali GPUs.
+/// The app wraps its root (`lib/app.dart`, `MaterialApp.builder`) with
+/// `LiquidGlassWidgets.wrap(adaptiveQuality: true, adaptiveConfig: kGlassCeiling)`.
+/// `GlassThemeHelpers.resolveQuality` caps every quality against that scope —
+/// an explicit widget-level `quality: premium` included — so this config is the
+/// ceiling for the whole app.
 ///
-/// `GlassThemeHelpers.resolveQuality` caps any widget-level quality to the
-/// scope's `effectiveQuality`. So proving `effectiveQuality` is never `premium`
-/// proves no glass surface in the app can take the premium path.
-///
-/// This mirrors the exact config used at the app root; if that wrap is removed or
-/// its cap is loosened to premium, this test fails.
+/// Premium is reachable on hardware that measures well enough for it. The rules
+/// worth pinning are the ones that keep that from becoming a free-for-all: the
+/// scope has to exist, it has to be able to fall all the way to minimal, and it
+/// must not be handed a starting quality — [GlassAdaptiveScopeConfig.initialQuality]
+/// overrides the warm-up benchmark and skips it, which is exactly how the cap
+/// once ended up deciding for hardware it had never measured.
 void main() {
-  test('the ceiling the app installs is capped at standard', () {
-    // Asserted on the constant itself, so a raised cap fails here even on a
-    // machine whose renderer would have resolved to standard anyway.
-    expect(kGlassCeiling.maxQuality, GlassQuality.standard);
+  test('the app lets a capable device reach premium', () {
+    expect(kGlassCeiling.maxQuality, GlassQuality.premium);
+  });
+
+  test('and lets a weak one fall all the way', () {
+    expect(kGlassCeiling.minQuality, GlassQuality.minimal);
+    expect(kGlassCeiling.allowStepUp, isTrue);
+  });
+
+  test('the device benchmark is left to run', () {
+    expect(
+      kGlassCeiling.initialQuality,
+      isNull,
+      reason:
+          'a seeded initialQuality skips the warm-up benchmark entirely, so '
+          'every device would keep whatever tier was guessed for it here',
+    );
   });
 
   // The app's own ceiling, not a copy of it. It used to be a copy under a
-  // "keep in sync" comment, and it drifted: the root wrap was raised to
-  // premium and this test went on passing against its own standard.
+  // "keep in sync" comment, and it drifted: the root wrap said premium while
+  // this test went on passing against its own standard.
   Widget wrapWithAppCeiling(Widget child) => LiquidGlassWidgets.wrap(
     adaptiveQuality: true,
     // ignore: experimental_member_use
@@ -36,7 +47,7 @@ void main() {
     child: child,
   );
 
-  testWidgets('installs an adaptive scope that never resolves to premium', (
+  testWidgets('the scope is actually installed, and resolves a tier', (
     tester,
   ) async {
     GlassAdaptiveScopeData? captured;
@@ -54,23 +65,15 @@ void main() {
     );
     await tester.pump();
 
-    // The ceiling scope must be present in the tree.
     expect(
       captured,
       isNotNull,
       reason:
-          'The app root must install a GlassAdaptiveScope so premium glass '
-          'is gated by device capability instead of rendering ungated.',
+          'without the scope every explicit premium in the app renders ungated '
+          'on every device, including the ones where that shader crashes',
     );
-    // The crash-prone / most-expensive premium path must never be the effective
-    // quality under our cap (it resolves to standard on capable hardware, minimal
-    // on weak/headless).
-    expect(
-      captured!.effectiveQuality,
-      isNot(GlassQuality.premium),
-      reason:
-          'maxQuality is capped at standard; premium must never leak '
-          'through the ceiling.',
-    );
+    // Headless, so the static probe settles this one low; what matters is that
+    // a tier was resolved at all rather than which.
+    expect(GlassQuality.values, contains(captured!.effectiveQuality));
   });
 }

@@ -1,33 +1,53 @@
+import 'package:flutter/foundation.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
-/// The device-capability ceiling every glass surface in the app renders under.
+/// The device-capability scope every glass surface in the app renders under.
 ///
-/// Without a scope like this, each explicit `quality: GlassQuality.premium` in
-/// the app takes the full two-BackdropFilter + fragment-shader pipeline on every
-/// device — ungated, and crash-prone on some Mali GPUs. `GlassThemeHelpers`
-/// clamps every widget-level `quality:` to this scope's effective quality, so
-/// capping here caps everything.
+/// Without a scope like this, each `quality: GlassQuality.premium` in the app
+/// takes the full two-BackdropFilter + fragment-shader pipeline on every device,
+/// ungated — including the software renderers and broken shader drivers where it
+/// crashes. `GlassThemeHelpers.resolveQuality` caps *every* quality against this
+/// scope, an explicit widget-level one included ("premium" means "premium if the
+/// device can take it"), so what is configured here is what the app can reach.
 ///
-/// **The cap is [GlassQuality.standard]**: the lightweight single-pass shader,
-/// 5-10× cheaper than premium, universally supported, and the path that does not
-/// trigger the shader-related production crashes. The adapter may still step
-/// *down* to [GlassQuality.minimal] on weak or headless devices and back up when
-/// headroom returns; it can never step up past standard.
+/// **Premium is allowed, and earned.** The package decides per device, in three
+/// phases, and each one is a thing this config used to do worse by hand:
 ///
-/// It lives here, in one place, because it did not used to: the root wrap said
-/// `maxQuality: premium` while its own comment and the test that guards it both
-/// said standard, and the test could not catch the drift because it built its
-/// own copy of this config under a "keep in sync" comment. Both now read this.
+///  1. a static probe forces [GlassQuality.minimal] on software renderers and
+///     broken shader drivers, and caps the web at standard — the crash cases,
+///     handled before a frame is drawn;
+///  2. a warm-up benchmark over the first ~180 frames measures P75 raster time
+///     and settles the device: under 20 ms it earns premium, 20–28 ms standard,
+///     above that minimal;
+///  3. runtime hysteresis degrades after 3 bad windows and recovers only after
+///     10 good ones with an 8-second cooldown — deliberately 3× faster to fall
+///     than to climb, so a device that cannot hold premium drops once and stays
+///     down rather than oscillating.
 ///
-/// Raising the cap to premium is a deliberate act with a measurable cost — the
-/// glass package's quality adapter recovers from a degradation after roughly
-/// half a minute, so a device that cannot hold premium will oscillate rather
-/// than settle.
+/// This used to say `maxQuality: standard`, which was too blunt. It was set out
+/// of a worry about oscillation that phase 3's asymmetry already answers, and it
+/// cost every capable device the quality it had measurably earned.
+///
+/// [GlassAdaptiveScopeConfig.initialQuality] is deliberately **not** set: it
+/// overrides the benchmark and skips phase 2 entirely, which is how the cap
+/// above ended up deciding on hardware it had never measured. Left null, the
+/// package seeds the safe cold-start quality itself — premium on Apple, standard
+/// on Android, where a premium frame 1 on a GLES-only device is the ANR risk —
+/// and then measures.
 // ignore: experimental_member_use
 const GlassAdaptiveScopeConfig kGlassCeiling = GlassAdaptiveScopeConfig(
-  initialQuality: GlassQuality.standard,
-  maxQuality: GlassQuality.standard,
+  maxQuality: GlassQuality.premium,
   minQuality: GlassQuality.minimal,
   allowStepUp: true,
   targetFrameMs: 16,
+  onQualityChanged: _logQualityChange,
 );
+
+/// Says out loud what tier a device settled on, in debug builds only.
+///
+/// The whole design above is a decision made on the device, at runtime, that is
+/// otherwise invisible — the first question anyone asks about it is "so what did
+/// *my* phone get?", and until now nothing answered.
+void _logQualityChange(GlassQuality from, GlassQuality to) {
+  if (kDebugMode) debugPrint('[glass] quality ${from.name} → ${to.name}');
+}
