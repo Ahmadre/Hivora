@@ -1,8 +1,5 @@
-• Hinata now speaks nine languages: English, German, Spanish, Chinese, Hindi, Japanese, French, Russian and Arabic
-• Arabic reads right to left throughout, including menus, lists and navigation
-• Set your own pronouns, and see other people's where you work with them
-• Choose a picture while you create a team or a project, instead of only afterwards
-• Write comments in the same editor as a description, with the same formatting
-• The formatting bar stays on screen while you write and no longer covers the editor's own controls
-• The session list no longer buries the settings underneath it
-• Several smaller fixes and refinements
+• The image placeholder is drawn correctly again when you create a project
+• Creating a project or a team now opens a sheet that fits the screen it is on, as other dialogs do
+• Arabic follows the reading direction throughout — spacing, alignment, arrows and back buttons
+• Due dates in the issue list are no longer cut short in languages that spell the unit out
+• Smaller design and performance refinements

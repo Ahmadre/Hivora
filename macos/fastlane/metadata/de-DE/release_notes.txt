@@ -1,8 +1,5 @@
-• Hinata spricht jetzt neun Sprachen: Englisch, Deutsch, Spanisch, Chinesisch, Hindi, Japanisch, Französisch, Russisch und Arabisch
-• Arabisch läuft durchgehend von rechts nach links — Menüs, Listen und Navigation eingeschlossen
-• Lege deine eigenen Pronomen fest und sieh die der anderen dort, wo ihr zusammenarbeitet
-• Wähle das Bild schon beim Anlegen eines Teams oder Projekts statt erst danach
-• Schreibe Kommentare im selben Editor wie eine Beschreibung, mit denselben Formatierungen
-• Die Formatierungsleiste bleibt beim Schreiben sichtbar und verdeckt die Bedienelemente des Editors nicht mehr
-• Die Sitzungsliste begräbt die Einstellungen darunter nicht mehr
-• Mehrere kleinere Korrekturen und Verbesserungen
+• Der Bildplatzhalter beim Anlegen eines Projekts wird wieder richtig gezeichnet
+• Projekte und Teams anlegen öffnet ein Blatt, das sich der Bildschirmgröße anpasst, wie andere Dialoge auch
+• Arabisch folgt durchgehend der Leserichtung — Abstände, Ausrichtung, Pfeile und Zurück-Schaltflächen
+• Fälligkeiten in der Vorgangsliste werden nicht mehr abgeschnitten, wenn eine Sprache die Einheit ausschreibt
+• Kleinere Verbesserungen an Gestaltung und Geschwindigkeit
