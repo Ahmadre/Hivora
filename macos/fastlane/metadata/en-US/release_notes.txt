@@ -1,5 +1,3 @@
-• The image placeholder is drawn correctly again when you create a project
-• Creating a project or a team now opens a sheet that fits the screen it is on, as other dialogs do
-• Arabic follows the reading direction throughout — spacing, alignment, arrows and back buttons
-• Due dates in the issue list are no longer cut short in languages that spell the unit out
-• Smaller design and performance refinements
+• Fixed: opening text formatting in a comment closed the editor again straight away
+• The new-item button is round again on a phone, in the same glass as the rest of the controls
+• Sharper glass on devices fast enough for it, and lighter on those that are not

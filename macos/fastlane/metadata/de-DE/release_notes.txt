@@ -1,5 +1,3 @@
-• Der Bildplatzhalter beim Anlegen eines Projekts wird wieder richtig gezeichnet
-• Projekte und Teams anlegen öffnet ein Blatt, das sich der Bildschirmgröße anpasst, wie andere Dialoge auch
-• Arabisch folgt durchgehend der Leserichtung — Abstände, Ausrichtung, Pfeile und Zurück-Schaltflächen
-• Fälligkeiten in der Vorgangsliste werden nicht mehr abgeschnitten, wenn eine Sprache die Einheit ausschreibt
-• Kleinere Verbesserungen an Gestaltung und Geschwindigkeit
+• Behoben: Textformatierung in einem Kommentar zu öffnen schloss den Editor sofort wieder
+• Der Neu-Knopf ist auf dem Telefon wieder rund, im selben Glas wie die übrigen Bedienelemente
+• Klareres Glas auf Geräten, die schnell genug dafür sind, und leichteres auf den anderen
