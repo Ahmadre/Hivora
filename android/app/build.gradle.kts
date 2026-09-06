@@ -42,6 +42,21 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // The locales worth keeping resources for — the ones this app can
+        // actually speak. This is a filter, not a declaration: the app
+        // translates itself at runtime from assets/i18n, so it brings no
+        // Android string resources of its own, and what would otherwise ship is
+        // every locale AndroidX and the plugins happen to carry. Dropping those
+        // keeps a Portuguese reader on English system strings rather than a
+        // half-Portuguese app, which is what the UI does anyway.
+        //
+        // Note this does NOT drive the language list on a Play listing — Play
+        // has no such field, and shows the languages the *store listing* is
+        // translated into. Same set as I18n.supportedLocales;
+        // store_languages_test.dart guards the pair.
+        resourceConfigurations += listOf(
+            "en", "de", "zh", "hi", "es", "ja", "fr", "ru", "ar",
+        )
     }
 
     signingConfigs {

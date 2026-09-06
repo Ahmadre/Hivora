@@ -2,6 +2,23 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- The languages the App Store lists for this app. Translations are
+	     loaded at runtime from assets/i18n, so the bundle has no .lproj
+	     folders for Apple to infer them from and the product page showed
+	     English alone. Keep in step with I18n.supportedLocales —
+	     store_languages_test.dart fails if they drift apart. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>de</string>
+		<string>zh</string>
+		<string>hi</string>
+		<string>es</string>
+		<string>ja</string>
+		<string>fr</string>
+		<string>ru</string>
+		<string>ar</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

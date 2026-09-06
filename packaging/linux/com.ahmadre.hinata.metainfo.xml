@@ -147,6 +147,29 @@
     </screenshot>
   </screenshots>
 
+  <!--
+    The languages the app speaks, which is what GNOME Software, KDE Discover and
+    Flathub show under "Languages". AppStream normally infers this from the
+    gettext catalogues in the build; this app translates at runtime from
+    assets/i18n, so there are none to infer from and the list has to be stated.
+
+    100% is not a round number chosen for looks: every one of these bundles
+    carries every key the English one does, and store_languages_test.dart fails
+    if that stops being true — a partial translation advertised as complete is
+    worse than an honest number.
+  -->
+  <languages>
+    <lang percentage="100">en</lang>
+    <lang percentage="100">de</lang>
+    <lang percentage="100">zh</lang>
+    <lang percentage="100">hi</lang>
+    <lang percentage="100">es</lang>
+    <lang percentage="100">ja</lang>
+    <lang percentage="100">fr</lang>
+    <lang percentage="100">ru</lang>
+    <lang percentage="100">ar</lang>
+  </languages>
+
   <releases>
     <release version="10.1.0" date="2026-08-20">
       <description>
